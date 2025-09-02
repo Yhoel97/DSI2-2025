@@ -88,7 +88,7 @@ WSGI_APPLICATION = 'DSI2025.wsgi.application'
 if os.environ.get('DJANGO_ENV') == 'production':
     DATABASES = {
         'default': dj_database_url.config(
-            default='postgres://user:pass@host:5432/dbname',
+            default='DATABASE_URL',
             conn_max_age=600,
             ssl_require=True
         )

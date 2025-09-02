@@ -85,21 +85,13 @@ WSGI_APPLICATION = 'DSI2025.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # Configuraacion para poder hacer pruebas antes de produccion
 
-if os.environ.get('DJANGO_ENV') == 'production':
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
-            conn_max_age=600,
-            ssl_require=True
-        )
+DATABASES = {
+        'default': {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-else:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
-            conn_max_age=600
-        )
-    }
+DATABASES ['default'] = dj_database_url.parse("postgresql://dsi2025db_user:BNlJUYkICC7SpNqa0aZVabsPfv8AYdJ2@dpg-d2pai0v5r7bs739fcc70-a.oregon-postgres.render.com/dsi2025db")
 
 
 # Password validation

@@ -1,0 +1,281 @@
+/* Estilos generales */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Contenedor principal */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1, h2 {
+    color: #7b68ee;
+    margin-bottom: 30px;
+}
+
+h1 {
+    text-align: center;
+}
+
+/* Notificaciones mejoradas */
+/* Estilos para las notificaciones específicas */
+.alert-create {
+    background-color: #4CAF50; /* Verde para crear */
+    color: white;
+    border-left: 5px solid #2E7D32;
+}
+
+.alert-update {
+    background-color: #2196F3; /* Azul para actualizar */
+    color: white;
+    border-left: 5px solid #1565C0;
+}
+
+.alert-delete {
+    background-color: #F44336; /* Rojo para eliminar */
+    color: white;
+    border-left: 5px solid #C62828;
+}
+
+.alert-search {
+    background-color: #FFC107; /* Amarillo para buscar */
+    color: #212529;
+    border-left: 5px solid #FFA000;
+}
+
+/* Asegúrate que los iconos sean visibles en el fondo amarillo */
+.alert-search .alert-icon,
+.alert-search .closeButton {
+    color: #212529;
+}
+
+.alert-search .closeButton:hover {
+    color: #000;
+}
+
+/* Formulario */
+.form-container {
+    background-color: white;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+/* Campos del formulario */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #555;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.form-control:focus {
+    border-color: #7b68ee;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(123, 104, 238, 0.2);
+}
+
+/* Checkboxes y radios */
+.generos-container, .checkbox-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.genero-checkbox, .checkbox-container label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+/* Botones */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+}
+
+.btn i {
+    margin-right: 8px;
+}
+
+.btn-primary {
+    background-color: #7b68ee;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #5f4ec4;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(123, 104, 238, 0.3);
+}
+
+.btn-warning {
+    background-color: #FF9800;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #F57C00;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 152, 0, 0.3);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #138496;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(23, 162, 184, 0.3);
+}
+
+.btn-edit {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.btn-edit:hover {
+    background-color: #e0a800;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+}
+
+.btn-delete {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-delete:hover {
+    background-color: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Buscador */
+.search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.search-container .form-control {
+    flex-grow: 1;
+}
+
+/* Tabla de películas */
+.table-responsive {
+    overflow-x: auto;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.movie-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.movie-table th {
+    background-color: #7b68ee;
+    color: white;
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.movie-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.movie-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* Mejora en dispositivos móviles */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .form-container, .table-responsive {
+        padding: 15px;
+    }
+
+    .search-container {
+        flex-direction: column;
+    }
+
+    .movie-table {
+        font-size: 14px;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+

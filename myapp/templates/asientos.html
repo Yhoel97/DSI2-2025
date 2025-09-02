@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CinePlus - Selección de Asientos</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'styles/asientos.css' %}">
+</head>
+<body>
+    <div class="cine-container">
+                {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+            <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <header class="cine-header">
+            <h1>CineDot</h1>
+            <div class="movie-info">
+                <h2>{{ pelicula.nombre }}</h2>
+                <p>Director: {{ pelicula.director }}</p>
+                <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster-small">
+            </div>
+        </header>
+
+        <!-- Formulario de datos del cliente -->
+        <div class="customer-form">
+            <h3>Datos del Cliente</h3>
+            <form id="reserva-form" method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="nombre_cliente">Nombre:</label>
+                    <input type="text" id="nombre_cliente" name="nombre_cliente" required>
+                </div>
+                <div class="form-group">
+                    <label for="apellido_cliente">Apellido:</label>
+                    <input type="text" id="apellido_cliente" name="apellido_cliente" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <!-- Selección de formato -->
+                <div class="form-group">
+                    <label>Formato:</label>
+                    <div class="format-options">
+                        {% for value, label in formatos %}
+                        <label class="format-option">
+                            <input type="radio" name="formato" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+                            {{ label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Selección de horario -->
+                <div class="form-group">
+                    <label for="horario">Horario:</label>
+                    <select id="horario" name="horario" required>
+                        {% for horario in pelicula.get_horarios_list %}
+                        <option value="{{ horario }}">{{ horario }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Selección de sala -->
+                <div class="form-group">
+                    <label for="sala">Sala:</label>
+                    <select id="sala" name="sala" required>
+                        {% for sala in pelicula.get_salas_list %}
+                        <option value="{{ sala }}">{{ sala }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Campo oculto para los asientos seleccionados -->
+                <input type="hidden" id="asientos" name="asientos" value="">
+            </form>
+        </div>
+
+        <div class="screen-container">
+            <div class="screen">Pantalla</div>
+        </div>
+
+        <div class="seats-container">
+            <div class="seats-grid">
+                <!-- Filas de asientos generadas dinámicamente -->
+                {% for fila in "ABCDE" %}
+                <div class="seat-row">
+                    <span class="row-letter">{{ fila }}</span>
+                    {% for numero in "12345678" %}
+                    {% with asiento=fila|add:numero %}
+                    <div class="seat available" data-seat="{{ asiento }}">{{ numero }}</div>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="seat available"></div>
+                <span>Disponible</span>
+            </div>
+            <div class="legend-item">
+                <div class="seat selected"></div>
+                <span>Seleccionado</span>
+            </div>
+            <div class="legend-item">
+                <div class="seat reserved"></div>
+                <span>Ocupado</span>
+            </div>
+        </div>
+
+            <div class="selection-summary">
+                <h3>Tu selección:</h3>
+                <div class="selected-seats" id="selected-seats">Ningún asiento seleccionado</div>
+                <div class="total-price" id="total-price">Total: $0</div>
+                <div class="ticket-counter" id="ticket-counter">
+                    <span>Boletos:</span>
+                    <span id="ticket-count">0</span>
+                </div>
+                <button type="submit" form="reserva-form" class="btn-confirm">Confirmar Reserva</button>
+                
+                {% if messages %}
+                    {% for message in messages %}
+                        {% if 'reserva_message' in message.tags %}
+                            <div class="ticket-download">
+                                <a href="{% url 'descargar_ticket' message.message|slice:'-8:' %}" class="btn-download">
+                                    <i class="fas fa-download"></i> Descargar Ticket
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+    <script>
+        // Variables globales
+        let selectedSeats = [];
+        const precioBase = 3.50; // Precio base para formato 2D
+        
+        // Función para actualizar el resumen
+        function updateSummary() {
+            const selectedSeatsElement = document.getElementById('selected-seats');
+            const ticketCountElement = document.getElementById('ticket-count');
+            const totalPriceElement = document.getElementById('total-price');
+            const asientosInput = document.getElementById('asientos');
+            
+            // Actualizar lista de asientos
+            if (selectedSeats.length > 0) {
+                selectedSeatsElement.textContent = selectedSeats.join(', ');
+            } else {
+                selectedSeatsElement.textContent = 'Ningún asiento seleccionado';
+            }
+            
+            // Actualizar contador de boletos
+            ticketCountElement.textContent = selectedSeats.length;
+            
+            // Calcular precio total basado en el formato seleccionado
+            const formatoSeleccionado = document.querySelector('input[name="formato"]:checked').value;
+            let precioPorBoleto = precioBase;
+            
+            switch(formatoSeleccionado) {
+                case '3D':
+                    precioPorBoleto = 4.50;
+                    break;
+                case 'IMAX':
+                    precioPorBoleto = 6.00;
+                    break;
+            }
+            
+            const total = selectedSeats.length * precioPorBoleto;
+            totalPriceElement.textContent = `Total: $${total.toFixed(2)}`;
+            
+            // Actualizar campo oculto con los asientos seleccionados
+            asientosInput.value = selectedSeats.join(',');
+        }
+        
+        // Manejar selección de asientos
+        document.querySelectorAll('.seat.available').forEach(seat => {
+            seat.addEventListener('click', () => {
+                const seatNumber = seat.getAttribute('data-seat');
+                
+                if (seat.classList.contains('selected')) {
+                    // Deseleccionar asiento
+                    seat.classList.remove('selected');
+                    selectedSeats = selectedSeats.filter(s => s !== seatNumber);
+                } else {
+                    // Seleccionar asiento
+                    seat.classList.add('selected');
+                    selectedSeats.push(seatNumber);
+                }
+                
+                updateSummary();
+            });
+        });
+        
+        // Actualizar precio cuando cambia el formato
+        document.querySelectorAll('input[name="formato"]').forEach(radio => {
+            radio.addEventListener('change', updateSummary);
+        });
+        
+        // Inicializar resumen
+        updateSummary();
+    </script>
+</body>
+</html>

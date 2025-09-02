@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="{% static 'styles/login.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="left-section">
+            <img src="{% static 'imagenes/cine.jpg' %}" alt="Illustration">
+        </div>
+        <div class="right-section">
+            <h2>Bienvenido al sistema CineDot</h2>
+
+            <!-- Mensajes de error -->
+            {% if form.errors %}
+                <div class="error-messages">
+                    <p style="color: red;">Usuario o contraseña incorrectos. Inténtalo de nuevo.</p>
+                </div>
+            {% endif %}
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="error-messages">
+                        <p style="color: red;">{{ message }}</p>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" action="{% url 'login' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'peliculas' %}" />
+                
+                <div class="input-group">
+                    <label for="id_username">Usuario</label>
+                    <input type="text" 
+                           name="username" 
+                           id="id_username" 
+                           class="form-control" 
+                           required 
+                           autofocus
+                           value="{% if form.username.value %}{{ form.username.value }}{% endif %}">
+                </div>
+                <div class="input-group">
+                    <label for="id_password">Contraseña</label>
+                    <input type="password" 
+                           name="password" 
+                           id="id_password" 
+                           class="form-control" 
+                           required>
+                </div>
+                <div class="options">
+                    <label>
+                        <input type="checkbox" name="remember_me"> Recuérdame
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary">Iniciar Sesión</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,483 @@
+[
+{
+  "model": "auth.user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$BOFrsGGn1c3d3BR2WlbyB0$DVEXFSP/Ug4HlrlGr85p3287v3zfHIMASD27+cfGmHI=",
+    "last_login": "2025-06-09T04:08:39.337Z",
+    "is_superuser": true,
+    "username": "fl21007",
+    "first_name": "",
+    "last_name": "",
+    "email": "fl21007@ues.edu.sv",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-04-19T00:13:03.575Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 2,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$Ucz3oyDbRFwx5bdCc4gfjE$eQP/IpXC3Y7LSUXoM4GfyOdGbTip0/1Sd6XgT8SvziQ=",
+    "last_login": null,
+    "is_superuser": true,
+    "username": "hr22004",
+    "first_name": "",
+    "last_name": "",
+    "email": "hr22004@ues.edu.sv",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-06-10T01:47:45.970Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 3,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$gWGk9zB65HXo5VhPYW5bya$U5F1pofGIHUZHf6Q9VkfOFj6WRNJm+AzZSMu31wYfpU=",
+    "last_login": null,
+    "is_superuser": true,
+    "username": "tl21001",
+    "first_name": "",
+    "last_name": "",
+    "email": "tl21001@ues.edu.sv",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-06-10T01:48:26.345Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 4,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$sse2LKIGaaUnM4MvWuDJiX$3HWbc2EDjUMbkS950JwsyaDrx0wdFqLvq2dNRPDU8yg=",
+    "last_login": "2025-09-02T07:27:57.253Z",
+    "is_superuser": true,
+    "username": "ra16004",
+    "first_name": "",
+    "last_name": "",
+    "email": "ra16004@ues.edu.sv",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-06-10T01:49:14.913Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 13,
+  "fields": {
+    "nombre": "El viaje de chihiro",
+    "anio": 2003,
+    "director": "Hayao Miyazaky",
+    "imagen_url": "data:image/jpeg;base64,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",
+    "trailer_url": "https://youtu.be/5Fgq4Osh6XQ?si=k161Usci2YU00W2Y",
+    "generos": "DR,CF,AN",
+    "horarios": "10:00 AM,01:30 PM,5:00 PM",
+    "salas": "Sala 4",
+    "fecha_creacion": "2025-05-04T01:43:55.560Z"
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 14,
+  "fields": {
+    "nombre": "La llegada",
+    "anio": 2016,
+    "director": "Denis Villeneuve",
+    "imagen_url": "https://es.web.img3.acsta.net/pictures/16/10/18/16/59/275907.jpg",
+    "trailer_url": "https://youtu.be/uWs5lsWXLbo",
+    "generos": "AC,DR,CF",
+    "horarios": "01:30 PM,5:00 PM,08:30 PM",
+    "salas": "Sala 5",
+    "fecha_creacion": "2025-05-21T00:38:29.006Z"
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 15,
+  "fields": {
+    "nombre": "Her",
+    "anio": 2013,
+    "director": "Spike Jonze",
+    "imagen_url": "https://pics.filmaffinity.com/her-716403893-large.jpg",
+    "trailer_url": "https://youtu.be/VYGU95sDDOc?si=gLemsuEtHli8kfOW",
+    "generos": "AC,CF,RO",
+    "horarios": "09:30 AM,01:30 PM,5:00 PM",
+    "salas": "Sala 1",
+    "fecha_creacion": "2025-05-21T00:40:53.866Z"
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 17,
+  "fields": {
+    "nombre": "Interestellar",
+    "anio": 2014,
+    "director": "Christopher Nolan",
+    "imagen_url": "https://m.media-amazon.com/images/M/MV5BYzdjMDAxZGItMjI2My00ODA1LTlkNzItOWFjMDU5ZDJlYWY3XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg",
+    "trailer_url": "https://youtu.be/UoSSbmD9vqc?si=T6r9oH6cYebiHLmd",
+    "generos": "AC,DR,CF",
+    "horarios": "09:30 AM,12:00 PM,5:00 PM",
+    "salas": "Sala 3",
+    "fecha_creacion": "2025-06-07T23:34:02.963Z"
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 18,
+  "fields": {
+    "nombre": "Tenet",
+    "anio": 2020,
+    "director": "Cristopher Nolan",
+    "imagen_url": "https://m.media-amazon.com/images/M/MV5BMTU0ZjZlYTUtYzIwMC00ZmQzLWEwZTAtZWFhMWIwYjMxY2I3XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg",
+    "trailer_url": "https://youtu.be/9UfIRXjoO3I?si=JfjnLaFB2a5QRCBI",
+    "generos": "AC,DR,CF",
+    "horarios": "09:30 AM,01:30 PM,5:00 PM",
+    "salas": "Sala 4",
+    "fecha_creacion": "2025-06-07T23:50:56.073Z"
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 19,
+  "fields": {
+    "nombre": "Origen",
+    "anio": 2010,
+    "director": "Cristopher Nolan",
+    "imagen_url": "https://www.lavanguardia.com/peliculas-series/images/movie/poster/2010/7/w1280/tXQvtRWfkUUnWJAn2tN3jERIUG.jpg",
+    "trailer_url": "https://youtu.be/RV9L7ui9Cn8?si=u9TEvtAOJYjEY8qt",
+    "generos": "AC,DR,CF",
+    "horarios": "09:30 AM,01:30 PM,6:00 PM",
+    "salas": "Sala 6",
+    "fecha_creacion": "2025-06-08T01:27:14.341Z"
+  }
+},
+{
+  "model": "myapp.pelicula",
+  "pk": 26,
+  "fields": {
+    "nombre": "Your Name",
+    "anio": 2016,
+    "director": "Matoko Shinkai",
+    "imagen_url": "https://cdn11.bigcommerce.com/s-yzgoj/images/stencil/1280x1280/products/2879551/5916952/MOVIB28455__26687.1679568872.jpg?c=2",
+    "trailer_url": "https://youtu.be/yPPaLgSXYlM?si=9BhDkCEi5VCnRI_u",
+    "generos": "DR,RO,AN",
+    "horarios": "10:00 AM,01:30 PM,5:00 PM",
+    "salas": "Sala 1,Sala 4",
+    "fecha_creacion": "2025-06-09T04:12:50.741Z"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 1,
+  "fields": {
+    "pelicula": 19,
+    "nombre_cliente": "Luis",
+    "apellido_cliente": "Fuentes",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 5",
+    "horario": "09:30 AM",
+    "asientos": "A1",
+    "cantidad_boletos": 1,
+    "precio_total": "4.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-08T23:24:56.522Z",
+    "codigo_reserva": "QQ27TQ86"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 2,
+  "fields": {
+    "pelicula": 19,
+    "nombre_cliente": "Manuel",
+    "apellido_cliente": "Romero",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 5",
+    "horario": "09:30 AM",
+    "asientos": "D2,E6",
+    "cantidad_boletos": 2,
+    "precio_total": "9.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-08T23:42:03.170Z",
+    "codigo_reserva": "IBTFXU1H"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 5,
+  "fields": {
+    "pelicula": 18,
+    "nombre_cliente": "Jose",
+    "apellido_cliente": "Sanchez",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 4",
+    "horario": "01:30 PM",
+    "asientos": "A2,D6",
+    "cantidad_boletos": 2,
+    "precio_total": "9.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T00:06:32.995Z",
+    "codigo_reserva": "WMUF9JAB"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 6,
+  "fields": {
+    "pelicula": 18,
+    "nombre_cliente": "Luis",
+    "apellido_cliente": "Romero",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 4",
+    "horario": "5:00 PM",
+    "asientos": "C2",
+    "cantidad_boletos": 1,
+    "precio_total": "4.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T00:35:26.810Z",
+    "codigo_reserva": "NIRN0OHB"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 7,
+  "fields": {
+    "pelicula": 19,
+    "nombre_cliente": "Manuel",
+    "apellido_cliente": "Romero",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "IMAX",
+    "sala": "Sala 5",
+    "horario": "01:30 PM",
+    "asientos": "A4,B5,C5,D6",
+    "cantidad_boletos": 4,
+    "precio_total": "24.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T03:31:49.539Z",
+    "codigo_reserva": "ZVQDZLC5"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 8,
+  "fields": {
+    "pelicula": 19,
+    "nombre_cliente": "Luis",
+    "apellido_cliente": "Romero",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 5",
+    "horario": "01:30 PM",
+    "asientos": "C3,C5",
+    "cantidad_boletos": 2,
+    "precio_total": "9.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T03:36:17.881Z",
+    "codigo_reserva": "GCWGILMM"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 9,
+  "fields": {
+    "pelicula": 18,
+    "nombre_cliente": "Luis",
+    "apellido_cliente": "Romero",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 4",
+    "horario": "09:30 AM",
+    "asientos": "C3",
+    "cantidad_boletos": 1,
+    "precio_total": "4.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T03:40:09.598Z",
+    "codigo_reserva": "MRUUO6GK"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 10,
+  "fields": {
+    "pelicula": 17,
+    "nombre_cliente": "Luis",
+    "apellido_cliente": "Romero",
+    "email": "fl21007@ues.edu.sv",
+    "formato": "3D",
+    "sala": "Sala 3",
+    "horario": "12:00 PM",
+    "asientos": "B2,C5,D6",
+    "cantidad_boletos": 3,
+    "precio_total": "13.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T03:50:42.524Z",
+    "codigo_reserva": "JVCW6IVP"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 11,
+  "fields": {
+    "pelicula": 18,
+    "nombre_cliente": "Pedro",
+    "apellido_cliente": "Alvarado",
+    "email": "alex@gmail.com",
+    "formato": "3D",
+    "sala": "Sala 4",
+    "horario": "01:30 PM",
+    "asientos": "B3,B4,B5",
+    "cantidad_boletos": 3,
+    "precio_total": "13.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-09T04:15:20.433Z",
+    "codigo_reserva": "UHBSWAPJ"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 12,
+  "fields": {
+    "pelicula": 18,
+    "nombre_cliente": "Lian Mateo",
+    "apellido_cliente": "Valle Ramirez",
+    "email": "valle@gmail.com",
+    "formato": "IMAX",
+    "sala": "Sala 4",
+    "horario": "09:30 AM",
+    "asientos": "E3,E4,E5,E6",
+    "cantidad_boletos": 4,
+    "precio_total": "24.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:08:24.329Z",
+    "codigo_reserva": "IBYWH1FI"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 13,
+  "fields": {
+    "pelicula": 17,
+    "nombre_cliente": "Lian Mateo",
+    "apellido_cliente": "Valle Ramirez",
+    "email": "valle@gmail.com",
+    "formato": "IMAX",
+    "sala": "Sala 3",
+    "horario": "09:30 AM",
+    "asientos": "D4,D5,D6",
+    "cantidad_boletos": 3,
+    "precio_total": "18.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:13:09.609Z",
+    "codigo_reserva": "WBE98V72"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 14,
+  "fields": {
+    "pelicula": 15,
+    "nombre_cliente": "Lian Mateo",
+    "apellido_cliente": "Valle Ramirez",
+    "email": "valle@gmail.com",
+    "formato": "IMAX",
+    "sala": "Sala 1",
+    "horario": "01:30 PM",
+    "asientos": "B4,B5,B6",
+    "cantidad_boletos": 3,
+    "precio_total": "18.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:21:52.609Z",
+    "codigo_reserva": "YXYPW2MP"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 15,
+  "fields": {
+    "pelicula": 14,
+    "nombre_cliente": "Jose Ramiro",
+    "apellido_cliente": "Sanchez Mendoza",
+    "email": "mendoza@gmail.com",
+    "formato": "3D",
+    "sala": "Sala 5",
+    "horario": "5:00 PM",
+    "asientos": "C2,C3,C4",
+    "cantidad_boletos": 3,
+    "precio_total": "13.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:24:42.975Z",
+    "codigo_reserva": "WLCZ9ZDX"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 16,
+  "fields": {
+    "pelicula": 17,
+    "nombre_cliente": "Marco Antonio",
+    "apellido_cliente": "Solis",
+    "email": "solis@gmail.com",
+    "formato": "3D",
+    "sala": "Sala 3",
+    "horario": "12:00 PM",
+    "asientos": "C3,C4,C5",
+    "cantidad_boletos": 3,
+    "precio_total": "13.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:28:04.300Z",
+    "codigo_reserva": "Q4KFRABN"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 17,
+  "fields": {
+    "pelicula": 17,
+    "nombre_cliente": "Marco Antonio",
+    "apellido_cliente": "Solis",
+    "email": "solis@gmail.com",
+    "formato": "3D",
+    "sala": "Sala 3",
+    "horario": "12:00 PM",
+    "asientos": "E4,E5,E6,E3",
+    "cantidad_boletos": 4,
+    "precio_total": "18.00",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:29:53.916Z",
+    "codigo_reserva": "QRJGK1OA"
+  }
+},
+{
+  "model": "myapp.reserva",
+  "pk": 18,
+  "fields": {
+    "pelicula": 26,
+    "nombre_cliente": "Marco Antonio",
+    "apellido_cliente": "Solis",
+    "email": "solis@gmail.com",
+    "formato": "2D",
+    "sala": "Sala 1",
+    "horario": "01:30 PM",
+    "asientos": "C3,C4,C5",
+    "cantidad_boletos": 3,
+    "precio_total": "10.50",
+    "estado": "RESERVADO",
+    "fecha_reserva": "2025-06-10T01:41:50.582Z",
+    "codigo_reserva": "NRU480N5"
+  }
+}
+]

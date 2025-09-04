@@ -37,14 +37,14 @@ class Pelicula(models.Model):
         'Sala 6'
     ]
 
-    nombre = models.CharField(max_length=255)
+    nombre = models.CharField(max_length=350)
     anio = models.IntegerField()
-    director = models.CharField(max_length=255)
-    imagen_url = models.URLField()
-    trailer_url = models.URLField()
-    generos = models.CharField(max_length=255)
-    horarios = models.CharField(max_length=255, blank=True, null=True)
-    salas = models.CharField(max_length=255, blank=True, null=True)
+    director = models.CharField(max_length=350)
+    imagen_url = models.TextField()  # Sin límite de longitud
+    trailer_url = models.TextField()
+    generos = models.CharField(max_length=350)
+    horarios = models.CharField(max_length=350, blank=True, null=True)
+    salas = models.CharField(max_length=350, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     def get_generos_list(self):

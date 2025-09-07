@@ -364,7 +364,7 @@ def descargar_ticket(request, codigo_reserva):
 ##########################################################################
 
 def generar_qr(reserva):
-    url_validacion = f"https://system-design.onrender.com//validar-ticket/{reserva.codigo_reserva}/"
+    url_validacion = f"https://system-design.onrender.com/validar-ticket/{reserva.codigo_reserva}/"
     qr = qrcode.make(url_validacion)
     qr_buffer = BytesIO()
     qr.save(qr_buffer, format='PNG')

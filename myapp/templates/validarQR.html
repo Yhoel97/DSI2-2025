@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Validación de Ticket</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'styles/validaQR.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="mensaje {{ 'valido' if valido else 'invalido' }}">
+            {{ mensaje }}
+        </div>
+        <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="pelicula-img">
+        <div class="pelicula-nombre">{{ pelicula.nombre }}</div>
+    </div>
+</body>
+</html>

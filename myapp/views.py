@@ -366,7 +366,7 @@ def descargar_ticket(request, codigo_reserva):
 
 
 def generar_qr(reserva):
-    url = f"https://system-design.onrender.com/validar-ticket/{reserva.codigo_reserva}/"
+    url = f"https://system-design.onrender.com/validaQR/{reserva.codigo_reserva}/"
     qr = qrcode.make(url)
     buffer = BytesIO()
     qr.save(buffer, format='PNG')
@@ -375,18 +375,24 @@ def generar_qr(reserva):
 ########################################################################################
 
 
-def validar_ticket(request, codigo_reserva):
+def validaQR(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
 
     if reserva.usado:
-        messages.error(request, "❌ Ticket inválido: ya fue utilizado.")
+        mensaje = "❌ Ticket inválido: ya fue utilizado."
+        valido = False
     else:
         reserva.usado = True
         reserva.save()
-        messages.success(request, "✅ Ticket válido: bienvenido al cine.")
+        mensaje = "✅ Ticket válido: bienvenido al cine."
+        valido = True
 
-    # Redirige a la página de asientos de la película
-    return redirect('asientos', pelicula_id=reserva.pelicula.id)
+    return render(request, "validaQR.html", {
+        "mensaje": mensaje,
+        "valido": valido,
+        "reserva": reserva,
+        "pelicula": reserva.pelicula
+    })
 
 ###############################################################################################
 

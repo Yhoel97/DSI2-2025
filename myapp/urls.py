@@ -9,8 +9,9 @@ urlpatterns = [
     path('login/', views.my_login, name = 'login'),
     path('peliculas/', views.peliculas, name= 'peliculas'),
 
-   path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),
+    path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),
     path('ticket/<str:codigo_reserva>/', views.descargar_ticket, name='descargar_ticket'),
+    path('validar-ticket/<str:codigo_reserva>/', views.validar_ticket, name='validar_ticket'),
 
     
 ]

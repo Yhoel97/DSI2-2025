@@ -33,6 +33,8 @@ from io import BytesIO
 from django.conf import settings
 import os
 from datetime import datetime
+import qrcode
+from reportlab.platypus import Image as RLImage
 
 
 # Diccionario de géneros con nombres completos
@@ -320,11 +322,20 @@ def generar_pdf_reserva(reserva):
     # Mensaje de agradecimiento
     elements.append(Paragraph("Presente este ticket en la entrada del cine", footer_style))
     elements.append(Paragraph("¡Gracias por su preferencia!", footer_style))
+
+    # Código QR
+    qr_image = generar_qr(reserva)
+    elements.append(Paragraph("Escanee este código para validar su ticket", info_style))
+    elements.append(qr_image)
+    elements.append(Spacer(1, 20))
     
     # Construir el PDF
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+
+
 
 
 def descargar_ticket(request, codigo_reserva):
@@ -351,6 +362,31 @@ def descargar_ticket(request, codigo_reserva):
     
     return render(request, "asientos.html", context)
 ##########################################################################
+
+def generar_qr(reserva):
+    url_validacion = f"https://system-design.onrender.com//validar-ticket/{reserva.codigo_reserva}/"
+    qr = qrcode.make(url_validacion)
+    qr_buffer = BytesIO()
+    qr.save(qr_buffer, format='PNG')
+    qr_buffer.seek(0)
+    return RLImage(qr_buffer, width=1.5*inch, height=1.5*inch)
+########################################################################################
+
+
+def validar_ticket(request, codigo_reserva):
+    reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
+
+    if reserva.usado:
+        messages.error(request, "❌ Ticket inválido: ya fue utilizado.")
+    else:
+        reserva.usado = True
+        reserva.save()
+        messages.success(request, "✅ Ticket válido: bienvenido al cine.")
+
+    # Redirige a la página de asientos de la película
+    return redirect('asientos', pelicula_id=reserva.pelicula.id)
+
+###############################################################################################
 
 @csrf_exempt
 def peliculas(request):

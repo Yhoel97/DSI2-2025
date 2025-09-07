@@ -91,6 +91,7 @@ class Reserva(models.Model):
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='RESERVADO')
     fecha_reserva = models.DateTimeField(auto_now_add=True)
     codigo_reserva = models.CharField(max_length=10, unique=True)
+    usado = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Reserva #{self.codigo_reserva} - {self.pelicula.nombre}"

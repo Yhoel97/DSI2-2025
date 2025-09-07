@@ -318,16 +318,17 @@ def generar_pdf_reserva(reserva):
     ]))
     elements.append(reserva_table)
     elements.append(Spacer(1, 30))
+        # Código QR
+    qr_image = generar_qr(reserva)
+    elements.append(Paragraph("Escanee este código para validar su ticket", info_style))
+    elements.append(qr_image)
+    elements.append(Spacer(1, 20))
     
     # Mensaje de agradecimiento
     elements.append(Paragraph("Presente este ticket en la entrada del cine", footer_style))
     elements.append(Paragraph("¡Gracias por su preferencia!", footer_style))
 
-    # Código QR
-    qr_image = generar_qr(reserva)
-    elements.append(Paragraph("Escanee este código para validar su ticket", info_style))
-    elements.append(qr_image)
-    elements.append(Spacer(1, 20))
+
     
     # Construir el PDF
     doc.build(elements)
@@ -366,12 +367,13 @@ def descargar_ticket(request, codigo_reserva):
 
 
 def generar_qr(reserva):
-    url = f"https://system-design.onrender.com/validaQR/{reserva.codigo_reserva}/"
+    url = "https://system-design.onrender.com/validaQR/"
     qr = qrcode.make(url)
     buffer = BytesIO()
     qr.save(buffer, format='PNG')
     buffer.seek(0)
     return RLImage(buffer, width=1.5*inch, height=1.5*inch)
+
 ########################################################################################
 
 

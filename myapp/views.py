@@ -363,13 +363,15 @@ def descargar_ticket(request, codigo_reserva):
     return render(request, "asientos.html", context)
 ##########################################################################
 
+
+
 def generar_qr(reserva):
-    url_validacion = f"https://system-design.onrender.com/validar-ticket/{reserva.codigo_reserva}/"
-    qr = qrcode.make(url_validacion)
-    qr_buffer = BytesIO()
-    qr.save(qr_buffer, format='PNG')
-    qr_buffer.seek(0)
-    return RLImage(qr_buffer, width=1.5*inch, height=1.5*inch)
+    url = f"https://system-design.onrender.com/validar-ticket/{reserva.codigo_reserva}/"
+    qr = qrcode.make(url)
+    buffer = BytesIO()
+    qr.save(buffer, format='PNG')
+    buffer.seek(0)
+    return RLImage(buffer, width=1.5*inch, height=1.5*inch)
 ########################################################################################
 
 

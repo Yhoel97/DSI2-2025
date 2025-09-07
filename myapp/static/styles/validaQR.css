@@ -17,15 +17,16 @@ body {
     background: rgba(255, 255, 255, 0.85);
     border-radius: 16px;
     box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .mensaje {
     font-size: 2em;
-    margin-bottom: 20px;
     font-weight: bold;
-}
-
-.mensaje.valido {
+    margin-bottom: 10px;
     color: #6c5ce7;
 }
 
@@ -33,24 +34,32 @@ body {
     color: #d63031;
 }
 
+.pelicula-nombre {
+    font-size: 1.8em;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-family: 'Segoe UI Semibold', sans-serif;
+}
+
 .pelicula-img {
     width: 100%;
-    max-width: 300px;
+    max-width: 280px;
     border-radius: 12px;
     box-shadow: 0 0 12px rgba(0,0,0,0.2);
-    margin-bottom: 15px;
 }
 
-.pelicula-nombre {
-    font-size: 1.4em;
-    color: #2c3e50;
-}
-
-@media (min-width: 600px) {
+/* Responsivo para teléfonos */
+@media (max-width: 480px) {
     .mensaje {
-        font-size: 2.5em;
-    }
-    .pelicula-nombre {
         font-size: 1.6em;
+    }
+
+    .pelicula-nombre {
+        font-size: 1.5em;
+    }
+
+    .pelicula-img {
+        max-width: 200px;
     }
 }

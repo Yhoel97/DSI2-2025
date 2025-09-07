@@ -92,12 +92,13 @@ def my_login(request):
 
 @csrf_exempt
 def asientos(request, pelicula_id=None):
+    # Obtener la película seleccionada
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
-
+    
     if not pelicula:
         messages.error(request, "No se ha seleccionado ninguna película")
         return redirect('index')
-
+    
     if request.method == 'POST':
         nombre_cliente = request.POST.get('nombre_cliente', '').strip()
         apellido_cliente = request.POST.get('apellido_cliente', '').strip()
@@ -106,9 +107,9 @@ def asientos(request, pelicula_id=None):
         horario = request.POST.get('horario', '').strip()
         sala = request.POST.get('sala', '').strip()
         asientos_seleccionados = request.POST.get('asientos', '').strip()
-
+        
         errores = []
-
+        
         if not nombre_cliente: errores.append('El nombre es obligatorio')
         if not apellido_cliente: errores.append('El apellido es obligatorio')
         if not email or '@' not in email: errores.append('Ingrese un email válido')
@@ -116,7 +117,7 @@ def asientos(request, pelicula_id=None):
         if not horario or horario not in pelicula.get_horarios_list(): errores.append('Seleccione un horario válido')
         if not sala or sala not in pelicula.get_salas_list(): errores.append('Seleccione una sala válida')
         if not asientos_seleccionados: errores.append('Seleccione al menos un asiento')
-
+        
         if not errores:
             try:
                 precio_por_boleto = {
@@ -124,10 +125,10 @@ def asientos(request, pelicula_id=None):
                     '3D': 4.50,
                     'IMAX': 6.00
                 }.get(formato, 0)
-
+                
                 cantidad_boletos = len(asientos_seleccionados.split(','))
                 precio_total = precio_por_boleto * cantidad_boletos
-
+                
                 reserva = Reserva(
                     pelicula=pelicula,
                     nombre_cliente=nombre_cliente,
@@ -139,52 +140,35 @@ def asientos(request, pelicula_id=None):
                     asientos=asientos_seleccionados,
                     cantidad_boletos=cantidad_boletos,
                     precio_total=precio_total,
-                    estado='RESERVADO',
-                    fecha_reserva=datetime.now()
+                    estado='RESERVADO'
                 )
-
+                
                 reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
                 reserva.save()
-
+                
                 # Generar PDF
                 pdf_buffer = generar_pdf_reserva(reserva)
-
-                # Enviar el PDF al correo ingresado
-                email_msg = EmailMessage(
-                    subject='🎟️ Tu ticket de CineDot',
-                    body='Gracias por tu compra. Adjuntamos tu ticket en PDF.',
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[reserva.email],
-                )
-                email_msg.attach(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), 'application/pdf')
-                email_msg.send()
-
-                # Guardar mensaje en sesión
-                request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
-
-                # Crear respuesta con descarga automática y recarga visual
+                
+                # Crear respuesta
                 response = HttpResponse(pdf_buffer, content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-                response.write(f"""
-                    <script>
-                        alert("✅ Ticket enviado a {reserva.email} y descargado correctamente.");
-                        setTimeout(function() {{
-                            window.location.href = window.location.href;
-                        }}, 1500);
-                    </script>
-                """)
+                
+                # Guardar mensaje en sesión para mostrarlo después
+                request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
+                
                 return response
-
+                
             except Exception as e:
                 messages.error(request, f'Error al crear la reserva: {str(e)}')
         else:
             for error in errores:
                 messages.error(request, error)
-
+    
+    # Mostrar mensaje de reserva exitosa si existe
     if 'reserva_message' in request.session:
         messages.success(request, request.session['reserva_message'])
         del request.session['reserva_message']
-
+    
     context = {
         'pelicula': pelicula,
         'formatos': Reserva.FORMATO_CHOICES,
@@ -195,9 +179,8 @@ def asientos(request, pelicula_id=None):
 
 
 def generar_pdf_reserva(reserva):
-    
     buffer = BytesIO()
-
+    
     # Obtener fecha y hora actual del sistema
     ahora = datetime.now()
     fecha_emision = ahora.strftime('%d/%m/%Y %H:%M:%S')
@@ -356,23 +339,29 @@ def generar_pdf_reserva(reserva):
 
 
 
-from django.core.mail import EmailMessage
-
 def descargar_ticket(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
     pdf_buffer = generar_pdf_reserva(reserva)
 
-    email = EmailMessage(
-        subject='🎟️ Tu ticket de CineDot',
-        body='Gracias por tu compra. Adjuntamos tu ticket en PDF.',
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[reserva.email],
+    # Generar la URL usando reverse
+    asientos_url = reverse('asientos', kwargs={'pelicula_id': reserva.pelicula.id})
+    
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
+    
+    # Agregar script JavaScript para redirección
+    response.write(
+        '<script>'
+        'window.addEventListener("load", function() {'
+        '  setTimeout(function() {'
+        f'    window.location.href = "{asientos_url}";'
+        '  }, 1000);'
+        '});'
+        '</script>'
     )
-    email.attach(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), 'application/pdf')
-    email.send()
-
-    messages.success(request, f'Ticket enviado a {reserva.email}. Código: {reserva.codigo_reserva}')
-    return redirect('asientos', pelicula_id=reserva.pelicula.id)
+    
+    
+    return render(request, "asientos.html", context)
 ##########################################################################
 
 

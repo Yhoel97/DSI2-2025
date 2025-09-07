@@ -179,8 +179,9 @@ def asientos(request, pelicula_id=None):
 
 
 def generar_pdf_reserva(reserva):
-    buffer = BytesIO()
     
+    buffer = BytesIO()
+
     # Obtener fecha y hora actual del sistema
     ahora = datetime.now()
     fecha_emision = ahora.strftime('%d/%m/%Y %H:%M:%S')
@@ -339,29 +340,40 @@ def generar_pdf_reserva(reserva):
 
 
 
+from django.core.mail import EmailMessage
+
 def descargar_ticket(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
     pdf_buffer = generar_pdf_reserva(reserva)
 
-    # Generar la URL usando reverse
+    # Enviar el PDF al correo ingresado por el cliente
+    email = EmailMessage(
+        subject='🎟️ Tu ticket de CineDot',
+        body='Gracias por tu compra. Adjuntamos tu ticket en PDF.',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[reserva.email],  # ← dinámico y único por reserva
+    )
+    email.attach(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), 'application/pdf')
+    email.send()
+
+    # Generar la URL de redirección
     asientos_url = reverse('asientos', kwargs={'pelicula_id': reserva.pelicula.id})
-    
+
+    # Crear respuesta con PDF y script de redirección
     response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-    
-    # Agregar script JavaScript para redirección
-    response.write(
-        '<script>'
-        'window.addEventListener("load", function() {'
-        '  setTimeout(function() {'
-        f'    window.location.href = "{asientos_url}";'
-        '  }, 1000);'
-        '});'
-        '</script>'
-    )
-    
-    
-    return render(request, "asientos.html", context)
+
+    response.write(f"""
+        <script>
+        window.addEventListener("load", function() {{
+            setTimeout(function() {{
+                window.location.href = "{asientos_url}";
+            }}, 1500);
+        }});
+        </script>
+    """)
+
+    return response
 ##########################################################################
 
 

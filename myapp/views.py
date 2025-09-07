@@ -365,17 +365,14 @@ def descargar_ticket(request, codigo_reserva):
 ##########################################################################
 
 
-
 def generar_qr(reserva):
-    url = "https://system-design.onrender.com/validaQR/"
+    url = f"https://system-design.onrender.com/validaQR/{reserva.codigo_reserva}/"
     qr = qrcode.make(url)
     buffer = BytesIO()
     qr.save(buffer, format='PNG')
     buffer.seek(0)
     return RLImage(buffer, width=1.5*inch, height=1.5*inch)
-
 ########################################################################################
-
 
 def validaQR(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
@@ -395,7 +392,6 @@ def validaQR(request, codigo_reserva):
         "reserva": reserva,
         "pelicula": reserva.pelicula
     })
-
 ###############################################################################################
 
 @csrf_exempt

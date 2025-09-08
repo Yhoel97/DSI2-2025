@@ -1,2 +1,2 @@
-# DSI1-Equipo2
-Proyecto de grupo de la materia Diseño de Sistemas 1, equipo 2, grupo teórico 1, año 2025
+# DSI2-Equipo7
+Proyecto de grupo de la materia Diseño de Sistemas 2, equipo 7, grupo teórico 05, año 2025

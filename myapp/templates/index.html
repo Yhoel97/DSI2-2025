@@ -9,37 +9,34 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <header>
+    <header class="header">
         <div class="logo">
             <h1>CineDot</h1>
         </div>
-        <nav>
-            <ul>
+        <nav class="nav">
+            <ul class="nav-list flex">
                 <li><a href="#cartelera">Cartelera</a></li>
-
                 <li><a href="#contacto">Contacto</a></li>
-                
                 {% if user.is_authenticated %}
                     {% if user.is_staff %}
-                    <li><a href="{% url 'login' %}" class="admin-btn">Panel Admin</a></li>
+                        <li><a href="{% url 'login' %}" class="btn admin-btn">Panel Admin</a></li>
                     {% endif %}
                 {% else %}
-                    <li><a href="{% url 'login' %}" class="login-btn">Iniciar Sesión</a></li>
+                    <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
                 {% endif %}
             </ul>
         </nav>
     </header>
 
     <main>
-        <!-- Cartelera de Películas -->
-        <section id="cartelera" class="section">
+        <!-- Cartelera -->
+        <section id="cartelera" class="section container">
             <h2 class="section-title">Películas en Cartelera</h2>
-            
-            <div class="peliculas-grid">
+            <div class="peliculas-grid grid">
                 {% for pelicula in peliculas %}
                 <div class="pelicula-card">
                     <div class="poster-container">
-                        <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster">
+                        <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster responsive-img">
                     </div>
                     <div class="pelicula-info">
                         <h3 class="movie-title">{{ pelicula.nombre }}</h3>
@@ -50,11 +47,11 @@
                             <p><span class="detail-label">Sala:</span> {{ pelicula.get_salas_list|join:", " }}</p>
                             <p><span class="detail-label">Horarios:</span> {{ pelicula.get_horarios_list|join:", " }}</p>
                         </div>
-                            <div class="movie-actions">
-                            <a href="{{ pelicula.trailer_url }}" target="_blank" class="trailer-btn">
+                        <div class="movie-actions flex">
+                            <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
                                 <i class="fab fa-youtube"></i> Ver Tráiler
                             </a>
-                            <a href="{% url 'asientos' pelicula.id %}" class="buy-btn">
+                            <a href="{% url 'asientos' pelicula.id %}" class="btn buy-btn">
                                 <i class="fas fa-ticket-alt"></i> Comprar Boleto
                             </a>
                         </div>
@@ -64,10 +61,8 @@
             </div>
         </section>
 
-
-
-        <!-- Sección de Contacto -->
-        <section id="contacto" class="section">
+        <!-- Contacto -->
+        <section id="contacto" class="section container">
             <h2 class="section-title">Contacto</h2>
             <div class="contacto-info">
                 <p><i class="icono fas fa-envelope"></i> contacto@cinedot.com</p>
@@ -77,7 +72,7 @@
         </section>
     </main>
 
-    <footer>
+    <footer class="footer">
         <p>© 2025 CineDot. Todos los derechos reservados.</p>
     </footer>
 </body>

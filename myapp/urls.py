@@ -12,5 +12,9 @@ urlpatterns = [
     path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),
     path('ticket/<str:codigo_reserva>/', views.descargar_ticket, name='descargar_ticket'),
     path('validaQR/<str:codigo_reserva>/', views.validaQR, name='validaQR'),
+<<<<<<< HEAD
     path('salas/', views.administrar_salas, name='administrar_salas'),
+=======
+    
+>>>>>>> b08f8cd52b5331abfcaf46aa0151c789ebb2afa2
 ]

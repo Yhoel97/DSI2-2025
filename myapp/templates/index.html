@@ -44,8 +44,11 @@
                             <p><span class="detail-label">Género:</span> {{ pelicula.get_generos_list|join:", " }}</p>
                             <p><span class="detail-label">Año:</span> {{ pelicula.anio }}</p>
                             <p><span class="detail-label">Director:</span> {{ pelicula.director }}</p>
-                            <p><span class="detail-label">Sala:</span> {{ pelicula.get_salas_list|join:", " }}</p>
-                            <p><span class="detail-label">Horarios:</span> {{ pelicula.get_horarios_list|join:", " }}</p>
+                            <p><span class="detail-label">Horario y Sala:</span>
+                                {% for h, s in pelicula.horario_sala_pares %}
+                                    {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </p>
                         </div>
                         <div class="movie-actions flex">
                             <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">

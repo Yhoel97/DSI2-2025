@@ -59,11 +59,17 @@ def convertir_generos(codigos_generos):
 def index(request):
     peliculas = Pelicula.objects.all().order_by('-fecha_creacion')[:10]  # Últimas 10 películas
     
-    # Convertir los códigos de género a nombres completos
     for pelicula in peliculas:
+        # Convertir géneros a nombres completos
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
+        
+        # Crear lista de pares Horario - Sala
+        horarios = pelicula.get_horarios_list()
+        salas = pelicula.get_salas_list()
+        pelicula.horario_sala_pares = list(zip(horarios, salas))
 
     return render(request, 'index.html', {'peliculas': peliculas})
+
 
 def my_login(request):
     if request.method == 'POST':

@@ -1,15 +1,15 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CinePlus - Selección de Asientos</title>
-    {% load static %}
     <link rel="stylesheet" href="{% static 'styles/asientos.css' %}">
 </head>
 <body>
     <div class="cine-container">
-                {% if messages %}
+        {% if messages %}
         <div class="messages-container">
             {% for message in messages %}
             <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
@@ -18,6 +18,7 @@
             {% endfor %}
         </div>
         {% endif %}
+
         <header class="cine-header">
             <h1>CineDot</h1>
             <div class="movie-info">
@@ -44,7 +45,7 @@
                     <label for="email">Email:</label>
                     <input type="email" id="email" name="email" required>
                 </div>
-                
+
                 <!-- Selección de formato -->
                 <div class="form-group">
                     <label>Formato:</label>
@@ -57,27 +58,27 @@
                         {% endfor %}
                     </div>
                 </div>
-                
+
                 <!-- Selección de horario -->
                 <div class="form-group">
                     <label for="horario">Horario:</label>
-                    <select id="horario" name="horario" required>
+                    <select id="horario" name="horario" required onchange="actualizarAsientos()">
                         {% for horario in pelicula.get_horarios_list %}
-                        <option value="{{ horario }}">{{ horario }}</option>
+                        <option value="{{ horario }}" {% if horario == horario_actual %}selected{% endif %}>{{ horario }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                
+
                 <!-- Selección de sala -->
                 <div class="form-group">
                     <label for="sala">Sala:</label>
-                    <select id="sala" name="sala" required>
+                    <select id="sala" name="sala" required onchange="actualizarAsientos()">
                         {% for sala in pelicula.get_salas_list %}
-                        <option value="{{ sala }}">{{ sala }}</option>
+                        <option value="{{ sala }}" {% if sala == sala_actual %}selected{% endif %}>{{ sala }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                
+
                 <!-- Campo oculto para los asientos seleccionados -->
                 <input type="hidden" id="asientos" name="asientos" value="">
             </form>
@@ -95,7 +96,11 @@
                     <span class="row-letter">{{ fila }}</span>
                     {% for numero in "12345678" %}
                     {% with asiento=fila|add:numero %}
-                    <div class="seat available" data-seat="{{ asiento }}">{{ numero }}</div>
+                    <div class="seat {% if asiento in asientos_ocupados %}reserved{% else %}available{% endif %}" 
+                         data-seat="{{ asiento }}" 
+                         id="seat-{{ asiento }}">
+                         {{ numero }}
+                    </div>
                     {% endwith %}
                     {% endfor %}
                 </div>
@@ -119,54 +124,39 @@
             </div>
         </div>
 
-            <div class="selection-summary">
-                <h3>Tu selección:</h3>
-                <div class="selected-seats" id="selected-seats">Ningún asiento seleccionado</div>
-                <div class="total-price" id="total-price">Total: $0</div>
-                <div class="ticket-counter" id="ticket-counter">
-                    <span>Boletos:</span>
-                    <span id="ticket-count">0</span>
-                </div>
-                <button type="submit" form="reserva-form" class="btn-confirm">Confirmar Reserva</button>
-                
-                {% if messages %}
-                    {% for message in messages %}
-                        {% if 'reserva_message' in message.tags %}
-                            <div class="ticket-download">
-                                <a href="{% url 'descargar_ticket' message.message|slice:'-8:' %}" class="btn-download">
-                                    <i class="fas fa-download"></i> Descargar Ticket
-                                </a>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
+        <div class="selection-summary">
+            <h3>Tu selección:</h3>
+            <div class="selected-seats" id="selected-seats">Ningún asiento seleccionado</div>
+            <div class="total-price" id="total-price">Total: $0</div>
+            <div class="ticket-counter" id="ticket-counter">
+                <span>Boletos:</span>
+                <span id="ticket-count">0</span>
             </div>
+            <button type="submit" form="reserva-form" class="btn-confirm">Confirmar Reserva</button>
+        </div>
+    </div>
+
     <script>
-        // Variables globales
         let selectedSeats = [];
-        const precioBase = 3.50; // Precio base para formato 2D
-        
-        // Función para actualizar el resumen
+        const precioBase = 3.50;
+
         function updateSummary() {
             const selectedSeatsElement = document.getElementById('selected-seats');
             const ticketCountElement = document.getElementById('ticket-count');
             const totalPriceElement = document.getElementById('total-price');
             const asientosInput = document.getElementById('asientos');
-            
-            // Actualizar lista de asientos
+
             if (selectedSeats.length > 0) {
                 selectedSeatsElement.textContent = selectedSeats.join(', ');
             } else {
                 selectedSeatsElement.textContent = 'Ningún asiento seleccionado';
             }
-            
-            // Actualizar contador de boletos
+
             ticketCountElement.textContent = selectedSeats.length;
-            
-            // Calcular precio total basado en el formato seleccionado
+
             const formatoSeleccionado = document.querySelector('input[name="formato"]:checked').value;
             let precioPorBoleto = precioBase;
-            
+
             switch(formatoSeleccionado) {
                 case '3D':
                     precioPorBoleto = 4.50;
@@ -175,39 +165,41 @@
                     precioPorBoleto = 6.00;
                     break;
             }
-            
+
             const total = selectedSeats.length * precioPorBoleto;
             totalPriceElement.textContent = `Total: $${total.toFixed(2)}`;
-            
-            // Actualizar campo oculto con los asientos seleccionados
             asientosInput.value = selectedSeats.join(',');
         }
-        
-        // Manejar selección de asientos
+
+        function actualizarAsientos() {
+            const sala = document.getElementById('sala').value;
+            const horario = document.getElementById('horario').value;
+            
+            // Redirigir a la misma página con los nuevos parámetros
+            window.location.href = `?sala=${sala}&horario=${horario}`;
+        }
+
+        // Inicializar eventos de asientos
         document.querySelectorAll('.seat.available').forEach(seat => {
             seat.addEventListener('click', () => {
                 const seatNumber = seat.getAttribute('data-seat');
-                
+
                 if (seat.classList.contains('selected')) {
-                    // Deseleccionar asiento
                     seat.classList.remove('selected');
                     selectedSeats = selectedSeats.filter(s => s !== seatNumber);
                 } else {
-                    // Seleccionar asiento
                     seat.classList.add('selected');
                     selectedSeats.push(seatNumber);
                 }
-                
+
                 updateSummary();
             });
         });
-        
-        // Actualizar precio cuando cambia el formato
+
         document.querySelectorAll('input[name="formato"]').forEach(radio => {
             radio.addEventListener('change', updateSummary);
         });
-        
-        // Inicializar resumen
+
         updateSummary();
     </script>
 </body>

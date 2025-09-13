@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administrar Salas</title>
+  <link rel="stylesheet" href="{% static 'styles/admin_salas.css' %}">
+</head>
+<body>
+  <div class="admin-container">
+    <h1>Vista de Sala</h1>
+
+    <form method="POST">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="pelicula">Película:</label>
+        <select name="pelicula" id="pelicula" required onchange="this.form.submit()">
+          <option value="">-- Selecciona una película --</option>
+          {% for p in peliculas %}
+            <option value="{{ p.id }}" {% if pelicula and p.id == pelicula.id %}selected{% endif %}>{{ p.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if pelicula %}
+        <div class="form-group">
+          <label for="sala">Sala:</label>
+          <select name="sala" id="sala" required onchange="this.form.submit()">
+            {% for s in pelicula.get_salas_list %}
+              <option value="{{ s }}" {% if s == sala %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="horario">Horario:</label>
+          <select name="horario" id="horario" required onchange="this.form.submit()">
+            {% for h in pelicula.get_horarios_list %}
+              <option value="{{ h }}" {% if h == horario %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+    </form>
+
+    {% if pelicula and sala and horario %}
+      <h2>{{ pelicula.nombre }}</h2>
+      <p><strong>Sala:</strong> {{ sala }} | <strong>Horario:</strong> {{ horario }}</p>
+
+      <div class="screen">Pantalla</div>
+
+      <div class="seats-grid">
+        {% for fila in "ABCDE" %}
+          <div class="seat-row">
+            <span class="row-letter">{{ fila }}</span>
+            {% for numero in "12345678" %}
+              {% with asiento=fila|add:numero %}
+                <div class="seat {% if asiento in asientos_ocupados %}reserved{% else %}available{% endif %}">
+                  {{ numero }}
+                </div>
+              {% endwith %}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="seat available"></div><span>Disponible</span></div>
+        <div class="legend-item"><div class="seat reserved"></div><span>Ocupado</span></div>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

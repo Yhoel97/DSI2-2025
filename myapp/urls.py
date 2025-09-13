@@ -12,5 +12,5 @@ urlpatterns = [
     path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),
     path('ticket/<str:codigo_reserva>/', views.descargar_ticket, name='descargar_ticket'),
     path('validaQR/<str:codigo_reserva>/', views.validaQR, name='validaQR'),
-    
+    path('salas/', views.administrar_salas, name='administrar_salas'),
 ]

@@ -1,10 +1,7 @@
 from io import BytesIO
 import json
-from multiprocessing import context
 import random
 import string
-from tkinter import CENTER, Canvas
-from turtle import color
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from DSI2025 import settings
@@ -87,6 +84,50 @@ def my_login(request):
             messages.error(request, 'Usuario o contraseña incorrectos')
     
     return render(request, 'registration/login.html')
+
+
+def registro_usuario(request):
+    """
+    Vista para el registro de nuevos usuarios
+    PBI-19: Implementa los criterios de aceptación para registro
+    """
+    if request.method == 'POST':
+        form = RegistroForm(request.POST)
+        if form.is_valid():
+            try:
+                # Crear el usuario usando el formulario
+                user = form.save()
+                
+                # Mensaje de éxito
+                messages.success(
+                    request, 
+                    f'¡Bienvenido {user.username}! Tu cuenta ha sido creada exitosamente. '
+                    'Ahora puedes iniciar sesión.'
+                )
+                
+                # Redirigir al login después del registro exitoso
+                return redirect('login')
+                
+            except Exception as e:
+                messages.error(
+                    request, 
+                    f'Error al crear la cuenta: {str(e)}. Por favor intenta nuevamente.'
+                )
+        else:
+            # Si el formulario tiene errores, se mostrarán automáticamente
+            messages.error(
+                request, 
+                'Por favor corrige los errores en el formulario.'
+            )
+    else:
+        # GET request - mostrar formulario vacío
+        form = RegistroForm()
+    
+    return render(request, 'registration/registro.html', {
+        'form': form,
+        'title': 'Registro de Usuario'
+    })
+
 
 #######################################################################
 
@@ -342,26 +383,11 @@ def generar_pdf_reserva(reserva):
 def descargar_ticket(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
     pdf_buffer = generar_pdf_reserva(reserva)
-
-    # Generar la URL usando reverse
-    asientos_url = reverse('asientos', kwargs={'pelicula_id': reserva.pelicula.id})
     
     response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
     
-    # Agregar script JavaScript para redirección
-    response.write(
-        '<script>'
-        'window.addEventListener("load", function() {'
-        '  setTimeout(function() {'
-        f'    window.location.href = "{asientos_url}";'
-        '  }, 1000);'
-        '});'
-        '</script>'
-    )
-    
-    
-    return render(request, "asientos.html", context)
+    return response
 ##########################################################################
 
 

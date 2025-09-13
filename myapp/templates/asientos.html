@@ -28,8 +28,11 @@
             </div>
         </header>
 
-        <!-- Formulario de datos del cliente -->
+        <!-- Formulario -->
         <div class="customer-form">
+            <!-- Botón de regreso -->
+            <a href="{% url 'index' %}" class="btn-back">← Volver al inicio</a>
+
             <h3>Datos del Cliente</h3>
             <form id="reserva-form" method="POST">
                 {% csrf_token %}
@@ -46,7 +49,7 @@
                     <input type="email" id="email" name="email" required>
                 </div>
 
-                <!-- Selección de formato -->
+                <!-- Formato -->
                 <div class="form-group">
                     <label>Formato:</label>
                     <div class="format-options">
@@ -59,27 +62,16 @@
                     </div>
                 </div>
 
-                <!-- Selección de horario -->
+                <!-- Combo único -->
                 <div class="form-group">
-                    <label for="horario">Horario:</label>
-                    <select id="horario" name="horario" required onchange="actualizarAsientos()">
-                        {% for horario in pelicula.get_horarios_list %}
-                        <option value="{{ horario }}" {% if horario == horario_actual %}selected{% endif %}>{{ horario }}</option>
+                    <label for="combo">Horario y Sala:</label>
+                    <select id="combo" name="combo" required onchange="actualizarAsientos()">
+                        {% for c in combinaciones %}
+                        <option value="{{ c }}" {% if c == combo_actual %}selected{% endif %}>{{ c }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <!-- Selección de sala -->
-                <div class="form-group">
-                    <label for="sala">Sala:</label>
-                    <select id="sala" name="sala" required onchange="actualizarAsientos()">
-                        {% for sala in pelicula.get_salas_list %}
-                        <option value="{{ sala }}" {% if sala == sala_actual %}selected{% endif %}>{{ sala }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Campo oculto para los asientos seleccionados -->
                 <input type="hidden" id="asientos" name="asientos" value="">
             </form>
         </div>
@@ -90,15 +82,13 @@
 
         <div class="seats-container">
             <div class="seats-grid">
-                <!-- Filas de asientos generadas dinámicamente -->
                 {% for fila in "ABCDE" %}
                 <div class="seat-row">
                     <span class="row-letter">{{ fila }}</span>
                     {% for numero in "12345678" %}
                     {% with asiento=fila|add:numero %}
                     <div class="seat {% if asiento in asientos_ocupados %}reserved{% else %}available{% endif %}" 
-                         data-seat="{{ asiento }}" 
-                         id="seat-{{ asiento }}">
+                         data-seat="{{ asiento }}">
                          {{ numero }}
                     </div>
                     {% endwith %}
@@ -108,20 +98,10 @@
             </div>
         </div>
 
-        <!-- Leyenda -->
         <div class="legend">
-            <div class="legend-item">
-                <div class="seat available"></div>
-                <span>Disponible</span>
-            </div>
-            <div class="legend-item">
-                <div class="seat selected"></div>
-                <span>Seleccionado</span>
-            </div>
-            <div class="legend-item">
-                <div class="seat reserved"></div>
-                <span>Ocupado</span>
-            </div>
+            <div class="legend-item"><div class="seat available"></div><span>Disponible</span></div>
+            <div class="legend-item"><div class="seat selected"></div><span>Seleccionado</span></div>
+            <div class="legend-item"><div class="seat reserved"></div><span>Ocupado</span></div>
         </div>
 
         <div class="selection-summary">
@@ -139,6 +119,9 @@
     <script>
         let selectedSeats = [];
         const precioBase = 3.50;
+        const STORAGE_KEY = 'formData_{{ pelicula.id }}';
+        const SCROLL_KEY = 'scrollPos_{{ pelicula.id }}';
+        const limpiarForm = {{ limpiar_form|yesno:"true,false" }};
 
         function updateSummary() {
             const selectedSeatsElement = document.getElementById('selected-seats');
@@ -146,44 +129,60 @@
             const totalPriceElement = document.getElementById('total-price');
             const asientosInput = document.getElementById('asientos');
 
-            if (selectedSeats.length > 0) {
-                selectedSeatsElement.textContent = selectedSeats.join(', ');
-            } else {
-                selectedSeatsElement.textContent = 'Ningún asiento seleccionado';
-            }
-
+            selectedSeatsElement.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'Ningún asiento seleccionado';
             ticketCountElement.textContent = selectedSeats.length;
 
             const formatoSeleccionado = document.querySelector('input[name="formato"]:checked').value;
             let precioPorBoleto = precioBase;
+            if (formatoSeleccionado === '3D') precioPorBoleto = 4.50;
+            if (formatoSeleccionado === 'IMAX') precioPorBoleto = 6.00;
 
-            switch(formatoSeleccionado) {
-                case '3D':
-                    precioPorBoleto = 4.50;
-                    break;
-                case 'IMAX':
-                    precioPorBoleto = 6.00;
-                    break;
-            }
-
-            const total = selectedSeats.length * precioPorBoleto;
-            totalPriceElement.textContent = `Total: $${total.toFixed(2)}`;
+            totalPriceElement.textContent = `Total: $${(selectedSeats.length * precioPorBoleto).toFixed(2)}`;
             asientosInput.value = selectedSeats.join(',');
         }
 
         function actualizarAsientos() {
-            const sala = document.getElementById('sala').value;
-            const horario = document.getElementById('horario').value;
-            
-            // Redirigir a la misma página con los nuevos parámetros
-            window.location.href = `?sala=${sala}&horario=${horario}`;
+            const combo = document.getElementById('combo').value;
+            const formData = {};
+            document.querySelectorAll('#reserva-form input, #reserva-form select').forEach(el => {
+                if (el.type === 'radio') {
+                    if (el.checked) formData[el.name] = el.value;
+                } else {
+                    formData[el.name] = el.value;
+                }
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+            localStorage.setItem(SCROLL_KEY, window.scrollY);
+            window.location.href = `?combo=${encodeURIComponent(combo)}`;
         }
 
-        // Inicializar eventos de asientos
+        window.addEventListener('load', () => {
+            if (limpiarForm) {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(SCROLL_KEY);
+            } else {
+                const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                for (const name in savedData) {
+                    const el = document.querySelector(`[name="${name}"]`);
+                    if (el) {
+                        if (el.type === 'radio') {
+                            if (el.value === savedData[name]) el.checked = true;
+                        } else {
+                            el.value = savedData[name];
+                        }
+                    }
+                }
+                const scrollPos = localStorage.getItem(SCROLL_KEY);
+                if (scrollPos) {
+                    window.scrollTo(0, parseInt(scrollPos));
+                    localStorage.removeItem(SCROLL_KEY);
+                }
+            }
+        });
+
         document.querySelectorAll('.seat.available').forEach(seat => {
             seat.addEventListener('click', () => {
                 const seatNumber = seat.getAttribute('data-seat');
-
                 if (seat.classList.contains('selected')) {
                     seat.classList.remove('selected');
                     selectedSeats = selectedSeats.filter(s => s !== seatNumber);
@@ -191,7 +190,6 @@
                     seat.classList.add('selected');
                     selectedSeats.push(seatNumber);
                 }
-
                 updateSummary();
             });
         });

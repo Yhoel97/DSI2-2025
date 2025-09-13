@@ -1,0 +1,431 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ pelicula.nombre }} - CineDot</title>
+    <link rel="stylesheet" href="{% static 'styles/index.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .pelicula-detalle {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .pelicula-hero {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .poster-large {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        
+        .pelicula-info-detalle {
+            padding: 1rem 0;
+        }
+        
+        .titulo-pelicula {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        
+        .rating-display {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 10px;
+        }
+        
+        .estrellas {
+            display: flex;
+            gap: 0.2rem;
+        }
+        
+        .estrella {
+            color: #ffd700;
+            font-size: 1.5rem;
+        }
+        
+        .estrella.vacia {
+            color: #ddd;
+        }
+        
+        .rating-info {
+            font-size: 1.1rem;
+            color: #555;
+        }
+        
+        .detalle-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .info-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .actions-detalle {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .btn-detalle {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-detalle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-back {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .valoraciones-seccion {
+            margin-top: 3rem;
+        }
+        
+        .seccion-titulo {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+        
+        .valoracion-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .valoracion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .usuario-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .usuario-nombre {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .fecha-valoracion {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .valoracion-rating {
+            display: flex;
+            gap: 0.2rem;
+        }
+        
+        .valoracion-resena {
+            color: #555;
+            line-height: 1.6;
+            margin-top: 1rem;
+        }
+        
+        .sin-valoraciones {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .pagination a, .pagination span {
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            border: 1px solid #ddd;
+        }
+        
+        .pagination .current {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .mis-valoraciones {
+            background: linear-gradient(135deg, #e8f6fd, #d4edf9);
+            border-left: 4px solid #3498db;
+        }
+        
+        @media (max-width: 768px) {
+            .pelicula-hero {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            
+            .titulo-pelicula {
+                font-size: 2rem;
+            }
+            
+            .detalle-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions-detalle {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <h1>CineDot</h1>
+        </div>
+        <nav class="nav">
+            <ul class="nav-list flex">
+                <li><a href="{% url 'index' %}">Cartelera</a></li>
+                <li><a href="{% url 'index' %}#contacto">Contacto</a></li>
+                {% if user.is_authenticated %}
+                    <li>¡Hola, {{ user.username }}!</li>
+                    <li><a href="/admin/logout/" class="btn login-btn">Cerrar Sesión</a></li>
+                {% else %}
+                    <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
+                    <li><a href="/registro/" class="btn login-btn">Registrarse</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </header>
+
+    <main class="pelicula-detalle">
+        <!-- Hero Section -->
+        <div class="pelicula-hero">
+            <div class="poster-container">
+                <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="poster-large">
+            </div>
+            
+            <div class="pelicula-info-detalle">
+                <h1 class="titulo-pelicula">{{ pelicula.nombre }}</h1>
+                
+                <!-- Rating Promedio -->
+                <div class="rating-display">
+                    <div class="estrellas">
+                        {% with estrellas=pelicula.get_rating_estrellas %}
+                            {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= estrellas.llenas %}
+                                    <i class="fas fa-star estrella"></i>
+                                {% elif forloop.counter == estrellas.llenas|add:1 and estrellas.media %}
+                                    <i class="fas fa-star-half-alt estrella"></i>
+                                {% else %}
+                                    <i class="far fa-star estrella vacia"></i>
+                                {% endif %}
+                            {% endfor %}
+                        {% endwith %}
+                    </div>
+                    <div class="rating-info">
+                        <strong>{{ pelicula.get_rating_promedio }}/5</strong>
+                        ({{ pelicula.get_total_valoraciones }} valoración{{ pelicula.get_total_valoraciones|pluralize:"es" }})
+                    </div>
+                </div>
+                
+                <!-- Información de la película -->
+                <div class="detalle-info">
+                    <div class="info-item">
+                        <span class="info-label">Año:</span>
+                        {{ pelicula.anio }}
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Director:</span>
+                        {{ pelicula.director }}
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Géneros:</span>
+                        {{ pelicula.get_generos_list|join:", " }}
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Salas:</span>
+                        {{ pelicula.get_salas_list|join:", " }}
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Horarios:</span>
+                        {{ pelicula.get_horarios_list|join:", " }}
+                    </div>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="actions-detalle">
+                    <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn-detalle btn-warning">
+                        <i class="fab fa-youtube"></i> Ver Tráiler
+                    </a>
+                    <a href="{% url 'asientos' pelicula.id %}" class="btn-detalle btn-success">
+                        <i class="fas fa-ticket-alt"></i> Comprar Boleto
+                    </a>
+                    {% if user.is_authenticated %}
+                        {% if valoracion_usuario %}
+                            <a href="{% url 'crear_valoracion' pelicula.id %}" class="btn-detalle btn-primary">
+                                <i class="fas fa-edit"></i> Editar Mi Valoración
+                            </a>
+                        {% else %}
+                            <a href="{% url 'crear_valoracion' pelicula.id %}" class="btn-detalle btn-primary">
+                                <i class="fas fa-star"></i> Valorar Película
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                    <a href="{% url 'index' %}" class="btn-detalle btn-back">
+                        <i class="fas fa-arrow-left"></i> Volver a Cartelera
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Valoraciones -->
+        <section class="valoraciones-seccion">
+            <h2 class="seccion-titulo">
+                <i class="fas fa-comments"></i> 
+                Valoraciones y Reseñas ({{ pelicula.get_total_valoraciones }})
+            </h2>
+            
+            {% if valoraciones %}
+                {% for valoracion in valoraciones %}
+                    <div class="valoracion-card {% if valoracion.usuario == user %}mis-valoraciones{% endif %}">
+                        <div class="valoracion-header">
+                            <div class="usuario-info">
+                                <i class="fas fa-user-circle" style="font-size: 1.2rem; color: #3498db;"></i>
+                                <span class="usuario-nombre">
+                                    {{ valoracion.usuario.username }}
+                                    {% if valoracion.usuario == user %}<em>(Tú)</em>{% endif %}
+                                </span>
+                                <span class="fecha-valoracion">
+                                    {{ valoracion.fecha_creacion|date:"d/m/Y H:i" }}
+                                </span>
+                            </div>
+                            <div class="valoracion-rating">
+                                {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= valoracion.rating %}
+                                        <i class="fas fa-star estrella"></i>
+                                    {% else %}
+                                        <i class="far fa-star estrella vacia"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        {% if valoracion.resena %}
+                            <div class="valoracion-resena">
+                                "{{ valoracion.resena }}"
+                            </div>
+                        {% endif %}
+                        
+                        {% if valoracion.usuario == user %}
+                            <div style="margin-top: 1rem; text-align: right;">
+                                <a href="{% url 'eliminar_valoracion' pelicula.id %}" 
+                                   class="btn-detalle btn-warning" 
+                                   style="font-size: 0.9rem; padding: 6px 12px;"
+                                   onclick="return confirm('¿Estás seguro de que quieres eliminar tu valoración?')">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                
+                <!-- Paginación -->
+                {% if valoraciones.has_other_pages %}
+                    <div class="pagination">
+                        {% if valoraciones.has_previous %}
+                            <a href="?page=1">&laquo; primera</a>
+                            <a href="?page={{ valoraciones.previous_page_number }}">anterior</a>
+                        {% endif %}
+                        
+                        <span class="current">
+                            Página {{ valoraciones.number }} de {{ valoraciones.paginator.num_pages }}
+                        </span>
+                        
+                        {% if valoraciones.has_next %}
+                            <a href="?page={{ valoraciones.next_page_number }}">siguiente</a>
+                            <a href="?page={{ valoraciones.paginator.num_pages }}">última &raquo;</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="sin-valoraciones">
+                    <i class="fas fa-star" style="font-size: 3rem; color: #ddd; margin-bottom: 1rem;"></i>
+                    <p>Esta película aún no tiene valoraciones.</p>
+                    {% if user.is_authenticated %}
+                        <p>¡Sé el primero en valorarla!</p>
+                        <a href="{% url 'crear_valoracion' pelicula.id %}" class="btn-detalle btn-primary">
+                            <i class="fas fa-star"></i> Escribir Valoración
+                        </a>
+                    {% else %}
+                        <p><a href="{% url 'login' %}">Inicia sesión</a> para escribir una valoración.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>© 2025 CineDot. Todos los derechos reservados.</p>
+    </footer>
+</body>
+</html>

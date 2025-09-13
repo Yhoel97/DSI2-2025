@@ -1,18 +1,17 @@
 from io import BytesIO
 import json
-from multiprocessing import context
 import random
 import string
-from tkinter import CENTER, Canvas
-from turtle import color
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from DSI2025 import settings
 from .forms import *
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Pelicula, Reserva
+from .models import Pelicula, Reserva, Valoracion
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
@@ -359,9 +358,6 @@ def descargar_ticket(request, codigo_reserva):
         '});'
         '</script>'
     )
-    
-    
-    return render(request, "asientos.html", context)
 ##########################################################################
 
 
@@ -566,3 +562,100 @@ def peliculas(request):
     }
     
     return render(request, 'peliculas.html', context)
+
+
+################################################################################
+# VALORACIONES Y RESEÑAS - PBI-24
+################################################################################
+
+def pelicula_detalle(request, pelicula_id):
+    """Vista para mostrar detalle de película con valoraciones"""
+    pelicula = get_object_or_404(Pelicula, id=pelicula_id)
+    
+    # Obtener todas las valoraciones de la película
+    valoraciones_list = pelicula.valoraciones.all().order_by('-fecha_creacion')
+    
+    # Paginación de valoraciones
+    paginator = Paginator(valoraciones_list, 5)  # 5 valoraciones por página
+    page_number = request.GET.get('page')
+    valoraciones = paginator.get_page(page_number)
+    
+    # Verificar si el usuario ya ha valorado esta película
+    valoracion_usuario = None
+    if request.user.is_authenticated:
+        try:
+            valoracion_usuario = Valoracion.objects.get(pelicula=pelicula, usuario=request.user)
+        except Valoracion.DoesNotExist:
+            valoracion_usuario = None
+    
+    # Convertir géneros para mostrar nombres completos
+    pelicula.get_generos_list = convertir_generos(pelicula.generos)
+    
+    context = {
+        'pelicula': pelicula,
+        'valoraciones': valoraciones,
+        'valoracion_usuario': valoracion_usuario,
+        'puede_valorar': request.user.is_authenticated and not valoracion_usuario,
+    }
+    
+    return render(request, 'pelicula_detalle.html', context)
+
+
+@login_required
+def crear_valoracion(request, pelicula_id):
+    """Vista para crear o actualizar valoración de una película"""
+    pelicula = get_object_or_404(Pelicula, id=pelicula_id)
+    
+    # Verificar si ya existe una valoración del usuario
+    try:
+        valoracion_existente = Valoracion.objects.get(pelicula=pelicula, usuario=request.user)
+    except Valoracion.DoesNotExist:
+        valoracion_existente = None
+    
+    if request.method == 'POST':
+        form = ValoracionForm(
+            request.POST, 
+            instance=valoracion_existente,
+            pelicula=pelicula, 
+            usuario=request.user
+        )
+        
+        if form.is_valid():
+            valoracion = form.save()
+            if valoracion_existente:
+                messages.success(request, '¡Tu valoración ha sido actualizada!')
+            else:
+                messages.success(request, '¡Gracias por tu valoración!')
+            
+            return redirect('pelicula_detalle', pelicula_id=pelicula.id)
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = ValoracionForm(
+            instance=valoracion_existente,
+            pelicula=pelicula, 
+            usuario=request.user
+        )
+    
+    context = {
+        'form': form,
+        'pelicula': pelicula,
+        'valoracion_existente': valoracion_existente,
+    }
+    
+    return render(request, 'crear_valoracion.html', context)
+
+
+@login_required  
+def eliminar_valoracion(request, pelicula_id):
+    """Vista para eliminar valoración propia"""
+    pelicula = get_object_or_404(Pelicula, id=pelicula_id)
+    
+    try:
+        valoracion = Valoracion.objects.get(pelicula=pelicula, usuario=request.user)
+        valoracion.delete()
+        messages.success(request, 'Tu valoración ha sido eliminada.')
+    except Valoracion.DoesNotExist:
+        messages.error(request, 'No se encontró tu valoración.')
+    
+    return redirect('pelicula_detalle', pelicula_id=pelicula.id)

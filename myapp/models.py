@@ -1,6 +1,8 @@
 from django.db import models
 from django.forms import ValidationError
 from django.urls import reverse
+from django.contrib.auth.models import User
+from django.db.models import Avg
 
 # Create your models here.
 from django.db import models
@@ -55,6 +57,27 @@ class Pelicula(models.Model):
         
     def get_salas_list(self):
         return [s.strip() for s in self.salas.split(",")] if self.salas else []
+
+    def get_rating_promedio(self):
+        """Obtiene el rating promedio de la película"""
+        promedio = self.valoraciones.aggregate(promedio=Avg('rating'))['promedio']
+        return round(promedio, 1) if promedio else 0
+
+    def get_total_valoraciones(self):
+        """Obtiene el total de valoraciones de la película"""
+        return self.valoraciones.count()
+
+    def get_rating_estrellas(self):
+        """Obtiene la representación en estrellas del rating promedio"""
+        promedio = self.get_rating_promedio()
+        estrellas_llenas = int(promedio)
+        tiene_media = (promedio - estrellas_llenas) >= 0.5
+        return {
+            'llenas': estrellas_llenas,
+            'media': tiene_media,
+            'vacias': 5 - estrellas_llenas - (1 if tiene_media else 0),
+            'promedio': promedio
+        }
 
     def __str__(self):
         return self.nombre
@@ -117,3 +140,38 @@ class Reserva(models.Model):
         db_table = 'reservas'
         verbose_name = 'Reserva'
         verbose_name_plural = 'Reservas'
+
+
+class Valoracion(models.Model):
+    RATING_CHOICES = [
+        (1, '1 estrella'),
+        (2, '2 estrellas'),
+        (3, '3 estrellas'),
+        (4, '4 estrellas'),
+        (5, '5 estrellas'),
+    ]
+    
+    pelicula = models.ForeignKey(Pelicula, on_delete=models.CASCADE, related_name='valoraciones')
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.IntegerField(choices=RATING_CHOICES)
+    resena = models.TextField(max_length=500, blank=True, null=True, 
+                             help_text="Escribe tu reseña (opcional, máximo 500 caracteres)")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def get_rating_estrellas(self):
+        """Obtiene la representación en estrellas del rating"""
+        return {
+            'llenas': self.rating,
+            'vacias': 5 - self.rating,
+            'rating': self.rating
+        }
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.pelicula.nombre} ({self.rating}/5)"
+
+    class Meta:
+        unique_together = ('pelicula', 'usuario')
+        verbose_name = 'Valoración'
+        verbose_name_plural = 'Valoraciones'
+        ordering = ['-fecha_creacion']

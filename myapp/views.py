@@ -33,6 +33,8 @@ from io import BytesIO
 from django.conf import settings
 import os
 from datetime import datetime
+import qrcode
+from reportlab.platypus import Image as RLImage
 
 
 # Diccionario de géneros con nombres completos
@@ -166,14 +168,146 @@ def asientos(request, pelicula_id=None):
     if 'reserva_message' in request.session:
         messages.success(request, request.session['reserva_message'])
         del request.session['reserva_message']
-    
+
+    # Obtener sala y horario desde POST o GET para mostrar asientos ocupados
+    sala = request.POST.get('sala') or request.GET.get('sala') or (pelicula.get_salas_list()[0] if pelicula.get_salas_list() else '')
+    horario = request.POST.get('horario') or request.GET.get('horario') or (pelicula.get_horarios_list()[0] if pelicula.get_horarios_list() else '')
+    asientos_ocupados = []
+
+    if sala and horario:
+        reservas_existentes = Reserva.objects.filter(
+            pelicula=pelicula,
+            sala=sala,
+            horario=horario,
+            estado__in=['RESERVADO', 'CONFIRMADO']  # Incluir ambos estados
+        )
+        for reserva in reservas_existentes:
+            asientos_ocupados.extend(reserva.get_asientos_list())
+
     context = {
         'pelicula': pelicula,
         'formatos': Reserva.FORMATO_CHOICES,
+        'asientos_ocupados': asientos_ocupados,
     }
     return render(request, "asientos.html", context)
 
 #################################################################
+#################################################################
+def administrar_salas(request):
+    peliculas = Pelicula.objects.all()
+    pelicula_seleccionada = None
+    sala_seleccionada = ''
+    horario_seleccionado = ''
+    asientos_ocupados = []
+    reservas = []
+    mostrar_asientos = False
+    horarios_disponibles = []
+    salas_disponibles = []
+
+    # Obtener parámetros del request
+    pelicula_id = request.POST.get('pelicula')
+    sala = request.POST.get('sala')
+    horario = request.POST.get('horario')
+    
+    # Si hay una película seleccionada, obtenerla y extraer sus horarios y salas
+    if pelicula_id:
+        try:
+            pelicula_seleccionada = Pelicula.objects.get(id=pelicula_id)
+            # Extraer horarios y salas de la película seleccionada
+            horarios_disponibles = pelicula_seleccionada.get_horarios_list()
+            salas_disponibles = pelicula_seleccionada.get_salas_list()
+        except Pelicula.DoesNotExist:
+            messages.error(request, "La película seleccionada no existe")
+    
+    # Si tenemos película, sala y horario, buscar asientos ocupados
+    if pelicula_seleccionada and sala and horario:
+        sala_seleccionada = sala
+        horario_seleccionado = horario
+        mostrar_asientos = True
+        
+        reservas = Reserva.objects.filter(
+            pelicula=pelicula_seleccionada,
+            sala=sala,
+            horario=horario,
+            estado__in=['RESERVADO', 'CONFIRMADO']
+        )
+
+        for reserva in reservas:
+            asientos_ocupados.extend(reserva.asientos.split(','))
+
+    # Manejar acciones POST
+    if request.method == 'POST':
+        # Resetear todos los asientos
+        if 'resetear_todos' in request.POST:
+            if pelicula_seleccionada and sala and horario:
+                reservas = Reserva.objects.filter(
+                    pelicula=pelicula_seleccionada,
+                    sala=sala,
+                    horario=horario,
+                    estado__in=['RESERVADO', 'CONFIRMADO']
+                )
+                
+                # Cambiar estado a CANCELADO
+                reservas.update(estado='CANCELADO')
+                
+                messages.success(request, f'Todos los asientos de {pelicula_seleccionada.nombre} - {sala} - {horario} han sido liberados.')
+                return redirect('administrar_salas')
+
+        # Liberar asiento individual
+        elif 'liberar_asiento' in request.POST:
+            asiento = request.POST.get('asiento')
+            
+            if pelicula_seleccionada and sala and horario and asiento:
+                # Buscar reservas que contengan este asiento
+                reservas_con_asiento = Reserva.objects.filter(
+                    pelicula=pelicula_seleccionada,
+                    sala=sala,
+                    horario=horario,
+                    estado__in=['RESERVADO', 'CONFIRMADO']
+                ).filter(asientos__contains=asiento)
+                
+                for reserva in reservas_con_asiento:
+                    # Remover el asiento específico
+                    asientos_list = reserva.asientos.split(',')
+                    if asiento in asientos_list:
+                        asientos_list.remove(asiento)
+                        reserva.asientos = ','.join(asientos_list)
+                        
+                        # Actualizar cantidad de boletos y precio
+                        reserva.cantidad_boletos = len(asientos_list)
+                        
+                        # Recalcular precio
+                        precio_por_boleto = {
+                            '2D': 3.50,
+                            '3D': 4.50,
+                            'IMAX': 6.00
+                        }.get(reserva.formato, 0)
+                        
+                        reserva.precio_total = precio_por_boleto * reserva.cantidad_boletos
+                        
+                        # Si no quedan asientos, cancelar la reserva
+                        if reserva.cantidad_boletos == 0:
+                            reserva.estado = 'CANCELADO'
+                        
+                        reserva.save()
+                
+                messages.success(request, f'Asiento {asiento} liberado exitosamente.')
+                return redirect('administrar_salas')
+
+    context = {
+        'peliculas': peliculas,
+        'pelicula_seleccionada': pelicula_seleccionada,
+        'sala_seleccionada': sala_seleccionada,
+        'horario_seleccionado': horario_seleccionado,
+        'asientos_ocupados': asientos_ocupados,
+        'reservas': reservas,
+        'mostrar_asientos': mostrar_asientos,
+        'horarios_disponibles': horarios_disponibles,
+        'salas_disponibles': salas_disponibles
+    }
+    return render(request, 'administrar_salas.html', context)
+
+################################################################
 
 
 def generar_pdf_reserva(reserva):
@@ -316,15 +450,25 @@ def generar_pdf_reserva(reserva):
     ]))
     elements.append(reserva_table)
     elements.append(Spacer(1, 30))
+        # Código QR
+    qr_image = generar_qr(reserva)
+    elements.append(Paragraph("Escanee este código para validar su ticket", info_style))
+    elements.append(qr_image)
+    elements.append(Spacer(1, 20))
     
     # Mensaje de agradecimiento
     elements.append(Paragraph("Presente este ticket en la entrada del cine", footer_style))
     elements.append(Paragraph("¡Gracias por su preferencia!", footer_style))
+
+
     
     # Construir el PDF
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+
+
 
 
 def descargar_ticket(request, codigo_reserva):
@@ -351,6 +495,36 @@ def descargar_ticket(request, codigo_reserva):
     
     return render(request, "asientos.html", context)
 ##########################################################################
+
+
+def generar_qr(reserva):
+    url = f"https://system-design.onrender.com/validaQR/{reserva.codigo_reserva}/"
+    qr = qrcode.make(url)
+    buffer = BytesIO()
+    qr.save(buffer, format='PNG')
+    buffer.seek(0)
+    return RLImage(buffer, width=1.5*inch, height=1.5*inch)
+########################################################################################
+
+def validaQR(request, codigo_reserva):
+    reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
+
+    if reserva.usado:
+        mensaje = "❌ Ticket inválido: ya fue utilizado."
+        valido = False
+    else:
+        reserva.usado = True
+        reserva.save()
+        mensaje = "✅ Ticket válido: bienvenido al cine."
+        valido = True
+
+    return render(request, "validaQR.html", {
+        "mensaje": mensaje,
+        "valido": valido,
+        "reserva": reserva,
+        "pelicula": reserva.pelicula
+    })
+###############################################################################################
 
 @csrf_exempt
 def peliculas(request):

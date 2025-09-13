@@ -37,14 +37,14 @@ class Pelicula(models.Model):
         'Sala 6'
     ]
 
-    nombre = models.CharField(max_length=350)
+    nombre = models.CharField(max_length=255)
     anio = models.IntegerField()
-    director = models.CharField(max_length=350)
-    imagen_url = models.TextField()  # Sin límite de longitud
-    trailer_url = models.TextField()
-    generos = models.CharField(max_length=350)
-    horarios = models.CharField(max_length=350, blank=True, null=True)
-    salas = models.CharField(max_length=350, blank=True, null=True)
+    director = models.CharField(max_length=255)
+    imagen_url = models.URLField()
+    trailer_url = models.URLField()
+    generos = models.CharField(max_length=255)
+    horarios = models.CharField(max_length=255, blank=True, null=True)
+    salas = models.CharField(max_length=255, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     def get_generos_list(self):
@@ -61,6 +61,9 @@ class Pelicula(models.Model):
 
     class Meta:
         db_table = 'peliculas'
+
+    # models.py
+usado = models.BooleanField(default=False)
 
 
 
@@ -91,6 +94,7 @@ class Reserva(models.Model):
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='RESERVADO')
     fecha_reserva = models.DateTimeField(auto_now_add=True)
     codigo_reserva = models.CharField(max_length=10, unique=True)
+    usado = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Reserva #{self.codigo_reserva} - {self.pelicula.nombre}"
@@ -112,7 +116,11 @@ class Reserva(models.Model):
         import string
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
+    def get_asientos_list(self):
+        return self.asientos.split(',')
+    
     class Meta:
         db_table = 'reservas'
         verbose_name = 'Reserva'
         verbose_name_plural = 'Reservas'
+

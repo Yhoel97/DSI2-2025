@@ -7,7 +7,9 @@ from django.urls import reverse
 from DSI2025 import settings
 from .forms import *
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
+from functools import wraps
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
@@ -48,6 +50,19 @@ GENERO_CHOICES_DICT = {
     "AN": "Animacion"
 }
 
+# Decorador personalizado para verificar si el usuario es admin
+def admin_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            # Redirigir a nuestro login personalizado
+            return redirect('/accounts/login/')
+        if not request.user.is_superuser:
+            # Si no es superuser, redirigir al índice
+            return redirect('index')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
 def convertir_generos(codigos_generos):
     """Convierte códigos de género a nombres completos"""
     if not codigos_generos:
@@ -86,8 +101,11 @@ def my_login(request):
             else:
                 request.session.set_expiry(0)
                 
-            next_url = request.POST.get('next', '/peliculas/')
-            return redirect(next_url)
+            # Redirigir según el tipo de usuario - SIEMPRE basado en privilegios
+            if user.is_superuser:
+                return redirect('/peliculas/')
+            else:
+                return redirect('index')
         else:
             messages.error(request, 'Usuario o contraseña incorrectos')
     
@@ -533,8 +551,8 @@ def validaQR(request, codigo_reserva):
     })
 ###############################################################################################
 
+@admin_required
 @csrf_exempt
-
 def peliculas(request):
     # Obtener todas las películas para mostrar en la tabla
     peliculas_list = Pelicula.objects.all().order_by('-fecha_creacion')

@@ -98,11 +98,14 @@
                 <li><a href="#cartelera">Cartelera</a></li>
                 <li><a href="#contacto">Contacto</a></li>
                 {% if user.is_authenticated %}
+                    <li><span class="user-welcome">¡Hola, {{ user.username }}!</span></li>
                     {% if user.is_staff %}
-                        <li><a href="{% url 'login' %}" class="btn admin-btn">Panel Admin</a></li>
+                        <li><a href="{% url 'peliculas' %}" class="btn admin-btn">Panel Admin</a></li>
                     {% endif %}
+                    <li><a href="{% url 'admin:logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
                 {% else %}
                     <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
+                    <li><a href="{% url 'registro' %}" class="btn register-btn">Registrarse</a></li>
                 {% endif %}
             </ul>
         </nav>

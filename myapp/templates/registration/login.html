@@ -59,6 +59,17 @@
                 </div>
                 <button type="submit" class="btn-primary">Iniciar Sesión</button>
             </form>
+            
+            <!-- Enlaces adicionales -->
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                <p style="color: #666; margin-bottom: 10px;">¿No tienes una cuenta?</p>
+                <a href="{% url 'registro' %}" class="btn-secondary" style="display: inline-block; padding: 10px 20px; background-color: #f8f9fa; color: #495057; text-decoration: none; border-radius: 4px; border: 1px solid #dee2e6;">
+                    <i class="fas fa-user-plus"></i> Crear cuenta nueva
+                </a>
+                <p style="margin-top: 15px;">
+                    <a href="{% url 'index' %}" style="color: #007bff; text-decoration: none;">← Volver al inicio</a>
+                </p>
+            </div>
         </div>
     </div>
 </body>

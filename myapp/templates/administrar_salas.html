@@ -1,0 +1,151 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Administrar Salas</title>
+  <link rel="stylesheet" href="{% static 'styles/administrar_salas.css' %}">
+</head>
+<body>
+  <div class="cine-container">
+    <div class="header-admin">
+      <h1 class="admin-title">Administrar Salas</h1>
+      <div class="admin-buttons">
+        <a href="{% url 'peliculas' %}" class="btn-green">Administrar Películas</a>
+        <a href="{% url 'index' %}" class="btn-green">Inicio</a>
+
+      </div>
+    </div>
+
+    <!-- Select de películas -->
+    <form method="GET" class="form-group">
+      <label for="pelicula">Película:</label>
+      <select name="pelicula" id="pelicula" onchange="this.form.submit()">
+        <option value="">-- Selecciona una película --</option>
+        {% for p in peliculas %}
+        <option value="{{ p.id }}" {% if pelicula and p.id == pelicula.id %}selected{% endif %}>{{ p.nombre }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <!-- Select de horario y sala -->
+    {% if pelicula %}
+    <form method="GET" class="form-group">
+      <input type="hidden" name="pelicula" value="{{ pelicula.id }}">
+      <label for="combo">Horario y Sala:</label>
+      <select name="combo" id="combo" onchange="this.form.submit()">
+        <option value="">-- Selecciona horario y sala --</option>
+        {% for c in combinaciones %}
+        <option value="{{ c }}" {% if c == combo_actual %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+
+    <!-- Cuadrícula de asientos -->
+    {% if combo_actual %}
+    <div class="screen-container"><div class="screen">Pantalla</div></div>
+    <div class="seats-container">
+      <div class="seats-grid">
+        {% for fila in "ABCDE" %}
+        <div class="seat-row">
+          <span class="row-letter">{{ fila }}</span>
+          {% for numero in "12345678" %}
+          {% with asiento=fila|add:numero %}
+          <div class="seat {% if asiento in asientos_ocupados %}reserved clickable{% else %}available{% endif %}" 
+               data-seat="{{ asiento }}">
+            {{ numero }}
+          </div>
+          {% endwith %}
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Botones -->
+    <div class="form-group">
+      <button class="btn-confirm" id="btn-restablecer">Restablecer todos los asientos</button>
+      <button class="btn-confirm" id="btn-eliminar" style="display:none;">
+        Eliminar asiento <span id="asiento-label"></span>
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- JavaScript igual que antes -->
+  <script>
+    const reservedSeats = document.querySelectorAll('.clickable');
+    const btnEliminar = document.getElementById('btn-eliminar');
+    const btnRestablecer = document.getElementById('btn-restablecer');
+    const asientoLabel = document.getElementById('asiento-label');
+    let selectedAsiento = null;
+
+    reservedSeats.forEach(seat => {
+      seat.addEventListener('click', () => {
+        const asiento = seat.getAttribute('data-seat');
+
+        if (selectedAsiento === asiento) {
+          seat.classList.remove('selected');
+          selectedAsiento = null;
+          asientoLabel.textContent = '';
+          btnEliminar.style.display = 'none';
+        } else {
+          reservedSeats.forEach(s => s.classList.remove('selected'));
+          seat.classList.add('selected');
+          selectedAsiento = asiento;
+          asientoLabel.textContent = asiento;
+          btnEliminar.style.display = 'inline-block';
+        }
+      });
+    });
+
+    btnEliminar.addEventListener('click', e => {
+      e.preventDefault();
+      fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `eliminar_asiento=${selectedAsiento}`
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const seat = document.querySelector(`[data-seat="${selectedAsiento}"]`);
+          seat.classList.remove('reserved', 'selected');
+          seat.classList.add('available');
+          btnEliminar.style.display = 'none';
+          selectedAsiento = null;
+        } else {
+          alert("Error: " + data.error);
+        }
+      });
+    });
+
+    btnRestablecer.addEventListener('click', e => {
+      e.preventDefault();
+      fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `restablecer=true`
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.querySelectorAll('.reserved').forEach(seat => {
+            seat.classList.remove('reserved', 'selected');
+            seat.classList.add('available');
+          });
+          btnEliminar.style.display = 'none';
+          selectedAsiento = null;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

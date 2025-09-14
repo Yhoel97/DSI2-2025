@@ -248,7 +248,7 @@
                 <li><a href="{% url 'index' %}#contacto">Contacto</a></li>
                 {% if user.is_authenticated %}
                     <li>¡Hola, {{ user.username }}!</li>
-                    <li><a href="/admin/logout/" class="btn login-btn">Cerrar Sesión</a></li>
+                    <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
                 {% else %}
                     <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
                 {% endif %}

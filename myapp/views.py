@@ -94,6 +94,23 @@ def my_login(request):
     return render(request, 'registration/login.html')
 
 
+def my_logout(request):
+    """Vista para cerrar sesión del usuario"""
+    from django.contrib.auth import logout
+    
+    if request.method == 'POST':
+        logout(request)
+        messages.success(request, 'Has cerrado sesión exitosamente.')
+        return redirect('index')
+    elif request.method == 'GET':
+        # Para enlaces directos, también permitimos logout via GET
+        logout(request)
+        messages.success(request, 'Has cerrado sesión exitosamente.')
+        return redirect('index')
+    
+    return redirect('index')
+
+
 def registro_usuario(request):
     """
     Vista para el registro de nuevos usuarios

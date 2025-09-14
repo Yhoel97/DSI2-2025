@@ -1,0 +1,281 @@
+/* ===== Fondo general pastel suave ===== */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
+  background-attachment: fixed;
+  background-size: cover;
+  font-family: 'Arial', sans-serif;
+  color: #333;
+}
+
+/* ===== Encabezado con botones a la derecha ===== */
+.header-admin {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1.5rem;
+}
+
+.admin-buttons {
+  display: flex;
+  gap: 0.8rem;
+}
+
+/* ===== Botones verdes ===== */
+.btn-green {
+  display: inline-block;
+  padding: 0.7rem 1.4rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border: 2px solid #000;
+  border-radius: 8px;
+  background: linear-gradient(to right, #b4ec51, #429321);
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.btn-green:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.btn-green:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* ===== Título ===== */
+.admin-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #555;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ===== Formulario ===== */
+.form-group {
+  margin-bottom: 1.5rem;
+  padding: 0 1.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: block;
+  color: #444;
+}
+
+/* ===== Selects con estilo ===== */
+/* ===== Selects con estilo moderno ===== */
+.form-group select {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  border: 2px solid #7b68ee;
+  font-size: 1rem;
+  background: white url("data:image/svg+xml;utf8,<svg fill='%237b68ee' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>") no-repeat right 0.8rem center/16px 16px;
+  color: #333;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  appearance: none; /* Oculta la flecha por defecto */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  transition: all 0.3s ease;
+}
+
+.form-group select:hover {
+  border-color: #5a4fcf;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #5a4fcf;
+  box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.3);
+}
+
+
+/* ===== Asientos ===== */
+.seats-container {
+  margin: 2rem 0;
+  padding: 0 1.5rem;
+}
+
+.seats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.seat-row {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.row-letter {
+  width: 20px;
+  text-align: center;
+  font-weight: bold;
+  color: #444;
+}
+
+.seat {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.seat.available {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #333;
+}
+
+.seat.available:hover {
+  background-color: #7b68ee;
+  color: white;
+  transform: scale(1.1);
+}
+
+.seat.reserved {
+  background-color: #333;
+  color: #ddd;
+}
+
+.seat.selected {
+  background-color: #ff4d6d;
+  color: white;
+  border-color: #ff4d6d;
+  box-shadow: 0 0 0 2px rgba(255, 77, 109, 0.4);
+}
+
+/* ===== Pantalla ===== */
+.screen-container {
+  margin: 2rem 0;
+  padding: 0 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.screen {
+  width: 80%;
+  height: 30px;
+  background: linear-gradient(to right, #7b68ee, #d94fff);
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  transform: rotateX(-25deg);
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  line-height: 30px;
+  letter-spacing: 1px;
+}
+
+/* ===== Botones de acción (Restablecer / Eliminar) ===== */
+.btn-confirm {
+  display: inline-block;
+  padding: 0.7rem 1.4rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border: 2px solid #000;
+  border-radius: 8px;
+  background: linear-gradient(to right, #00c6ff, #7b68ee);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.btn-confirm:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+
+/* ===== Diseño responsive ===== */
+@media (max-width: 768px) {
+  .header-admin {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .admin-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-green, .btn-confirm {
+    width: 48%;
+    text-align: center;
+    padding: 0.8rem;
+    font-size: 0.95rem;
+  }
+
+  .seats-grid {
+    gap: 0.5rem;
+  }
+
+  .seat {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+
+  .screen {
+    width: 100%;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-green, .btn-confirm {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .admin-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group {
+    padding: 0 1rem;
+  }
+
+  .seat {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+}

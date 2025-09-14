@@ -59,11 +59,17 @@ def convertir_generos(codigos_generos):
 def index(request):
     peliculas = Pelicula.objects.all().order_by('-fecha_creacion')[:10]  # Últimas 10 películas
     
-    # Convertir los códigos de género a nombres completos
     for pelicula in peliculas:
+        # Convertir géneros a nombres completos
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
+        
+        # Crear lista de pares Horario - Sala
+        horarios = pelicula.get_horarios_list()
+        salas = pelicula.get_salas_list()
+        pelicula.horario_sala_pares = list(zip(horarios, salas))
 
     return render(request, 'index.html', {'peliculas': peliculas})
+
 
 def my_login(request):
     if request.method == 'POST':
@@ -92,7 +98,6 @@ def my_login(request):
 
 @csrf_exempt
 def asientos(request, pelicula_id=None):
-    # Obtener la película seleccionada
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
     
     if not pelicula:
@@ -104,206 +109,163 @@ def asientos(request, pelicula_id=None):
         apellido_cliente = request.POST.get('apellido_cliente', '').strip()
         email = request.POST.get('email', '').strip()
         formato = request.POST.get('formato', '').strip()
-        horario = request.POST.get('horario', '').strip()
-        sala = request.POST.get('sala', '').strip()
+        combo = request.POST.get('combo', '').strip()  # Ej: "09:30 AM - Sala 1"
         asientos_seleccionados = request.POST.get('asientos', '').strip()
-        
+
+        # Listas base
+        salas_list = pelicula.get_salas_list()
+        horarios_list = pelicula.get_horarios_list()
+        # Emparejar uno a uno por índice
+        combinaciones = [f"{h} - {s}" for h, s in zip(horarios_list, salas_list)]
+
         errores = []
-        
         if not nombre_cliente: errores.append('El nombre es obligatorio')
         if not apellido_cliente: errores.append('El apellido es obligatorio')
         if not email or '@' not in email: errores.append('Ingrese un email válido')
         if not formato or formato not in dict(Reserva.FORMATO_CHOICES).keys(): errores.append('Seleccione un formato válido')
-        if not horario or horario not in pelicula.get_horarios_list(): errores.append('Seleccione un horario válido')
-        if not sala or sala not in pelicula.get_salas_list(): errores.append('Seleccione una sala válida')
+        if not combo or combo not in combinaciones: errores.append('Seleccione una combinación válida')
         if not asientos_seleccionados: errores.append('Seleccione al menos un asiento')
-        
+
         if not errores:
             try:
-                precio_por_boleto = {
-                    '2D': 3.50,
-                    '3D': 4.50,
-                    'IMAX': 6.00
-                }.get(formato, 0)
-                
-                cantidad_boletos = len(asientos_seleccionados.split(','))
+                horario, sala = combo.split(" - ", 1)
+                precio_por_boleto = {'2D': 3.50, '3D': 4.50, 'IMAX': 6.00}.get(formato, 0)
+                cantidad_boletos = len([a for a in asientos_seleccionados.split(',') if a])
                 precio_total = precio_por_boleto * cantidad_boletos
-                
+
                 reserva = Reserva(
                     pelicula=pelicula,
                     nombre_cliente=nombre_cliente,
                     apellido_cliente=apellido_cliente,
                     email=email,
                     formato=formato,
-                    sala=sala,
-                    horario=horario,
+                    sala=sala.strip(),
+                    horario=horario.strip(),
                     asientos=asientos_seleccionados,
                     cantidad_boletos=cantidad_boletos,
                     precio_total=precio_total,
                     estado='RESERVADO'
                 )
-                
                 reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
                 reserva.save()
-                
-                # Generar PDF
+
                 pdf_buffer = generar_pdf_reserva(reserva)
-                
-                # Crear respuesta
                 response = HttpResponse(pdf_buffer, content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-                
-                # Guardar mensaje en sesión para mostrarlo después
+
+                # Señal para limpiar storage en el siguiente load
                 request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
-                
+                request.session['limpiar_form'] = True
+
                 return response
-                
+
             except Exception as e:
                 messages.error(request, f'Error al crear la reserva: {str(e)}')
         else:
             for error in errores:
                 messages.error(request, error)
-    
-    # Mostrar mensaje de reserva exitosa si existe
+
+    # Mensaje post-reserva
     if 'reserva_message' in request.session:
         messages.success(request, request.session['reserva_message'])
         del request.session['reserva_message']
 
-    # Obtener sala y horario desde POST o GET para mostrar asientos ocupados
-    sala = request.POST.get('sala') or request.GET.get('sala') or (pelicula.get_salas_list()[0] if pelicula.get_salas_list() else '')
-    horario = request.POST.get('horario') or request.GET.get('horario') or (pelicula.get_horarios_list()[0] if pelicula.get_horarios_list() else '')
-    asientos_ocupados = []
+    # Listas base
+    salas_list = pelicula.get_salas_list()
+    horarios_list = pelicula.get_horarios_list()
+    # Emparejar uno a uno por índice (tres opciones si hay 3 y 3)
+    combinaciones = [f"{h} - {s}" for h, s in zip(horarios_list, salas_list)]
 
-    if sala and horario:
-        reservas_existentes = Reserva.objects.filter(
-            pelicula=pelicula,
-            sala=sala,
-            horario=horario,
-            estado__in=['RESERVADO', 'CONFIRMADO']  # Incluir ambos estados
-        )
-        for reserva in reservas_existentes:
-            asientos_ocupados.extend(reserva.get_asientos_list())
+    # Combo actual por GET/POST o primer emparejamiento
+    combo_actual = request.POST.get('combo') or request.GET.get('combo') or (combinaciones[0] if combinaciones else '')
+
+    # Asientos ocupados según combo actual
+    asientos_ocupados = []
+    if combo_actual:
+        try:
+            horario_sel, sala_sel = combo_actual.split(" - ", 1)
+            reservas_existentes = Reserva.objects.filter(
+                pelicula=pelicula,
+                sala=sala_sel.strip(),
+                horario=horario_sel.strip(),
+                estado__in=['RESERVADO', 'CONFIRMADO']
+            )
+            for r in reservas_existentes:
+                asientos_ocupados.extend(r.get_asientos_list())
+        except ValueError:
+            pass  # combo malformado en edge cases
 
     context = {
         'pelicula': pelicula,
         'formatos': Reserva.FORMATO_CHOICES,
         'asientos_ocupados': asientos_ocupados,
+        'combinaciones': combinaciones,
+        'combo_actual': combo_actual,
+        'limpiar_form': request.session.pop('limpiar_form', False),
     }
     return render(request, "asientos.html", context)
 
 #################################################################
 #################################################################
+@csrf_exempt
 def administrar_salas(request):
     peliculas = Pelicula.objects.all()
-    pelicula_seleccionada = None
-    sala_seleccionada = ''
-    horario_seleccionado = ''
+    pelicula_id = request.GET.get('pelicula')
+    combo = request.GET.get('combo')
+    pelicula = Pelicula.objects.filter(id=pelicula_id).first() if pelicula_id else None
+    combinaciones = []
     asientos_ocupados = []
-    reservas = []
-    mostrar_asientos = False
-    horarios_disponibles = []
-    salas_disponibles = []
 
-    # Obtener parámetros del request
-    pelicula_id = request.POST.get('pelicula')
-    sala = request.POST.get('sala')
-    horario = request.POST.get('horario')
-    
-    # Si hay una película seleccionada, obtenerla y extraer sus horarios y salas
-    if pelicula_id:
-        try:
-            pelicula_seleccionada = Pelicula.objects.get(id=pelicula_id)
-            # Extraer horarios y salas de la película seleccionada
-            horarios_disponibles = pelicula_seleccionada.get_horarios_list()
-            salas_disponibles = pelicula_seleccionada.get_salas_list()
-        except Pelicula.DoesNotExist:
-            messages.error(request, "La película seleccionada no existe")
-    
-    # Si tenemos película, sala y horario, buscar asientos ocupados
-    if pelicula_seleccionada and sala and horario:
-        sala_seleccionada = sala
-        horario_seleccionado = horario
-        mostrar_asientos = True
-        
-        reservas = Reserva.objects.filter(
-            pelicula=pelicula_seleccionada,
-            sala=sala,
-            horario=horario,
-            estado__in=['RESERVADO', 'CONFIRMADO']
-        )
+    if pelicula:
+        horarios = pelicula.get_horarios_list()
+        salas = pelicula.get_salas_list()
+        combinaciones = [f"{h} - {s}" for h, s in zip(horarios, salas)]
 
-        for reserva in reservas:
-            asientos_ocupados.extend(reserva.asientos.split(','))
-
-    # Manejar acciones POST
-    if request.method == 'POST':
-        # Resetear todos los asientos
-        if 'resetear_todos' in request.POST:
-            if pelicula_seleccionada and sala and horario:
+        if combo:
+            try:
+                horario_sel, sala_sel = combo.split(" - ", 1)
                 reservas = Reserva.objects.filter(
-                    pelicula=pelicula_seleccionada,
-                    sala=sala,
-                    horario=horario,
+                    pelicula=pelicula,
+                    horario=horario_sel.strip(),
+                    sala=sala_sel.strip(),
                     estado__in=['RESERVADO', 'CONFIRMADO']
                 )
-                
-                # Cambiar estado a CANCELADO
-                reservas.update(estado='CANCELADO')
-                
-                messages.success(request, f'Todos los asientos de {pelicula_seleccionada.nombre} - {sala} - {horario} han sido liberados.')
-                return redirect('administrar_salas')
+                for r in reservas:
+                    asientos_ocupados.extend(r.get_asientos_list())
+            except ValueError:
+                pass
 
-        # Liberar asiento individual
-        elif 'liberar_asiento' in request.POST:
-            asiento = request.POST.get('asiento')
-            
-            if pelicula_seleccionada and sala and horario and asiento:
-                # Buscar reservas que contengan este asiento
-                reservas_con_asiento = Reserva.objects.filter(
-                    pelicula=pelicula_seleccionada,
-                    sala=sala,
-                    horario=horario,
-                    estado__in=['RESERVADO', 'CONFIRMADO']
-                ).filter(asientos__contains=asiento)
-                
-                for reserva in reservas_con_asiento:
-                    # Remover el asiento específico
-                    asientos_list = reserva.asientos.split(',')
-                    if asiento in asientos_list:
-                        asientos_list.remove(asiento)
-                        reserva.asientos = ','.join(asientos_list)
-                        
-                        # Actualizar cantidad de boletos y precio
-                        reserva.cantidad_boletos = len(asientos_list)
-                        
-                        # Recalcular precio
-                        precio_por_boleto = {
-                            '2D': 3.50,
-                            '3D': 4.50,
-                            'IMAX': 6.00
-                        }.get(reserva.formato, 0)
-                        
-                        reserva.precio_total = precio_por_boleto * reserva.cantidad_boletos
-                        
-                        # Si no quedan asientos, cancelar la reserva
-                        if reserva.cantidad_boletos == 0:
-                            reserva.estado = 'CANCELADO'
-                        
-                        reserva.save()
-                
-                messages.success(request, f'Asiento {asiento} liberado exitosamente.')
-                return redirect('administrar_salas')
+        # Restablecer todos los asientos
+        if request.method == 'POST' and request.POST.get('restablecer') == 'true':
+            Reserva.objects.filter(
+                pelicula=pelicula,
+                horario=horario_sel.strip(),
+                sala=sala_sel.strip(),
+                estado__in=['RESERVADO', 'CONFIRMADO']
+            ).delete()
+            return JsonResponse({'success': True})
+
+        # Eliminar asiento individual
+        if request.method == 'POST' and request.POST.get('eliminar_asiento'):
+            asiento = request.POST.get('eliminar_asiento')
+            for r in reservas:
+                asientos = r.get_asientos_list()
+                if asiento in asientos:
+                    asientos.remove(asiento)
+                    if asientos:
+                        r.asientos = ",".join(asientos)
+                        r.save()
+                    else:
+                        r.delete()
+                    return JsonResponse({'success': True})
+            return JsonResponse({'success': False, 'error': 'Asiento no encontrado'})
 
     context = {
         'peliculas': peliculas,
-        'pelicula_seleccionada': pelicula_seleccionada,
-        'sala_seleccionada': sala_seleccionada,
-        'horario_seleccionado': horario_seleccionado,
+        'pelicula': pelicula,
+        'combinaciones': combinaciones,
+        'combo_actual': combo,
         'asientos_ocupados': asientos_ocupados,
-        'reservas': reservas,
-        'mostrar_asientos': mostrar_asientos,
-        'horarios_disponibles': horarios_disponibles,
-        'salas_disponibles': salas_disponibles
     }
     return render(request, 'administrar_salas.html', context)
 
@@ -527,6 +489,7 @@ def validaQR(request, codigo_reserva):
 ###############################################################################################
 
 @csrf_exempt
+
 def peliculas(request):
     # Obtener todas las películas para mostrar en la tabla
     peliculas_list = Pelicula.objects.all().order_by('-fecha_creacion')
@@ -688,8 +651,19 @@ def peliculas(request):
         except Pelicula.DoesNotExist:
             messages.error(request, f'No se encontró la película "{nombre}" para editar')
     
+    # Preparar lista de pares horario-sala y nombres completos de géneros
+    peliculas_con_pares = []
+    for p in peliculas_list:
+        pares = list(zip(p.get_horarios_list(), p.get_salas_list()))
+        generos_nombres = [generos_choices[c] for c in p.get_generos_list()]
+        peliculas_con_pares.append({
+            'obj': p,
+            'pares': pares,
+            'generos_nombres': ", ".join(generos_nombres)
+        })
+    
     context = {
-        'peliculas': peliculas_list,
+        'peliculas': peliculas_con_pares,
         'GENERO_CHOICES_DICT': generos_choices,
         'HORARIOS_DISPONIBLES': horarios_disponibles,
         'SALAS_DISPONIBLES': salas_disponibles,

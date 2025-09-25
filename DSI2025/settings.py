@@ -91,8 +91,10 @@ DATABASES = {
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-DATABASES ['default'] = dj_database_url.parse("postgresql://dsi2025db_user:BNlJUYkICC7SpNqa0aZVabsPfv8AYdJ2@dpg-d2pai0v5r7bs739fcc70-a.oregon-postgres.render.com/dsi2025db")
+#DATABASES ['default'] = dj_database_url.parse("postgresql://dsi2025db_user:BNlJUYkICC7SpNqa0aZVabsPfv8AYdJ2@dpg-d2pai0v5r7bs739fcc70-a.oregon-postgres.render.com/dsi2025db")
+DATABASES ['default'] = dj_database_url.parse("postgresql://neondb_owner:npg_xwpSoDO9F6js@ep-dawn-forest-ae3jj59y-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
 
+#DATABASES ['default'] = dj_database_url.parse("postgresql://dsi2025db_user:BNlJUYkICC7SpNqa0aZVabsPfv8AYdJ2@dpg-d2pai0v5r7bs739fcc70-a.oregon-postgres.render.com/dsi2025db")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -152,3 +154,7 @@ if not DEBUG:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+print(f"🔍 Django está usando:")
+print(f"   Host: {DATABASES['default'].get('HOST', 'SQLite local')}")
+print(f"   Database: {DATABASES['default'].get('NAME', 'db.sqlite3')}")

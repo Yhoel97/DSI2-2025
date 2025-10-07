@@ -408,7 +408,7 @@ def generar_pdf_reserva(reserva):
     elements = []
     
     # Logo
-    logo_path = os.path.abspath(os.path.join(settings.BASE_DIR, 'myapp', 'static', 'imagenes', 'cine.jpg'))
+    logo_path = os.path.abspath(os.path.join(settings.BASE_DIR, 'myapp', 'static', 'imagenes', 'cine.png'))
     if os.path.exists(logo_path):
         pil_logo = PILImage.open(logo_path)
         original_width, original_height = pil_logo.size

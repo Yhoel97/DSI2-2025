@@ -417,18 +417,18 @@ def generar_pdf_reserva(reserva):
         width_inch = original_width / 96
         height_inch = original_height / 96
 
-        # Tamaño máximo permitido por el frame
-        max_width = 6 * inch  # ajusta según tu diseño
-        max_height = 6 * inch
-
-        # Escalar proporcionalmente si excede el límite
-        scale = min(max_width / (width_inch * inch), max_height / (height_inch * inch), 1)
-
+        # Escalar a la mitad
+        scale = 0.5
         final_width = width_inch * inch * scale
         final_height = height_inch * inch * scale
 
+        # Insertar logo sin margen superior
         logo = Image(logo_path, width=final_width, height=final_height)
         elements.append(logo)
+
+        # Espacio opcional debajo del logo
+        elements.append(Spacer(1, 0.1 * inch))
+
 
 
     # Título

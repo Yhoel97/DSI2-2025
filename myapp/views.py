@@ -36,6 +36,7 @@ import os
 from datetime import datetime
 import qrcode
 from reportlab.platypus import Image as RLImage
+from PIL import Image as PILImage
 
 
 # Diccionario de géneros con nombres completos
@@ -409,9 +410,19 @@ def generar_pdf_reserva(reserva):
     # Logo
     logo_path = os.path.abspath(os.path.join(settings.BASE_DIR, 'myapp', 'static', 'imagenes', 'cine.jpg'))
     if os.path.exists(logo_path):
-        logo = Image(logo_path, width=2*inch, height=1*inch)
-        elements.append(logo)
-    
+            # Abrir imagen con Pillow
+            pil_logo = PILImage.open(logo_path)
+            original_width, original_height = pil_logo.size
+
+            # Escalar proporcionalmente (por ejemplo, 2.5 veces más grande)
+            scale_factor = 2.5
+            new_width = (original_width / 96) * inch * scale_factor  # 96 dpi estándar
+            new_height = (original_height / 96) * inch * scale_factor
+
+            # Insertar en el PDF sin distorsión
+            logo = Image(logo_path, width=new_width, height=new_height)
+            elements.append(logo)
+
     # Título
     elements.append(Paragraph("CineDot", title_style))
     elements.append(Paragraph("Ticket de Reserva", subtitle_style))

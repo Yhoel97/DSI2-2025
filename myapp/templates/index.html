@@ -171,6 +171,38 @@
             </div>
         </section>
 
+
+            <!-- Próximamente -->
+        <section id="proximas" class="section container">
+            <h2 class="section-title">🎬 Próximamente</h2>
+            <div class="peliculas-grid grid">
+                {% for pelicula in peliculas_proximas %}
+                <div class="pelicula-card">
+                    <div class="poster-container">
+                        <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster responsive-img">
+                    </div>
+                    <div class="pelicula-info">
+                        <h3 class="movie-title">{{ pelicula.nombre }}</h3>
+                        <div class="movie-details">
+                            <p><span class="detail-label">Género:</span> {{ pelicula.get_generos_list|join:", " }}</p>
+                            <p><span class="detail-label">Director:</span> {{ pelicula.director }}</p>
+                            <p><span class="detail-label">Fecha de Estreno:</span> {{ pelicula.fecha_estreno|date:"d/m/Y" }}</p>
+                        </div>
+
+                        <div class="movie-actions flex">
+                            <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
+                                <i class="fab fa-youtube"></i> Ver Tráiler
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="text-align:center; color:#555;">No hay películas próximas por el momento.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+
         <!-- Contacto -->
         <section id="contacto" class="section container">
             <h2 class="section-title">Contacto</h2>

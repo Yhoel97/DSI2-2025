@@ -71,16 +71,29 @@ nav ul li a:hover {
   border-radius: 5px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CORRECCIÓN: Altura fija para todas las imágenes de pósters */
+.poster-container {
+  width: 100%;
+  height: 360px;
+  overflow: hidden;
 }
 
 .poster-container img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   border-radius: 5px 5px 0 0;
 }
 
 .pelicula-info {
   padding: 1rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .movie-title {
@@ -102,7 +115,7 @@ nav ul li a:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1rem;
+  margin-top: auto;
 }
 
 
@@ -205,4 +218,29 @@ footer {
   background-color: #1565c0;
   border-color: #1565c0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ======================================================
+   SECCIÓN PRÓXIMAMENTE (hereda estilos de cartelera)
+   ====================================================== */
+/* --- Sección Próximamente --- */
+#proximas {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 3px solid #7b68ee;
+}
+
+#proximas .section-title {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #4b2e83;
+  margin-bottom: 2rem;
+}
+
+#proximas .peliculas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
 }

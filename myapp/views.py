@@ -37,6 +37,10 @@ from datetime import datetime
 import qrcode
 from reportlab.platypus import Image as RLImage
 from PIL import Image as PILImage
+from datetime import date
+from django.db import models
+from django.shortcuts import render
+
 
 
 # Diccionario de géneros con nombres completos
@@ -72,18 +76,30 @@ def convertir_generos(codigos_generos):
             for codigo in codigos_generos.split(",")]
 
 def index(request):
-    peliculas = Pelicula.objects.all().order_by('-fecha_creacion')[:10]  # Últimas 10 películas
-    
-    for pelicula in peliculas:
-        # Convertir géneros a nombres completos
+   hoy = date.today()
+
+   peliculas = Pelicula.objects.filter(
+        models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
+    ).order_by('-id')
+
+   peliculas_proximas = Pelicula.objects.filter(
+        fecha_estreno__gt=hoy
+    ).order_by('fecha_estreno')
+
+    # Procesar listas de géneros y horarios
+   for pelicula in peliculas:
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
-        
-        # Crear lista de pares Horario - Sala
         horarios = pelicula.get_horarios_list()
         salas = pelicula.get_salas_list()
         pelicula.horario_sala_pares = list(zip(horarios, salas))
 
-    return render(request, 'index.html', {'peliculas': peliculas})
+   for pelicula in peliculas_proximas:
+        pelicula.get_generos_list = convertir_generos(pelicula.generos)
+
+   return render(request, 'index.html', {
+        'peliculas': peliculas,
+        'peliculas_proximas': peliculas_proximas
+    })
 
 
 def my_login(request):
@@ -598,6 +614,7 @@ def peliculas(request):
             generos = request.POST.getlist('generos')
             horarios = request.POST.getlist('horarios')
             salas = request.POST.getlist('salas')
+            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
             
             # Validaciones
             errores = []
@@ -633,7 +650,8 @@ def peliculas(request):
                         trailer_url=trailer_url,
                         generos=",".join(generos),
                         horarios=",".join(horarios),
-                        salas=",".join(salas)
+                        salas=",".join(salas),
+                        fecha_estreno=fecha_estreno if fecha_estreno else None
                     )
                     pelicula.save()
                     messages.success(request, f'Película "{nombre}" creada exitosamente!')
@@ -655,6 +673,7 @@ def peliculas(request):
             generos = request.POST.getlist('generos')
             horarios = request.POST.getlist('horarios')
             salas = request.POST.getlist('salas')
+            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
             
             # Validaciones
             errores = []
@@ -693,6 +712,7 @@ def peliculas(request):
                     pelicula.generos = ",".join(generos)
                     pelicula.horarios = ",".join(horarios)
                     pelicula.salas = ",".join(salas)
+                    pelicula.fecha_estreno = fecha_estreno if fecha_estreno else None
                     pelicula.save()
                     messages.success(request, f'Película "{nombre}" actualizada exitosamente!')
                     return redirect('peliculas')

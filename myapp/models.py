@@ -48,6 +48,7 @@ class Pelicula(models.Model):
     horarios = models.CharField(max_length=255, blank=True, null=True)
     salas = models.CharField(max_length=255, blank=True, null=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_estreno = models.DateField(null=True, blank=True, help_text="Fecha de estreno (opcional)")
 
     def get_generos_list(self):
         return self.generos.split(",") if self.generos else []

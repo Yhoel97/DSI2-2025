@@ -78,6 +78,12 @@
                     <input type="number" id="anio" name="anio" min="1900" max="2099" 
                            value="{{ pelicula_editar.anio|default:'' }}" required class="form-control">
                 </div>
+
+                <div class="form-group">
+                    <label for="fecha_estreno"><i class="fas fa-calendar-day"></i> Fecha de Estreno:</label>
+                    <input type="date" id="fecha_estreno" name="fecha_estreno"
+                           value="{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}" class="form-control">
+                </div>
                 
                 <div class="form-group">
                     <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
@@ -178,6 +184,7 @@
                     <tr>
                         <th><i class="fas fa-heading"></i> Nombre</th>
                         <th><i class="fas fa-calendar-alt"></i> Año</th>
+                        <th><i class="fas fa-calendar-day"></i> Estreno</th> 
                         <th><i class="fas fa-user-tie"></i> Director</th>
                         <th><i class="fas fa-tags"></i> Géneros</th>
                         <th><i class="fas fa-clock"></i> Horario y Sala</th>
@@ -189,6 +196,13 @@
                     <tr>
                         <td>{{ pelicula.obj.nombre }}</td>
                         <td>{{ pelicula.obj.anio }}</td>
+                        <td>
+                           {% if pelicula.obj.fecha_estreno %}
+                               {{ pelicula.obj.fecha_estreno|date:"d/m/Y" }}
+                           {% else %}
+                               -
+                           {% endif %}
+                        </td>
                         <td>{{ pelicula.obj.director }}</td>
                         <td>{{ pelicula.generos_nombres }}</td>
                         <td>
@@ -214,7 +228,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center">No hay películas registradas</td>
+                        <td colspan="7" class="text-center">No hay películas registradas</td>
                     </tr>
                     {% endfor %}
                 </tbody>

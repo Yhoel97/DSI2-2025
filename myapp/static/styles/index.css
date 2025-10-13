@@ -224,16 +224,4 @@ footer {
    SECCIÓN PRÓXIMAMENTE (hereda estilos de cartelera)
    ====================================================== */
 /* --- Sección Próximamente --- */
-#proximas {
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 3px solid #7b68ee;
-}
 
-#proximas .section-title {
-  text-align: center;
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #4b2e83;
-  margin-bottom: 2rem;
-}

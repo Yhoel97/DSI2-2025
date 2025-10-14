@@ -78,15 +78,17 @@ nav ul li a:hover {
 /* CORRECCIÓN: Altura fija para todas las imágenes de pósters */
 .poster-container {
   width: 100%;
-  height: 360px;
+  height: auto;
+  max-height: 500px; /* límite opcional para evitar imágenes gigantes */
   overflow: hidden;
 }
 
 .poster-container img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain; /* muestra la imagen completa sin recortarla */
   border-radius: 5px 5px 0 0;
+  background-color: #000; /* fondo negro si hay espacio vacío */
 }
 
 .pelicula-info {
@@ -224,6 +226,9 @@ footer {
    SECCIÓN PRÓXIMAMENTE (hereda estilos de cartelera)
    ====================================================== */
 /* --- Sección Próximamente --- */
+
+
+
 
 /* Estilos para ratings en la cartelera */
 .movie-rating {

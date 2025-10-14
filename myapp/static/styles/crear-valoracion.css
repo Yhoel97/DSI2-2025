@@ -1,0 +1,227 @@
+.valoracion-form-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.pelicula-info {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+}
+
+.pelicula-poster {
+    width: 80px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+.valoracion-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 2rem;
+}
+
+.form-label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.rating-container {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.rating-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.rating-option:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.rating-option input[type="radio"] {
+    display: none;
+}
+
+.rating-option input[type="radio"]:checked + .rating-content {
+    color: #3498db;
+}
+
+.rating-option input[type="radio"]:checked {
+    border-color: #3498db;
+    background: #e8f4fd;
+}
+
+.rating-option:has(input[type="radio"]:checked) {
+    border-color: #3498db;
+    background: #e8f4fd;
+}
+
+.rating-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 0.3s ease;
+}
+
+.rating-stars {
+    display: flex;
+    gap: 0.2rem;
+}
+
+.rating-stars .estrella {
+    color: #ffd700;
+    font-size: 1.2rem;
+}
+
+.rating-stars .estrella.vacia {
+    color: #ddd;
+}
+
+.form-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.char-counter {
+    text-align: right;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    margin-top: 0.5rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.btn-form {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 1rem;
+}
+
+.btn-form:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.btn-form.btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.btn-form.btn-secondary {
+    background: #95a5a6;
+    color: white;
+}
+
+.btn-form.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.help-text {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    margin-top: 0.5rem;
+}
+
+.messages {
+    margin-bottom: 2rem;
+}
+
+.message {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@media (max-width: 768px) {
+    .valoracion-form-container {
+        padding: 0 1rem;
+    }
+    
+    .rating-container {
+        flex-direction: column;
+    }
+    
+    .rating-option {
+        justify-content: center;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-form {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+    }
+}

@@ -225,3 +225,81 @@ footer {
    ====================================================== */
 /* --- Sección Próximamente --- */
 
+/* Estilos para ratings en la cartelera */
+.movie-rating {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1rem 0;
+    padding: 0.8rem;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 8px;
+    border-left: 4px solid #ffd700;
+}
+
+.rating-stars {
+    display: flex;
+    gap: 0.2rem;
+}
+
+.rating-stars .star-filled {
+    color: #ffd700;
+    font-size: 1.2rem;
+}
+
+.rating-stars .star-empty {
+    color: #ddd;
+    font-size: 1.2rem;
+}
+
+.rating-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.9rem;
+}
+
+.rating-score {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.rating-count {
+    color: #7f8c8d;
+    font-size: 0.8rem;
+}
+
+/* Botón de reseñas */
+.review-btn {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.review-btn:hover {
+    background: linear-gradient(135deg, #8e44ad, #7d3c98);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(142, 68, 173, 0.3);
+}
+
+/* Responsivo para móviles */
+@media (max-width: 768px) {
+    .movie-rating {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+    
+    .rating-info {
+        align-items: center;
+    }
+}

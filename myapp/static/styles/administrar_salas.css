@@ -136,13 +136,14 @@ body {
   justify-content: center;
   align-items: center;
   font-size: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #ddd; /* ✅ corregido */
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
-  -webkit-user-drag: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none; /* ✅ guion correcto */
+  -webkit-tap-highlight-color: transparent; /* ✅ guion correcto */
 }
+
 
 .seat.available {
   background-color: #fff;

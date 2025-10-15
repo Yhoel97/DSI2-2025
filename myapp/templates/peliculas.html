@@ -79,10 +79,6 @@
                            value="{{ pelicula_editar.anio|default:'' }}" required class="form-control">
                 </div>
 
-                <div class="form-group">
-                    <label for="fecha_estreno"><i class="fas fa-calendar-day"></i> Fecha de Estreno:</label>
-                    <input type="date" id="fecha_estreno" name="fecha_estreno"
-                           value="{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}" class="form-control">
                 </div>
                     <label for="fecha_estreno"><i class="fas fa-calendar"></i> Fecha de Estreno:</label>
                     <input type="date" id="fecha_estreno" name="fecha_estreno"
@@ -216,64 +212,6 @@
                 </div>
             </form>
         </div>
-        <!-- Tabla de Películas -->
-        <div class="table-responsive">
-            <table class="movie-table table table-striped table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th><i class="fas fa-heading"></i> Nombre</th>
-                        <th><i class="fas fa-calendar-alt"></i> Año</th>
-                        <th><i class="fas fa-calendar-day"></i> Estreno</th> 
-                        <th><i class="fas fa-user-tie"></i> Director</th>
-                        <th><i class="fas fa-tags"></i> Géneros</th>
-                        <th><i class="fas fa-clock"></i> Horario y Sala</th>
-                        <th><i class="fas fa-cog"></i> Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for pelicula in peliculas %}
-                    <tr>
-                        <td>{{ pelicula.obj.nombre }}</td>
-                        <td>{{ pelicula.obj.anio }}</td>
-                        <td>
-                           {% if pelicula.obj.fecha_estreno %}
-                               {{ pelicula.obj.fecha_estreno|date:"d/m/Y" }}
-                           {% else %}
-                               -
-                           {% endif %}
-                        </td>
-                        <td>{{ pelicula.obj.director }}</td>
-                        <td>{{ pelicula.generos_nombres }}</td>
-                        <td>
-                            {% for h, s in pelicula.pares %}
-                                {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
-                            {% endfor %}
-                        </td>
-                        <td class="action-buttons">
-                            <a href="{% url 'peliculas' %}?editar={{ pelicula.obj.nombre|urlencode }}" 
-                            class="btn btn-success">
-                                <i class="fas fa-edit"></i> Editar
-                            </a>
-                            <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
-                                {% csrf_token %}
-                                <input type="hidden" name="accion" value="eliminar">
-                                <input type="hidden" name="nombre" value="{{ pelicula.obj.nombre }}">
-                                <button type="submit" class="btn btn-danger" 
-                                        onclick="return confirm('¿Estás seguro de eliminar esta película?');">
-                                    <i class="fas fa-trash-alt"></i> Eliminar
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center">No hay películas registradas</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
        <!-- Tabla de Películas -->
 <div class="table-responsive">
   <table class="movie-table table table-striped table-hover">

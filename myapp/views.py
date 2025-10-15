@@ -678,6 +678,8 @@ def peliculas(request):
             generos = request.POST.getlist('generos')
             horarios = request.POST.getlist('horarios')
             salas = request.POST.getlist('salas')
+            clasificacion = request.POST.get('clasificacion', 'APT')
+            idioma = request.POST.get('idioma', 'Español')       
             # Validaciones
             errores = []
             

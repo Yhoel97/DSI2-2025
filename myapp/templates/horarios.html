@@ -1,0 +1,76 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>🎞️ Horarios por Película</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'styles/index.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+</head>
+
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">🎥 Cinedot</a>
+            <div>
+                <a href="{% url 'index' %}" class="btn btn-outline-light btn-sm">Inicio</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido principal -->
+    <div class="container mt-4">
+        <h2 class="text-center mb-4 text-primary">🎞️ Horarios por Película</h2>
+
+        {% if peliculas %}
+            <div class="row">
+                {% for pelicula in peliculas %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-sm">
+
+                            <!-- Imagen -->
+                            <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster img-fluid rounded-top">
+
+                            <div class="card-body">
+                                <h5 class="card-title">{{ pelicula.nombre }}</h5>
+                                <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.generos }}</p>
+                                <p class="card-text mb-1"><strong>Año:</strong> {{ pelicula.anio }}</p>
+                                {% if pelicula.fecha_estreno %}
+                                    <p class="card-text mb-1"><strong>Estreno:</strong> {{ pelicula.fecha_estreno|date:"d/m/Y" }}</p>
+                                {% endif %}
+                                <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.clasificacion }}</p>
+                                <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.idioma }}</p>
+
+                                <h6 class="horarios-titulo"><i class="fas fa-clock"></i> Horarios disponibles:</h6>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    {% for horario, sala in pelicula.pares %}
+                                        <a href="{% url 'asientos' pelicula.id %}?combo={{ horario }} - {{ sala }}&from=horarios"
+                                            class="btn-horario btn-sm">
+                                            {{ horario }} ({{ sala }})
+                                        </a>
+                                    {% empty %}
+                                        <p class="text-muted">No hay horarios disponibles</p>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-center text-muted">No hay películas disponibles en este momento.</p>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-3 mt-4">
+        &copy; 2025 Cinedot
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -40,7 +40,7 @@ from PIL import Image as PILImage
 from datetime import date
 from django.db import models
 from django.shortcuts import render
-
+from django.urls import reverse
 
 
 # Diccionario de géneros con nombres completos
@@ -590,7 +590,7 @@ def validaQR(request, codigo_reserva):
 @csrf_exempt
 def peliculas(request):
     # Obtener todas las películas para mostrar en la tabla
-    peliculas_list = Pelicula.objects.all().order_by('-fecha_creacion')
+    peliculas_list = Pelicula.objects.order_by('-id')[:10]  # ✅ Últimas 10 películas
     
     # Procesar búsqueda si existe
     busqueda = request.GET.get('busqueda', '').strip()
@@ -615,7 +615,8 @@ def peliculas(request):
             horarios = request.POST.getlist('horarios')
             salas = request.POST.getlist('salas')
             fecha_estreno = request.POST.get('fecha_estreno', '').strip()
-            
+            clasificacion = request.POST.get('clasificacion', 'APT')
+            idioma = request.POST.get('idioma', 'Español')       
             # Validaciones
             errores = []
             
@@ -650,9 +651,12 @@ def peliculas(request):
                         trailer_url=trailer_url,
                         generos=",".join(generos),
                         horarios=",".join(horarios),
-                        salas=",".join(salas),
-                        fecha_estreno=fecha_estreno if fecha_estreno else None
+    
+                        fecha_estreno=fecha_estreno if fecha_estreno else None,
+                        clasificacion=clasificacion,
+                        idioma=idioma
                     )
+
                     pelicula.save()
                     messages.success(request, f'Película "{nombre}" creada exitosamente!')
                     return redirect('peliculas')
@@ -667,14 +671,13 @@ def peliculas(request):
             nombre_original = request.POST.get('nombre_original', '').strip()
             nombre = request.POST.get('nombre', '').strip()
             anio = request.POST.get('anio', '').strip()
+            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
             director = request.POST.get('director', '').strip()
             imagen_url = request.POST.get('imagen_url', '').strip()
             trailer_url = request.POST.get('trailer_url', '').strip()
             generos = request.POST.getlist('generos')
             horarios = request.POST.getlist('horarios')
             salas = request.POST.getlist('salas')
-            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
-            
             # Validaciones
             errores = []
             
@@ -713,6 +716,16 @@ def peliculas(request):
                     pelicula.horarios = ",".join(horarios)
                     pelicula.salas = ",".join(salas)
                     pelicula.fecha_estreno = fecha_estreno if fecha_estreno else None
+                    pelicula.clasificacion = clasificacion
+                    pelicula.idioma = idioma
+                    if fecha_estreno:
+                        from datetime import datetime
+                        try:
+                            pelicula.fecha_estreno = datetime.strptime(fecha_estreno, '%Y-%m-%d').date()
+                        except ValueError:
+                            messages.warning(request, '⚠️ Formato de fecha inválido. Usa AAAA-MM-DD.')
+                    else:
+                        pelicula.fecha_estreno = None
                     pelicula.save()
                     messages.success(request, f'Película "{nombre}" actualizada exitosamente!')
                     return redirect('peliculas')
@@ -753,17 +766,22 @@ def peliculas(request):
         except Pelicula.DoesNotExist:
             messages.error(request, f'No se encontró la película "{nombre}" para editar')
     
-    # Preparar lista de pares horario-sala y nombres completos de géneros
+    # ✅ Corrección: append correctamente indentado
     peliculas_con_pares = []
     for p in peliculas_list:
         pares = list(zip(p.get_horarios_list(), p.get_salas_list()))
-        generos_nombres = [generos_choices[c] for c in p.get_generos_list()]
+        generos_nombres = [
+            generos_choices.get(g, g)
+            for g in p.get_generos_list()
+        ]
         peliculas_con_pares.append({
             'obj': p,
             'pares': pares,
-            'generos_nombres': ", ".join(generos_nombres)
+            'generos_nombres': ", ".join(generos_nombres),
+            'clasificacion': p.clasificacion,
+            'idioma': p.idioma
         })
-    
+
     context = {
         'peliculas': peliculas_con_pares,
         'GENERO_CHOICES_DICT': generos_choices,
@@ -774,6 +792,7 @@ def peliculas(request):
     }
     
     return render(request, 'peliculas.html', context)
+
 
 
 ################################################################################
@@ -871,3 +890,74 @@ def eliminar_valoracion(request, pelicula_id):
         messages.error(request, 'No se encontró tu valoración.')
     
     return redirect('pelicula_detalle', pelicula_id=pelicula.id)
+
+######
+
+def filtrar_peliculas(request):
+    # Obtener filtros desde GET
+    genero = request.GET.get('genero')
+    clasificacion = request.GET.get('clasificacion')
+    idioma = request.GET.get('idioma')
+    horario = request.GET.get('horario')
+
+    # Empezar con todas las películas
+    peliculas = Pelicula.objects.all()
+
+    # Aplicar los filtros sin perder detalles
+    if genero and genero.strip():
+        peliculas = peliculas.filter(generos__icontains=genero.strip())
+    if clasificacion and clasificacion.strip():
+        peliculas = peliculas.filter(clasificacion=clasificacion.strip())
+    if idioma and idioma.strip():
+        peliculas = peliculas.filter(idioma=idioma.strip())
+    if horario and horario.strip():
+        peliculas = peliculas.filter(horarios__icontains=horario.strip())
+
+    # ⚡ Asegurar que cada película conserve todos sus campos
+    peliculas = peliculas.distinct()  # evita duplicados
+
+    context = {
+        'peliculas': peliculas,
+        'genero': genero,
+        'clasificacion': clasificacion,
+        'idioma': idioma,
+        'horario': horario,
+        'GENERO_CHOICES': Pelicula.GENERO_CHOICES,
+        'CLASIFICACION_CHOICES': Pelicula._meta.get_field('clasificacion').choices,
+        'IDIOMA_CHOICES': Pelicula._meta.get_field('idioma').choices,
+        'HORARIOS_DISPONIBLES': Pelicula.HORARIOS_DISPONIBLES,
+    }
+    return render(request, 'filtrar.html', context)
+
+#####
+
+#######
+
+def horarios_por_pelicula(request):
+    """PBI-14: Visualizar horarios agrupados por película"""
+    peliculas = Pelicula.objects.all().order_by('-fecha_creacion')
+
+    peliculas_data = []
+    for p in peliculas:
+        horarios = p.get_horarios_list()
+        salas = p.get_salas_list()
+        pares = list(zip(horarios, salas))  # Emparejar horarios y salas
+        
+        peliculas_data.append({
+            'id': p.id,
+            'nombre': p.nombre,
+            'imagen_url': p.imagen_url,
+            'generos': ", ".join(p.get_generos_list()),
+            'clasificacion': p.clasificacion,
+            'idioma': p.idioma,
+            'anio': p.anio,
+            'fecha_estreno': p.fecha_estreno,
+            'pares': pares
+        })
+
+    context = {
+        'peliculas': peliculas_data
+    }
+    return render(request, 'horarios.html', context)
+
+

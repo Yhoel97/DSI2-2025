@@ -9,6 +9,8 @@ urlpatterns = [
     path('logout/', views.my_logout, name='my_logout'),
     path('registro/', views.registro_usuario, name='registro'),
     path('peliculas/', views.peliculas, name='peliculas'),
+    path('peliculas/filtrar/', views.filtrar_peliculas, name='filtrar_peliculas'),
+    path('horarios/', views.horarios_por_pelicula, name='horarios_por_pelicula'),
 
     path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),
     path('ticket/<str:codigo_reserva>/', views.descargar_ticket, name='descargar_ticket'),

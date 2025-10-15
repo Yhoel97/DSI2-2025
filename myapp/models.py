@@ -41,23 +41,62 @@ class Pelicula(models.Model):
 
     nombre = models.CharField(max_length=255)
     anio = models.IntegerField()
+    fecha_estreno = models.DateField(blank=True, null=True)
     director = models.CharField(max_length=255)
     imagen_url = models.URLField()
     trailer_url = models.URLField()
     generos = models.CharField(max_length=255)
     horarios = models.CharField(max_length=255, blank=True, null=True)
     salas = models.CharField(max_length=255, blank=True, null=True)
+    clasificacion = models.CharField(
+    max_length=10,
+    choices=[
+        ('APT', 'Todo Publico'),
+        ('13+', 'Mayores de 13 anos'),
+        ('18+', 'Solo Adultos'),
+    ],
+    default='APT'  # valor por defecto
+    )
+
+    idioma = models.CharField(
+    max_length=30,
+    choices=[
+        ('ESP', 'Español'),
+        ('SUB', 'Ingles Sub Titulado'),
+        ('ING', 'Inglés'),
+    ],
+    default='ESP'  # valor por defecto
+    )
+
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_estreno = models.DateField(null=True, blank=True, help_text="Fecha de estreno (opcional)")
 
     def get_generos_list(self):
-        return self.generos.split(",") if self.generos else []
+        """Devuelve una lista con los nombres completos de los géneros."""
+        GENERO_CHOICES_DICT = dict(self.GENERO_CHOICES)
+        codigos = [g.strip() for g in self.generos.split(",")] if self.generos else []
+        return [GENERO_CHOICES_DICT.get(codigo, codigo) for codigo in codigos]
 
     def get_horarios_list(self):
-        return [h.strip() for h in self.horarios.split(",")] if self.horarios else []
-        
+        return [h.strip() for h in self.horarios.split(",") if h.strip()] if self.horarios else []
+
     def get_salas_list(self):
-        return [s.strip() for s in self.salas.split(",")] if self.salas else []
+        return [s.strip() for s in self.salas.split(",") if s.strip()] if self.salas else []
+    
+    def horario_sala_pares(self):
+        """Devuelve una lista de tuplas (horario, sala) emparejadas correctamente."""
+        horarios = self.get_horarios_list()
+        salas = self.get_salas_list()
+        pares = list(zip(horarios, salas))
+
+    # Si hay más horarios que salas o viceversa, no genera error
+        if len(horarios) > len(salas):
+           pares += [(h, '') for h in horarios[len(salas):]]
+        elif len(salas) > len(horarios):
+           pares += [('', s) for s in salas[len(horarios):]]
+
+        return pares
+
 
     def get_rating_promedio(self):
         """Obtiene el rating promedio de la película"""
@@ -179,3 +218,4 @@ class Valoracion(models.Model):
         verbose_name = 'Valoración'
         verbose_name_plural = 'Valoraciones'
         ordering = ['-fecha_creacion']
+

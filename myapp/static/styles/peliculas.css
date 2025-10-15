@@ -329,6 +329,34 @@ h1 {
     background-color: rgba(248, 249, 250, 0.8);
 }
 
+.movie-table th, .movie-table td {
+  vertical-align: middle !important;
+  text-align: center !important;
+}
+
+.movie-table td {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+}
+
+.movie-table th {
+  background-color: #212529;
+  color: white;
+  border: 1px solid #343a40;
+}
+
+.movie-table .btn {
+  min-width: 90px;
+  font-weight: 500;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {

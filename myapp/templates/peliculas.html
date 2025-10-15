@@ -80,10 +80,22 @@
                 </div>
 
                 <div class="form-group">
+<<<<<<< HEAD
                     <label for="fecha_estreno"><i class="fas fa-calendar-day"></i> Fecha de Estreno:</label>
                     <input type="date" id="fecha_estreno" name="fecha_estreno"
                            value="{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}" class="form-control">
                 </div>
+=======
+                    <label for="fecha_estreno"><i class="fas fa-calendar"></i> Fecha de Estreno:</label>
+                    <input type="date" id="fecha_estreno" name="fecha_estreno"
+                            value="{{ pelicula_editar.fecha_estreno|default:'' }}"
+                            class="form-control" required>
+                    <small id="fechaError" class="text-danger" style="display: none;">
+                       ⚠️ La fecha de estreno es obligatoria
+                    </small>
+                </div>
+
+>>>>>>> 402415c (Actualización: ajustes en modelos, templates y estilos (botones horarios y filtros))
                 
                 <div class="form-group">
                     <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
@@ -97,6 +109,38 @@
                     {% endfor %}
                     </div>
                 </div>
+                
+                <div class="form-group">
+                    <label for="clasificacion">Clasificación:</label>
+                    <select name="clasificacion" id="clasificacion" class="form-control" required>
+                      <option value="APT" {% if pelicula_editar and pelicula_editar.clasificacion == 'APT' %}selected{% endif %}>
+                        APT (Todo público)
+                      </option>
+                      <option value="13+" {% if pelicula_editar and pelicula_editar.clasificacion == '13+' %}selected{% endif %}>
+                        13+ (Mayores de 13 años)
+                      </option>
+                     <option value="18+" {% if pelicula_editar and pelicula_editar.clasificacion == '18+' %}selected{% endif %}>
+                       18+ (Solo adultos)
+                     </option>
+                    </select>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="idioma">Idioma:</label>
+                    <select name="idioma" id="idioma" class="form-control" required>
+                      <option value="ESP" {% if pelicula_editar and pelicula_editar.idioma == 'ESP' %}selected{% endif %}>
+                        Español
+                      </option>
+                      <option value="SUB" {% if pelicula_editar and pelicula_editar.idioma == 'SUB' %}selected{% endif %}>
+                        Inglés Subtitulado
+                      </option>
+                      <option value="ING" {% if pelicula_editar and pelicula_editar.idioma == 'ING' %}selected{% endif %}>
+                        Inglés
+                      </option>
+                    </select>
+                </div>
+
 
                 <div class="form-group">
                     <label><i class="fas fa-clock"></i> Horarios Disponibles:</label>
@@ -177,6 +221,7 @@
             </form>
         </div>
         
+<<<<<<< HEAD
         <!-- Tabla de Películas -->
         <div class="table-responsive">
             <table class="movie-table table table-striped table-hover">
@@ -234,6 +279,70 @@
                 </tbody>
             </table>
         </div>
+=======
+       <!-- Tabla de Películas -->
+<div class="table-responsive">
+  <table class="movie-table table table-striped table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th><i class="fas fa-heading"></i> Nombre</th>
+        <th><i class="fas fa-calendar-alt"></i> Año</th>
+        <th><i class="fas fa-calendar-day"></i> Estreno</th>
+        <th><i class="fas fa-user-tie"></i> Director</th>
+        <th><i class="fas fa-tags"></i> Géneros</th>
+        <th><i class="fas fa-film"></i> Clasificación</th>
+        <th><i class="fas fa-language"></i> Idioma</th>
+        <th><i class="fas fa-clock"></i> Horario y Sala</th>
+        <th><i class="fas fa-cog"></i> Acciones</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for pelicula in peliculas %}
+      <tr>
+        <td>{{ pelicula.obj.nombre }}</td>
+        <td>{{ pelicula.obj.anio }}</td>
+        <td>
+          {% if pelicula.obj.fecha_estreno %}
+            {{ pelicula.obj.fecha_estreno|date:"d/m/Y" }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{{ pelicula.obj.director }}</td>
+        <td>{{ pelicula.generos_nombres }}</td>
+        <td>{{ pelicula.obj.get_clasificacion_display }}</td>
+        <td>{{ pelicula.obj.get_idioma_display }}</td>
+
+        <td>
+          {% for h, s in pelicula.pares %}
+            {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </td>
+        <td class="action-buttons">
+          <a href="{% url 'peliculas' %}?editar={{ pelicula.obj.nombre|urlencode }}" class="btn btn-success">
+            <i class="fas fa-edit"></i> Editar
+          </a>
+          <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="eliminar">
+            <input type="hidden" name="nombre" value="{{ pelicula.obj.nombre }}">
+            <button type="submit" class="btn btn-danger"
+              onclick="return confirm('¿Estás seguro de eliminar esta película?');">
+              <i class="fas fa-trash-alt"></i> Eliminar
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="9" class="text-center">No hay películas registradas</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+>>>>>>> 402415c (Actualización: ajustes en modelos, templates y estilos (botones horarios y filtros))
 
 
     <script>
@@ -248,6 +357,35 @@
             }, 5000);
         });
     </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+           const fechaInput = document.getElementById("fecha_estreno");
+           const fechaError = document.getElementById("fechaError");
+
+           fechaInput.addEventListener("input", () => {
+               if (!fechaInput.value) {
+                   fechaInput.classList.add("is-invalid");
+                   fechaError.style.display = "block";
+                } else {
+                   fechaInput.classList.remove("is-invalid");
+                   fechaError.style.display = "none";
+                }
+    });
+
+        // Validación antes de enviar el formulario
+            const form = document.querySelector(".ajax-form");
+            form.addEventListener("submit", (e) => {
+                if (!fechaInput.value) {
+                    e.preventDefault();
+                    fechaInput.classList.add("is-invalid");
+                    fechaError.style.display = "block";
+                    fechaInput.focus();
+                }
+    });
+});
+</script>
+
 </body>
 </html>
 

@@ -1,0 +1,53 @@
+<form method="get" action="">
+  <label>Género:</label>
+  <select name="genero">
+    <option value="">Todos</option>
+    <option value="acción" {% if genero == "acción" %}selected{% endif %}>Acción</option>
+    <option value="drama" {% if genero == "drama" %}selected{% endif %}>Drama</option>
+    <option value="comedia" {% if genero == "comedia" %}selected{% endif %}>Comedia</option>
+  </select>
+
+  <label>Clasificación:</label>
+  <select name="clasificacion">
+    <option value="">Todas</option>
+    <option value="APT" {% if clasificacion == "APT" %}selected{% endif %}>APT</option>
+    <option value="13+" {% if clasificacion == "13+" %}selected{% endif %}>13+</option>
+    <option value="18+" {% if clasificacion == "18+" %}selected{% endif %}>18+</option>
+  </select>
+
+  <label>Idioma:</label>
+  <select name="idioma">
+    <option value="">Todos</option>
+    <option value="Español" {% if idioma == "Español" %}selected{% endif %}>Español</option>
+    <option value="Inglés subtitulado" {% if idioma == "Inglés subtitulado" %}selected{% endif %}>Inglés subtitulado</option>
+    <option value="Inglés" {% if idioma == "Inglés" %}selected{% endif %}>Inglés</option>
+  </select>
+
+  <label>Horario:</label>
+  <select name="horario">
+    <option value="">Todos</option>
+    <option value="13:00" {% if horario == "13:00" %}selected{% endif %}>13:00</option>
+    <option value="16:00" {% if horario == "16:00" %}selected{% endif %}>16:00</option>
+    <option value="19:00" {% if horario == "19:00" %}selected{% endif %}>19:00</option>
+  </select>
+
+  <button type="submit">Filtrar</button>
+</form>
+
+<hr>
+
+<!-- Mostrar películas -->
+<div class="peliculas">
+  {% for p in peliculas %}
+    <div class="pelicula">
+      <img src="{{ p.imagen_url }}" alt="{{ p.nombre }}">
+      <h3>{{ p.nombre }}</h3>
+      <p>{{ p.generos }}</p>
+      <p>Clasificación: {{ p.clasificacion }}</p>
+      <p>Idioma: {{ p.idioma }}</p>
+      <p>Horarios: {{ p.horarios }}</p>
+    </div>
+  {% empty %}
+    <p>No se encontraron películas con esos filtros.</p>
+  {% endfor %}
+</div>

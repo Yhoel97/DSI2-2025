@@ -222,6 +222,7 @@ footer {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+<<<<<<< HEAD
 /* ======================================================
    SECCIÓN PRÓXIMAMENTE (hereda estilos de cartelera)
    ====================================================== */
@@ -307,4 +308,52 @@ footer {
     .rating-info {
         align-items: center;
     }
+=======
+/* ======================================
+   🎬 ESTILOS DE HORARIOS
+   ====================================== */
+
+/* Título "Horarios disponibles" */
+.card .horarios-titulo,
+.horarios-titulo {
+  color: #000 !important;
+  font-weight: bold !important;
+  font-size: 1rem !important;
+}
+
+/* Botones de horarios */
+.card a.btn-horario,
+.card a.btn-horario:link,
+.card a.btn-horario:visited {
+  background-color: #FFD700 !important; /* amarillo */
+  color: #000 !important;               /* texto negro */
+  font-weight: bold !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  text-decoration: none !important;
+  display: inline-block !important;
+  font-size: 0.95rem !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover */
+.card a.btn-horario:hover,
+.card a.btn-horario:active {
+  background-color: #FFC107 !important; /* amarillo más oscuro */
+  color: #000 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  text-decoration: none !important;
+}
+
+/* Elimina estilos de enlace (subrayado y color azul) */
+.card a.btn-horario:focus,
+.card a.btn-horario:visited,
+.card a.btn-horario:active {
+  outline: none !important;
+  text-decoration: none !important;
+  color: #000 !important;
+>>>>>>> 402415c (Actualización: ajustes en modelos, templates y estilos (botones horarios y filtros))
 }

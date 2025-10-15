@@ -80,12 +80,10 @@
                 </div>
 
                 <div class="form-group">
-<<<<<<< HEAD
                     <label for="fecha_estreno"><i class="fas fa-calendar-day"></i> Fecha de Estreno:</label>
                     <input type="date" id="fecha_estreno" name="fecha_estreno"
                            value="{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}" class="form-control">
                 </div>
-=======
                     <label for="fecha_estreno"><i class="fas fa-calendar"></i> Fecha de Estreno:</label>
                     <input type="date" id="fecha_estreno" name="fecha_estreno"
                             value="{{ pelicula_editar.fecha_estreno|default:'' }}"
@@ -94,8 +92,6 @@
                        ⚠️ La fecha de estreno es obligatoria
                     </small>
                 </div>
-
->>>>>>> 402415c (Actualización: ajustes en modelos, templates y estilos (botones horarios y filtros))
                 
                 <div class="form-group">
                     <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
@@ -220,8 +216,6 @@
                 </div>
             </form>
         </div>
-        
-<<<<<<< HEAD
         <!-- Tabla de Películas -->
         <div class="table-responsive">
             <table class="movie-table table table-striped table-hover">
@@ -279,7 +273,7 @@
                 </tbody>
             </table>
         </div>
-=======
+
        <!-- Tabla de Películas -->
 <div class="table-responsive">
   <table class="movie-table table table-striped table-hover">
@@ -342,8 +336,6 @@
     </tbody>
   </table>
 </div>
->>>>>>> 402415c (Actualización: ajustes en modelos, templates y estilos (botones horarios y filtros))
-
 
     <script>
         // Auto-cierre de notificaciones después de 5 segundos
@@ -383,7 +375,6 @@
                     fechaInput.focus();
                 }
     });
-});
 </script>
 
 </body>

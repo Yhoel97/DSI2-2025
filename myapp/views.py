@@ -931,8 +931,6 @@ def filtrar_peliculas(request):
     }
     return render(request, 'filtrar.html', context)
 
-#####
-
 #######
 
 def horarios_por_pelicula(request):

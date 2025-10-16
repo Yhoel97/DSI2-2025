@@ -931,24 +931,21 @@ def filtrar_peliculas(request):
     idioma = request.GET.get('idioma', '').strip()
     horario = request.GET.get('horario', '').strip()
 
-    # 🎬 Empezar con todas las películas
     peliculas = Pelicula.objects.all()
 
-    # 🧠 Crear un filtro flexible con OR (Q objects)
-    filtros = Q()
-
+    # 🎯 Aplica filtros combinados pero de forma flexible
     if genero:
-        filtros |= Q(generos__icontains=genero)
-    if clasificacion:
-        filtros |= Q(clasificacion=clasificacion)
-    if idioma:
-        filtros |= Q(idioma=idioma)
-    if horario:
-        filtros |= Q(horarios__icontains=horario)
+        peliculas = peliculas.filter(generos__icontains=genero)
 
-    # ⚡ Aplicar los filtros si hay alguno
-    if filtros:
-        peliculas = peliculas.filter(filtros)
+    if clasificacion:
+        peliculas = peliculas.filter(clasificacion__icontains=clasificacion)
+
+    if idioma:
+        # Acepta tanto "Inglés" como "Inglés Subtitulado" si el usuario elige inglés
+        peliculas = peliculas.filter(idioma__icontains=idioma)
+
+    if horario:
+        peliculas = peliculas.filter(horarios__icontains=horario)
 
     peliculas = peliculas.distinct().order_by('-fecha_creacion')
 
@@ -963,6 +960,7 @@ def filtrar_peliculas(request):
         'IDIOMA_CHOICES': Pelicula._meta.get_field('idioma').choices,
         'HORARIOS_DISPONIBLES': Pelicula.HORARIOS_DISPONIBLES,
     }
+
     return render(request, 'filtrar.html', context)
 
 

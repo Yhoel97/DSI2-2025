@@ -588,17 +588,22 @@ def validaQR(request, codigo_reserva):
 
 @admin_required
 @csrf_exempt
+@admin_required
+@csrf_exempt
 def peliculas(request):
-    # Obtener todas las películas para mostrar en la tabla
-    peliculas_list = Pelicula.objects.order_by('-id')[:10]  # ✅ Últimas 10 películas
-    
-    # Procesar búsqueda si existe
+    # Procesar búsqueda primero
     busqueda = request.GET.get('busqueda', '').strip()
+    
+    # Primero se filtra, luego se limita
+    peliculas_list = Pelicula.objects.all().order_by('-id')
     if busqueda:
         peliculas_list = peliculas_list.filter(
-            Q(nombre__icontains=busqueda) | 
-            Q(director__icontains=busqueda)
+            Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
         )
+    
+    # Finalmente tomamos solo las últimas 10 (después del filtro)
+    peliculas_list = peliculas_list[:10]
+
     
     # Procesar formulario para crear/editar/eliminar
     if request.method == 'POST':
@@ -771,7 +776,7 @@ def peliculas(request):
     # ✅ Corrección: append correctamente indentado
     peliculas_con_pares = []
     for p in peliculas_list:
-        pares = list(zip(p.get_horarios_list(), p.get_salas_list()))
+        pares = p.horario_sala_pares()
         generos_nombres = [
             generos_choices.get(g, g)
             for g in p.get_generos_list()

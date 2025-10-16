@@ -931,27 +931,29 @@ def filtrar_peliculas(request):
     idioma = request.GET.get('idioma', '').strip()
     horario = request.GET.get('horario', '').strip()
 
+    # 🎬 Empezar con todas las películas
     peliculas = Pelicula.objects.all()
 
-    # Filtro por género (usa icontains porque se guarda como texto: "AC,DR")
+    # 🧠 Crear un filtro flexible con OR (Q objects)
+    filtros = Q()
+
     if genero:
-        peliculas = peliculas.filter(Q(generos__icontains=genero))
-
-    # Filtro por clasificación
+        filtros |= Q(generos__icontains=genero)
     if clasificacion:
-        peliculas = peliculas.filter(clasificacion=clasificacion)
-
-    # Filtro por idioma
+        filtros |= Q(clasificacion=clasificacion)
     if idioma:
-        peliculas = peliculas.filter(idioma=idioma)
-
-    # Filtro por horario
+        filtros |= Q(idioma=idioma)
     if horario:
-        peliculas = peliculas.filter(Q(horarios__icontains=horario))
+        filtros |= Q(horarios__icontains=horario)
 
-    # Elimina duplicados y ordena por fecha de creación
+    # ⚡ Aplicar los filtros si hay alguno
+    if filtros:
+        peliculas = peliculas.filter(filtros)
+
+    # Evita duplicados y ordena por fecha de creación
     peliculas = peliculas.distinct().order_by('-fecha_creacion')
 
+    # Enviar datos al template
     context = {
         'peliculas': peliculas,
         'genero': genero,

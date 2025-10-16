@@ -41,6 +41,7 @@ from datetime import date
 from django.db import models
 from django.shortcuts import render
 from django.urls import reverse
+from django.db.models import Q
 
 
 # Diccionario de géneros con nombres completos
@@ -901,34 +902,30 @@ def eliminar_valoracion(request, pelicula_id):
 ######
 
 def filtrar_peliculas(request):
-    genero = request.GET.get('genero')
-    clasificacion = request.GET.get('clasificacion')
-    idioma = request.GET.get('idioma')
-    horario = request.GET.get('horario')
+    genero = request.GET.get('genero', '').strip()
+    clasificacion = request.GET.get('clasificacion', '').strip()
+    idioma = request.GET.get('idioma', '').strip()
+    horario = request.GET.get('horario', '').strip()
 
     peliculas = Pelicula.objects.all()
 
-    # 🔹 Filtro por género (convertir nombre a código si es necesario)
-    if genero and genero.strip():
-        genero = genero.strip()
-        # Buscar tanto por código como por nombre
-        peliculas = peliculas.filter(
-            models.Q(generos__icontains=genero) |
-            models.Q(generos__icontains=dict(Pelicula.GENERO_CHOICES).get(genero, genero))
-        )
+    # Filtro por género (usa icontains porque se guarda como texto: "AC,DR")
+    if genero:
+        peliculas = peliculas.filter(Q(generos__icontains=genero))
 
-    # 🔹 Filtro por clasificación
-    if clasificacion and clasificacion.strip():
-        peliculas = peliculas.filter(clasificacion=clasificacion.strip())
+    # Filtro por clasificación
+    if clasificacion:
+        peliculas = peliculas.filter(clasificacion=clasificacion)
 
-    # 🔹 Filtro por idioma
-    if idioma and idioma.strip():
-        peliculas = peliculas.filter(idioma=idioma.strip())
+    # Filtro por idioma
+    if idioma:
+        peliculas = peliculas.filter(idioma=idioma)
 
-    # 🔹 Filtro por horario
-    if horario and horario.strip():
-        peliculas = peliculas.filter(horarios__icontains=horario.strip())
+    # Filtro por horario
+    if horario:
+        peliculas = peliculas.filter(Q(horarios__icontains=horario))
 
+    # Elimina duplicados y ordena por fecha de creación
     peliculas = peliculas.distinct().order_by('-fecha_creacion')
 
     context = {
@@ -943,6 +940,7 @@ def filtrar_peliculas(request):
         'HORARIOS_DISPONIBLES': Pelicula.HORARIOS_DISPONIBLES,
     }
     return render(request, 'filtrar.html', context)
+
 
 #######
 

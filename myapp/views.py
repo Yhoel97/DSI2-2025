@@ -901,27 +901,35 @@ def eliminar_valoracion(request, pelicula_id):
 ######
 
 def filtrar_peliculas(request):
-    # Obtener filtros desde GET
     genero = request.GET.get('genero')
     clasificacion = request.GET.get('clasificacion')
     idioma = request.GET.get('idioma')
     horario = request.GET.get('horario')
 
-    # Empezar con todas las películas
     peliculas = Pelicula.objects.all()
 
-    # Aplicar los filtros sin perder detalles
+    # 🔹 Filtro por género (convertir nombre a código si es necesario)
     if genero and genero.strip():
-        peliculas = peliculas.filter(generos__icontains=genero.strip())
+        genero = genero.strip()
+        # Buscar tanto por código como por nombre
+        peliculas = peliculas.filter(
+            models.Q(generos__icontains=genero) |
+            models.Q(generos__icontains=dict(Pelicula.GENERO_CHOICES).get(genero, genero))
+        )
+
+    # 🔹 Filtro por clasificación
     if clasificacion and clasificacion.strip():
         peliculas = peliculas.filter(clasificacion=clasificacion.strip())
+
+    # 🔹 Filtro por idioma
     if idioma and idioma.strip():
         peliculas = peliculas.filter(idioma=idioma.strip())
+
+    # 🔹 Filtro por horario
     if horario and horario.strip():
         peliculas = peliculas.filter(horarios__icontains=horario.strip())
 
-    # ⚡ Asegurar que cada película conserve todos sus campos
-    peliculas = peliculas.distinct()  # evita duplicados
+    peliculas = peliculas.distinct().order_by('-fecha_creacion')
 
     context = {
         'peliculas': peliculas,

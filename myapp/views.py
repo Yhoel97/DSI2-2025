@@ -589,18 +589,11 @@ def validaQR(request, codigo_reserva):
 
 @admin_required
 @csrf_exempt
-@admin_required
-@csrf_exempt
 def peliculas(request):
-#<<<<<<< HEAD
-    # Obtener todas las películas para mostrar en la tabla
-    #peliculas_list = Pelicula.objects.order_by('-id')[:10]  # ✅ Últimas 10 películas
-    from datetime import date  # ya está importado arriba, no lo repitas
-
-# Obtener la fecha actual
+    from datetime import date
     hoy = date.today()
 
-# Filtrar películas según fecha de estreno
+    # 🔹 Filtrar películas según fecha de estreno
     peliculas_en_cartelera = Pelicula.objects.filter(
         Q(fecha_estreno__lte=hoy) | Q(fecha_estreno__isnull=True)
     ).order_by('-id')
@@ -609,202 +602,124 @@ def peliculas(request):
         fecha_estreno__gt=hoy
     ).order_by('fecha_estreno')
 
-    
-    # Procesar búsqueda si existe
-#=======
-    # Procesar búsqueda primero
-#>>>>>>> 3cdb8a522aefae44e436edf9b312cb2f717adc25
+    # 🔹 Procesar búsqueda si existe
     busqueda = request.GET.get('busqueda', '').strip()
-    
-    # Primero se filtra, luego se limita
-    peliculas_list = Pelicula.objects.all().order_by('-id')
     if busqueda:
-        peliculas_list = peliculas_list.filter(
+        peliculas_en_cartelera = peliculas_en_cartelera.filter(
             Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
         )
-    
-    # Finalmente tomamos solo las últimas 10 (después del filtro)
-    peliculas_list = peliculas_list[:10]
+        peliculas_proximas = peliculas_proximas.filter(
+            Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
+        )
 
-    
-    # Procesar formulario para crear/editar/eliminar
+    # 🔹 Procesar formulario (crear / editar / eliminar)
     if request.method == 'POST':
         accion = request.POST.get('accion')
-        
-        if accion == 'crear':
-            # Validar y crear nueva película
-            nombre = request.POST.get('nombre', '').strip()
-            anio = request.POST.get('anio', '').strip()
-            director = request.POST.get('director', '').strip()
-            imagen_url = request.POST.get('imagen_url', '').strip()
-            trailer_url = request.POST.get('trailer_url', '').strip()
-            generos = request.POST.getlist('generos')
-            horarios = request.POST.getlist('horarios')
-            salas = request.POST.getlist('salas')
-            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
-            clasificacion = request.POST.get('clasificacion', 'APT')
-            idioma = request.POST.get('idioma', 'Español')       
-            # Validaciones
-            errores = []
-            
-            if not nombre:
-                errores.append('El nombre es obligatorio')
-            if Pelicula.objects.filter(nombre=nombre).exists():
-                errores.append('Ya existe una película con ese nombre')
-            if not anio.isdigit() or int(anio) < 1900 or int(anio) > 2099:
-                errores.append('El año debe ser entre 1900 y 2099')
-            if not director:
-                errores.append('El director es obligatorio')
-            if not imagen_url:
-                errores.append('La URL de la imagen es obligatoria')
-            if not trailer_url:
-                errores.append('La URL del trailer es obligatoria')
-            if len(generos) == 0:
-                errores.append('Debe seleccionar al menos un género')
-            if len(generos) > 3:
-                errores.append('No puede seleccionar más de 3 géneros')
-            if len(horarios) == 0:
-                errores.append('Debe seleccionar al menos un horario')
-            if len(salas) == 0:
-                errores.append('Debe seleccionar al menos una sala')
-            
-            if not errores:
-                try:
-                    pelicula = Pelicula(
-                        nombre=nombre,
-                        anio=int(anio),
-                        director=director,
-                        imagen_url=imagen_url,
-                        trailer_url=trailer_url,
-                        generos=",".join(generos),
-                        horarios=",".join(horarios),
-    
-                        fecha_estreno=fecha_estreno if fecha_estreno else None,
-                        clasificacion=clasificacion,
-                        idioma=idioma
-                    )
 
-                    pelicula.save()
-                    messages.success(request, f'Película "{nombre}" creada exitosamente!')
-                    return redirect('peliculas')
-                except Exception as e:
-                    messages.error(request, f'Error al crear la película: {str(e)}')
-            else:
-                for error in errores:
-                    messages.error(request, error)
-                
-        elif accion == 'editar':
-            # Obtener datos del formulario
-            nombre_original = request.POST.get('nombre_original', '').strip()
+        # --- CREAR ---
+        if accion == 'crear':
             nombre = request.POST.get('nombre', '').strip()
             anio = request.POST.get('anio', '').strip()
-            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
             director = request.POST.get('director', '').strip()
             imagen_url = request.POST.get('imagen_url', '').strip()
             trailer_url = request.POST.get('trailer_url', '').strip()
             generos = request.POST.getlist('generos')
             horarios = request.POST.getlist('horarios')
             salas = request.POST.getlist('salas')
+            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
             clasificacion = request.POST.get('clasificacion', 'APT')
-            idioma = request.POST.get('idioma', 'Español')       
-            # Validaciones
+            idioma = request.POST.get('idioma', 'Español')
+
             errores = []
-            
-            if not nombre_original:
-                errores.append('No se especificó la película a editar')
             if not nombre:
-                errores.append('El nombre es obligatorio')
-            if nombre != nombre_original and Pelicula.objects.filter(nombre=nombre).exists():
-                errores.append('Ya existe otra película con ese nombre')
+                errores.append('El nombre es obligatorio.')
+            if Pelicula.objects.filter(nombre=nombre).exists():
+                errores.append('Ya existe una película con ese nombre.')
             if not anio.isdigit() or int(anio) < 1900 or int(anio) > 2099:
-                errores.append('El año debe ser entre 1900 y 2099')
+                errores.append('El año debe estar entre 1900 y 2099.')
             if not director:
-                errores.append('El director es obligatorio')
-            if not imagen_url:
-                errores.append('La URL de la imagen es obligatoria')
-            if not trailer_url:
-                errores.append('La URL del trailer es obligatoria')
-            if len(generos) == 0:
-                errores.append('Debe seleccionar al menos un género')
+                errores.append('El director es obligatorio.')
+            if not generos:
+                errores.append('Debe seleccionar al menos un género.')
             if len(generos) > 3:
-                errores.append('No puede seleccionar más de 3 géneros')
-            if len(horarios) == 0:
-                errores.append('Debe seleccionar al menos un horario')
-            if len(salas) == 0:
-                errores.append('Debe seleccionar al menos una sala')
-            
-            if not errores:
-                try:
-                    pelicula = Pelicula.objects.get(nombre=nombre_original)
-                    pelicula.nombre = nombre
-                    pelicula.anio = int(anio)
-                    pelicula.director = director
-                    pelicula.imagen_url = imagen_url
-                    pelicula.trailer_url = trailer_url
-                    pelicula.generos = ",".join(generos)
-                    pelicula.horarios = ",".join(horarios)
-                    pelicula.salas = ",".join(salas)
-                    pelicula.fecha_estreno = fecha_estreno if fecha_estreno else None
-                    pelicula.clasificacion = clasificacion
-                    pelicula.idioma = idioma
-                    if fecha_estreno:
-                        from datetime import datetime
-                        try:
-                            pelicula.fecha_estreno = datetime.strptime(fecha_estreno, '%Y-%m-%d').date()
-                        except ValueError:
-                            messages.warning(request, '⚠️ Formato de fecha inválido. Usa AAAA-MM-DD.')
-                    else:
-                        pelicula.fecha_estreno = None
-                    pelicula.save()
-                    messages.success(request, f'Película "{nombre}" actualizada exitosamente!')
-                    return redirect('peliculas')
-                except Pelicula.DoesNotExist:
-                    messages.error(request, 'La película que intentas editar no existe')
-                except Exception as e:
-                    messages.error(request, f'Error al actualizar la película: {str(e)}')
+                errores.append('No puede seleccionar más de 3 géneros.')
+
+            if errores:
+                for e in errores:
+                    messages.error(request, e)
             else:
-                for error in errores:
-                    messages.error(request, error)
-                
+                pelicula = Pelicula(
+                    nombre=nombre,
+                    anio=anio,
+                    director=director,
+                    imagen_url=imagen_url,
+                    trailer_url=trailer_url,
+                    generos=",".join(generos),
+                    horarios=",".join(horarios),
+                    salas=",".join(salas),
+                    fecha_estreno=fecha_estreno if fecha_estreno else None,
+                    clasificacion=clasificacion,
+                    idioma=idioma
+                )
+                pelicula.save()
+                messages.success(request, f'Película "{nombre}" creada exitosamente.')
+                return redirect('peliculas')
+
+        # --- EDITAR ---
+        elif accion == 'editar':
+            nombre_original = request.POST.get('nombre_original', '').strip()
+            try:
+                pelicula = Pelicula.objects.get(nombre=nombre_original)
+            except Pelicula.DoesNotExist:
+                messages.error(request, 'No se encontró la película a editar.')
+                return redirect('peliculas')
+
+            pelicula.nombre = request.POST.get('nombre', '').strip()
+            pelicula.anio = request.POST.get('anio', '').strip()
+            pelicula.director = request.POST.get('director', '').strip()
+            pelicula.imagen_url = request.POST.get('imagen_url', '').strip()
+            pelicula.trailer_url = request.POST.get('trailer_url', '').strip()
+            pelicula.generos = ",".join(request.POST.getlist('generos'))
+            pelicula.horarios = ",".join(request.POST.getlist('horarios'))
+            pelicula.salas = ",".join(request.POST.getlist('salas'))
+            pelicula.fecha_estreno = request.POST.get('fecha_estreno') or None
+            pelicula.clasificacion = request.POST.get('clasificacion', 'APT')
+            pelicula.idioma = request.POST.get('idioma', 'Español')
+            pelicula.save()
+            messages.success(request, f'Película "{pelicula.nombre}" actualizada correctamente.')
+            return redirect('peliculas')
+
+        # --- ELIMINAR ---
         elif accion == 'eliminar':
             nombre = request.POST.get('nombre', '').strip()
-            if nombre:
-                try:
-                    pelicula = Pelicula.objects.get(nombre=nombre)
-                    pelicula.delete()
-                    messages.success(request, f'Película "{nombre}" eliminada exitosamente!')
-                    return redirect('peliculas')
-                except Pelicula.DoesNotExist:
-                    messages.error(request, 'La película que intentas eliminar no existe')
-                except Exception as e:
-                    messages.error(request, f'Error al eliminar la película: {str(e)}')
-            else:
-                messages.error(request, 'No se especificó la película a eliminar')
-    
-    # Preparar datos para el template
+            try:
+                Pelicula.objects.get(nombre=nombre).delete()
+                messages.success(request, f'Película "{nombre}" eliminada correctamente.')
+            except Pelicula.DoesNotExist:
+                messages.error(request, 'No se encontró la película para eliminar.')
+            return redirect('peliculas')
+
+    # 🔹 Datos para el formulario y la tabla
     generos_choices = dict(Pelicula.GENERO_CHOICES)
     horarios_disponibles = Pelicula.HORARIOS_DISPONIBLES
     salas_disponibles = Pelicula.SALAS_DISPONIBLES
-    
-    # Si estamos editando, cargar los datos de la película
+
     pelicula_editar = None
     if 'editar' in request.GET:
         nombre = request.GET.get('editar')
-        try:
-            pelicula_editar = Pelicula.objects.get(nombre=nombre)
-        except Pelicula.DoesNotExist:
-            messages.error(request, f'No se encontró la película "{nombre}" para editar')
-    
-    # ✅ Corrección: append correctamente indentado
+        pelicula_editar = Pelicula.objects.filter(nombre=nombre).first()
+                # ✅ Asegurar que los géneros carguen correctamente al editar
+        if pelicula_editar:
+            pelicula_editar.get_generos_list = pelicula_editar.get_generos_list()
+            pelicula_editar.get_horarios_list = pelicula_editar.get_horarios_list()
+            pelicula_editar.get_salas_list = pelicula_editar.get_salas_list()
+
+
+    # 🔹 Convertir películas de cartelera con sus pares horarios/salas
     peliculas_con_pares = []
     for p in peliculas_en_cartelera:
         pares = list(zip(p.get_horarios_list(), p.get_salas_list()))
-    for p in peliculas_list:
-        pares = p.horario_sala_pares()
-        generos_nombres = [
-            generos_choices.get(g, g)
-            for g in p.get_generos_list()
-        ]
+        generos_nombres = [generos_choices.get(g, g) for g in p.get_generos_list()]
         peliculas_con_pares.append({
             'obj': p,
             'pares': pares,
@@ -813,17 +728,19 @@ def peliculas(request):
             'idioma': p.idioma
         })
 
+    # 🔹 Contexto para renderizar
     context = {
-        'peliculas': peliculas_con_pares,
-        'peliculas_proximas': peliculas_proximas,  # nuevas (estrenos futuros)
+        'peliculas': peliculas_con_pares,          # En cartelera
+        'peliculas_proximas': peliculas_proximas,  # Próximamente
         'GENERO_CHOICES_DICT': generos_choices,
         'HORARIOS_DISPONIBLES': horarios_disponibles,
         'SALAS_DISPONIBLES': salas_disponibles,
         'pelicula_editar': pelicula_editar,
         'busqueda': busqueda,
     }
-    
+
     return render(request, 'peliculas.html', context)
+
 
 
 
@@ -931,9 +848,13 @@ def filtrar_peliculas(request):
     idioma = request.GET.get('idioma', '').strip()
     horario = request.GET.get('horario', '').strip()
 
-    peliculas = Pelicula.objects.all()
+    # 🔹 Solo películas en cartelera (ya estrenadas o sin fecha definida)
+    hoy = date.today()
+    peliculas = Pelicula.objects.filter(
+        models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
+    )
 
-    # 🎯 Aplica filtros combinados pero de forma flexible
+    # 🎯 Aplica los filtros seleccionados
     if genero:
         peliculas = peliculas.filter(generos__icontains=genero)
 
@@ -947,7 +868,8 @@ def filtrar_peliculas(request):
     if horario:
         peliculas = peliculas.filter(horarios__icontains=horario)
 
-    peliculas = peliculas.distinct().order_by('-fecha_creacion')
+    # 🔹 Ordena de las más recientes a las más antiguas
+    peliculas = peliculas.distinct().order_by('-fecha_estreno', '-id')
 
     context = {
         'peliculas': peliculas,
@@ -967,15 +889,19 @@ def filtrar_peliculas(request):
 #######
 
 def horarios_por_pelicula(request):
-    """PBI-14: Visualizar horarios agrupados por película"""
-    peliculas = Pelicula.objects.all().order_by('-fecha_creacion')
+    """Muestra solo películas en cartelera con sus horarios"""
+    hoy = date.today()
+
+    # Solo películas que ya están en cartelera
+    peliculas = Pelicula.objects.filter(
+        models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
+    ).order_by('-fecha_estreno', '-id')
 
     peliculas_data = []
     for p in peliculas:
         horarios = p.get_horarios_list()
         salas = p.get_salas_list()
-        pares = list(zip(horarios, salas))  # Emparejar horarios y salas
-        
+        pares = list(zip(horarios, salas))
         peliculas_data.append({
             'id': p.id,
             'nombre': p.nombre,
@@ -988,9 +914,7 @@ def horarios_por_pelicula(request):
             'pares': pares
         })
 
-    context = {
-        'peliculas': peliculas_data
-    }
+    context = {'peliculas': peliculas_data}
     return render(request, 'horarios.html', context)
 
 

@@ -81,28 +81,41 @@
 
                 <!-- ✅ Corrección de estructura aquí -->
                 <div class="form-group">
-                    <label for="fecha_estreno"><i class="fas fa-calendar"></i> Fecha de Estreno:</label>
-                    <input type="date" id="fecha_estreno" name="fecha_estreno"
-                           value="{{ pelicula_editar.fecha_estreno|default:'' }}"
-                           class="form-control" required>
-                    <small id="fechaError" class="text-danger" style="display: none;">
-                       ⚠️ La fecha de estreno es obligatoria
-                    </small>
-                </div>
-                <!-- ✅ Fin de corrección -->
+                  <label for="fecha_estreno">
+                    <i class="fas fa-calendar"></i> Fecha de Estreno:
+                  </label>
+
+                  {% if pelicula_editar and pelicula_editar.fecha_estreno %}
+                   <input type="date" id="fecha_estreno" name="fecha_estreno"
+                          value="{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}"
+                          class="form-control" required>
+                  {% else %}
+                   <input type="date" id="fecha_estreno" name="fecha_estreno"
+                          class="form-control" required>
+                  {% endif %}
+
+                  <small id="fechaError" class="text-danger" style="display: none;">
+                   ⚠️ La fecha de estreno es obligatoria
+                  </small>
+                 </div>
+                  <!-- ✅ Fin de corrección -->
 
                 <div class="form-group">
-                    <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
-                    <div class="generos-container">
-                     {% for genero_codigo, genero_nombre in GENERO_CHOICES_DICT.items %}
-                        <label class="genero-checkbox">
-                            <input type="checkbox" name="generos" value="{{ genero_codigo }}"
-                                {% if pelicula_editar and genero_codigo in pelicula_editar.get_generos_list %}checked{% endif %}>
-                            {{ genero_nombre }}
-                        </label>
-                    {% endfor %}
-                    </div>
+                 <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
+                 <div class="generos-container">
+                   {% for genero_codigo, genero_nombre in GENERO_CHOICES_DICT.items %}
+                     <label class="genero-checkbox">
+                      <input type="checkbox" name="generos" value="{{ genero_codigo }}"
+                        {% if pelicula_editar and genero_codigo in pelicula_editar.get_generos_codigos %}
+
+                          checked
+                        {% endif %}>
+                   {{ genero_nombre }}
+                 </label>
+                  {% endfor %}
                 </div>
+           </div>
+
                 
                 <div class="form-group">
                     <label for="clasificacion">Clasificación:</label>
@@ -111,10 +124,10 @@
                         APT (Todo público)
                       </option>
                       <option value="13+" {% if pelicula_editar and pelicula_editar.clasificacion == '13+' %}selected{% endif %}>
-                        13+ (Mayores de 13 años)
+                        (Mayores de 13 años)
                       </option>
                      <option value="18+" {% if pelicula_editar and pelicula_editar.clasificacion == '18+' %}selected{% endif %}>
-                       18+ (Solo adultos)
+                       (Solo adultos)
                      </option>
                     </select>
                 </div>

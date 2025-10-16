@@ -950,10 +950,8 @@ def filtrar_peliculas(request):
     if filtros:
         peliculas = peliculas.filter(filtros)
 
-    # Evita duplicados y ordena por fecha de creación
     peliculas = peliculas.distinct().order_by('-fecha_creacion')
 
-    # Enviar datos al template
     context = {
         'peliculas': peliculas,
         'genero': genero,

@@ -50,9 +50,9 @@
                 <label for="idioma" class="form-label">Idioma</label>
                 <select name="idioma" id="idioma" class="form-select">
                     <option value="">Todos</option>
-                    <option value="Español" {% if request.GET.idioma == "Español" %}selected{% endif %}>Español</option>
-                    <option value="Inglés" {% if request.GET.idioma == "Inglés" %}selected{% endif %}>Inglés</option>
-                    <option value="Subtitulada" {% if request.GET.idioma == "Subtitulada" %}selected{% endif %}>Subtitulada</option>
+                    <option value="ESP" {% if request.GET.idioma == "ESP" %}selected{% endif %}>Español</option>
+                    <option value="ING" {% if request.GET.idioma == "ING" %}selected{% endif %}>Inglés</option>
+                    <option value="SUB" {% if request.GET.idioma == "SUB" %}selected{% endif %}>Subtitulada</option>
                 </select>
             </div>
 

@@ -8,39 +8,39 @@
     <link rel="stylesheet" href="{% static 'styles/peliculas.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
 </head>
 <body>
     <div class="container">
-             <!-- Notificaciones -->
-                <div id="notification-container" class="notification-container">
-                    {% if messages %}
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            <div class="alert-icon">
-                                <i class="fas 
-                                    {% if message.tags == 'create' %}fa-plus-circle
-                                    {% elif message.tags == 'update' %}fa-sync-alt
-                                    {% elif message.tags == 'delete' %}fa-trash-alt
-                                    {% elif message.tags == 'search' %}fa-search
-                                    {% endif %}
-                                "></i>
-                            </div>
-                            <div class="alert-content">
-                                <p class="alert-title">
-                                    {% if message.tags == 'create' %}Película Agregada
-                                    {% elif message.tags == 'update' %}Película Actualizada
-                                    {% elif message.tags == 'delete' %}Película Eliminada
-                                    {% elif message.tags == 'search' %}Búsqueda Realizada
-                                    {% endif %}
-                                </p>
-                                <p class="alert-description">{{ message }}</p>
-                            </div>
-                            <span class="closeButton">&times;</span>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
+        <!-- Notificaciones -->
+        <div id="notification-container" class="notification-container">
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <div class="alert-icon">
+                        <i class="fas 
+                            {% if message.tags == 'create' %}fa-plus-circle
+                            {% elif message.tags == 'update' %}fa-sync-alt
+                            {% elif message.tags == 'delete' %}fa-trash-alt
+                            {% elif message.tags == 'search' %}fa-search
+                            {% endif %}
+                        "></i>
+                    </div>
+                    <div class="alert-content">
+                        <p class="alert-title">
+                            {% if message.tags == 'create' %}Película Agregada
+                            {% elif message.tags == 'update' %}Película Actualizada
+                            {% elif message.tags == 'delete' %}Película Eliminada
+                            {% elif message.tags == 'search' %}Búsqueda Realizada
+                            {% endif %}
+                        </p>
+                        <p class="alert-description">{{ message }}</p>
+                    </div>
+                    <span class="closeButton">&times;</span>
                 </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
         <h1><i class="fas fa-film"></i> Gestión de Películas</h1>
 
         <!-- Botones de navegación -->
@@ -79,16 +79,18 @@
                            value="{{ pelicula_editar.anio|default:'' }}" required class="form-control">
                 </div>
 
-                </div>
+                <!-- ✅ Corrección de estructura aquí -->
+                <div class="form-group">
                     <label for="fecha_estreno"><i class="fas fa-calendar"></i> Fecha de Estreno:</label>
                     <input type="date" id="fecha_estreno" name="fecha_estreno"
-                            value="{{ pelicula_editar.fecha_estreno|default:'' }}"
-                            class="form-control" required>
+                           value="{{ pelicula_editar.fecha_estreno|default:'' }}"
+                           class="form-control" required>
                     <small id="fechaError" class="text-danger" style="display: none;">
                        ⚠️ La fecha de estreno es obligatoria
                     </small>
                 </div>
-                
+                <!-- ✅ Fin de corrección -->
+
                 <div class="form-group">
                     <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
                     <div class="generos-container">
@@ -117,7 +119,6 @@
                     </select>
                 </div>
 
-
                 <div class="form-group">
                     <label for="idioma">Idioma:</label>
                     <select name="idioma" id="idioma" class="form-control" required>
@@ -132,7 +133,6 @@
                       </option>
                     </select>
                 </div>
-
 
                 <div class="form-group">
                     <label><i class="fas fa-clock"></i> Horarios Disponibles:</label>
@@ -212,68 +212,68 @@
                 </div>
             </form>
         </div>
-       <!-- Tabla de Películas -->
-<div class="table-responsive">
-  <table class="movie-table table table-striped table-hover">
-    <thead class="table-dark">
-      <tr>
-        <th><i class="fas fa-heading"></i> Nombre</th>
-        <th><i class="fas fa-calendar-alt"></i> Año</th>
-        <th><i class="fas fa-calendar-day"></i> Estreno</th>
-        <th><i class="fas fa-user-tie"></i> Director</th>
-        <th><i class="fas fa-tags"></i> Géneros</th>
-        <th><i class="fas fa-film"></i> Clasificación</th>
-        <th><i class="fas fa-language"></i> Idioma</th>
-        <th><i class="fas fa-clock"></i> Horario y Sala</th>
-        <th><i class="fas fa-cog"></i> Acciones</th>
-      </tr>
-    </thead>
 
-    <tbody>
-      {% for pelicula in peliculas %}
-      <tr>
-        <td>{{ pelicula.obj.nombre }}</td>
-        <td>{{ pelicula.obj.anio }}</td>
-        <td>
-          {% if pelicula.obj.fecha_estreno %}
-            {{ pelicula.obj.fecha_estreno|date:"d/m/Y" }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-        <td>{{ pelicula.obj.director }}</td>
-        <td>{{ pelicula.generos_nombres }}</td>
-        <td>{{ pelicula.obj.get_clasificacion_display }}</td>
-        <td>{{ pelicula.obj.get_idioma_display }}</td>
-
-        <td>
-          {% for h, s in pelicula.pares %}
-            {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
-          {% endfor %}
-        </td>
-        <td class="action-buttons">
-          <a href="{% url 'peliculas' %}?editar={{ pelicula.obj.nombre|urlencode }}" class="btn btn-success">
-            <i class="fas fa-edit"></i> Editar
-          </a>
-          <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="eliminar">
-            <input type="hidden" name="nombre" value="{{ pelicula.obj.nombre }}">
-            <button type="submit" class="btn btn-danger"
-              onclick="return confirm('¿Estás seguro de eliminar esta película?');">
-              <i class="fas fa-trash-alt"></i> Eliminar
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="9" class="text-center">No hay películas registradas</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+        <!-- Tabla de Películas -->
+        <div class="table-responsive">
+            <table class="movie-table table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th><i class="fas fa-heading"></i> Nombre</th>
+                        <th><i class="fas fa-calendar-alt"></i> Año</th>
+                        <th><i class="fas fa-calendar-day"></i> Estreno</th>
+                        <th><i class="fas fa-user-tie"></i> Director</th>
+                        <th><i class="fas fa-tags"></i> Géneros</th>
+                        <th><i class="fas fa-film"></i> Clasificación</th>
+                        <th><i class="fas fa-language"></i> Idioma</th>
+                        <th><i class="fas fa-clock"></i> Horario y Sala</th>
+                        <th><i class="fas fa-cog"></i> Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pelicula in peliculas %}
+                    <tr>
+                        <td>{{ pelicula.obj.nombre }}</td>
+                        <td>{{ pelicula.obj.anio }}</td>
+                        <td>
+                            {% if pelicula.obj.fecha_estreno %}
+                                {{ pelicula.obj.fecha_estreno|date:"d/m/Y" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ pelicula.obj.director }}</td>
+                        <td>{{ pelicula.generos_nombres }}</td>
+                        <td>{{ pelicula.obj.get_clasificacion_display }}</td>
+                        <td>{{ pelicula.obj.get_idioma_display }}</td>
+                        <td>
+                            {% for h, s in pelicula.pares %}
+                                {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td class="action-buttons">
+                            <a href="{% url 'peliculas' %}?editar={{ pelicula.obj.nombre|urlencode }}" class="btn btn-success">
+                                <i class="fas fa-edit"></i> Editar
+                            </a>
+                            <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="accion" value="eliminar">
+                                <input type="hidden" name="nombre" value="{{ pelicula.obj.nombre }}">
+                                <button type="submit" class="btn btn-danger"
+                                  onclick="return confirm('¿Estás seguro de eliminar esta película?');">
+                                  <i class="fas fa-trash-alt"></i> Eliminar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center">No hay películas registradas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 <!-- Tabla de Películas Próximas -->
 {% if peliculas_proximas %}
@@ -327,7 +327,7 @@
 
 
     <script>
-        // Auto-cierre de notificaciones después de 5 segundos
+        // Auto-cierre de notificaciones
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() {
                 var alerts = document.querySelectorAll('.alert');
@@ -352,47 +352,41 @@
                    fechaInput.classList.remove("is-invalid");
                    fechaError.style.display = "none";
                 }
-    });
+           });
 
-        // Validación antes de enviar el formulario
-            const form = document.querySelector(".ajax-form");
-            form.addEventListener("submit", (e) => {
-                if (!fechaInput.value) {
-                    e.preventDefault();
-                    fechaInput.classList.add("is-invalid");
-                    fechaError.style.display = "block";
-                    fechaInput.focus();
+           const form = document.querySelector(".ajax-form");
+           form.addEventListener("submit", (e) => {
+               if (!fechaInput.value) {
+                   e.preventDefault();
+                   fechaInput.classList.add("is-invalid");
+                   fechaError.style.display = "block";
+                   fechaInput.focus();
+               }
+           });
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.closeButton').forEach(button => {
+                button.addEventListener('click', function() {
+                    const notification = this.closest('.alert');
+                    notification.style.animation = 'fadeOut 0.5s forwards';
+                    setTimeout(() => notification.remove(), 500);
+                });
+            });
+
+            document.querySelectorAll('.alert').forEach((alert, index) => {
+                let timeout = 5000;
+                if (alert.classList.contains('alert-search')) {
+                    timeout = 3000;
                 }
-    });
-</script>
-
-</body>
-</html>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Cierre manual de notificaciones
-        document.querySelectorAll('.closeButton').forEach(button => {
-            button.addEventListener('click', function() {
-                const notification = this.closest('.alert');
-                notification.style.animation = 'fadeOut 0.5s forwards';
-                setTimeout(() => notification.remove(), 500);
+                setTimeout(() => {
+                    alert.style.animation = 'fadeOut 0.5s forwards';
+                    setTimeout(() => alert.remove(), 500);
+                }, timeout + (index * 200));
             });
         });
-
-        // Auto-cierre después de tiempo específico
-        document.querySelectorAll('.alert').forEach((alert, index) => {
-            // Tiempos diferentes según el tipo de notificación
-            let timeout = 5000; // 5 segundos por defecto
-            
-            if (alert.classList.contains('alert-search')) {
-                timeout = 3000; // 3 segundos para búsquedas
-            }
-            
-            setTimeout(() => {
-                alert.style.animation = 'fadeOut 0.5s forwards';
-                setTimeout(() => alert.remove(), 500);
-            }, timeout + (index * 200));
-        });
-    });
-</script>
+    </script>
+</body>
+</html>

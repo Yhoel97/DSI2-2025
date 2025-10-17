@@ -194,45 +194,79 @@ nav ul li a:hover {
 
 @media (max-width: 768px) {
   header {
-    flex-direction: row; /* Mantener en fila en móviles */
+    flex-direction: row; /* Mantener en fila, no columna */
     height: auto;
-    padding: 10px;
-    align-items: center; /* Mismo nivel */
+    padding: 10px 15px;
+    align-items: center;
+    flex-wrap: wrap; /* Permitir que los elementos se envuelvan */
   }
 
-  
-  .header-top {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
   .logo-img {
     height: 60px;
+    margin-right: 15px; /* Espacio entre logo y nav */
   }
-  
+
+  nav {
+    flex: 1; /* Ocupar el espacio disponible */
+    min-width: 0; /* Permitir que se ajuste */
+  }
+
   nav ul {
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row; /* Mantener en fila */
+    flex-wrap: wrap; /* Permitir envoltura */
     gap: 0.5rem;
-    margin: 8px 0 0 0
+    margin: 0;
+    justify-content: flex-start; /* Alinear a la izquierda */
   }
-  
-  nav ul li {
-    width: 100%;
+
+  nav ul li a {
+    font-size: 0.8rem; /* Texto más pequeño */
+    padding: 0.5rem 0.8rem; /* Padding reducido */
+    min-height: 36px; /* Altura reducida */
+    min-width: auto; /* Ancho automático */
   }
-  
-  nav ul li a,
+
   #filtrar-personalizado a {
-    width: 100% !important;
+    font-size: 0.8rem !important;
+    padding: 0.5rem 0.8rem !important;
+    min-height: 36px !important;
     min-width: auto !important;
-    padding: 0.8rem 1rem !important;
   }
-  
+
   .user-welcome-wrapper {
+    order: 3; /* Poner el mensaje al final */
+    width: 100%; /* Ocupar todo el ancho */
+    margin-top: 8px;
     font-size: 0.9rem;
     padding: 0.5rem 1rem;
-    margin: 0.2rem 0 0 0;
-    max-width: 300px;
+  }
+}
+
+/* Para pantallas muy pequeñas */
+@media (max-width: 480px) {
+  header {
+    padding: 8px 10px;
+  }
+
+  .logo-img {
+    height: 50px;
+    margin-right: 10px;
+  }
+
+  nav ul {
+    gap: 0.3rem;
+  }
+
+  nav ul li a {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    min-height: 32px;
+  }
+
+  #filtrar-personalizado a {
+    font-size: 0.75rem !important;
+    padding: 0.4rem 0.6rem !important;
+    min-height: 32px !important;
   }
 }
 /* Cartelera de Películas */

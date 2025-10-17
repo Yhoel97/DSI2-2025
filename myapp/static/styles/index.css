@@ -448,26 +448,26 @@ footer {
    ====================================== */
 
 @media (max-width: 768px) {
-  /* Ajuste del body para header responsive */
-  body {
-    margin-top: 180px; /* Más espacio para header reorganizado */
+  .header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 15px;
+    height: auto;
+    min-height: 160px;
   }
 
-  /* HEADER RESPONSIVE - LOGO ARRIBA, BOTONES FILA, MENSAJE ABAJO */
-  header {
-    height: auto;
-    min-height: 150px;
-    padding: 10px 15px;
+  .header-top {
+    width: 100%;
+    display: flex;
     flex-direction: column;
     align-items: center;
   }
 
-  /* Logo arriba centrado */
   .logo-container {
-    order: 1;
-    margin-bottom: 10px;
-    text-align: center;
     width: 100%;
+    text-align: center;
+    margin-bottom: 10px;
   }
 
   .logo-img {
@@ -475,38 +475,49 @@ footer {
     margin: 0 auto;
   }
 
-  /* Botones SIEMPRE en fila */
   .nav-container {
-    order: 2;
     width: 100%;
   }
 
-  nav ul {
-    flex-direction: row; /* SIEMPRE en fila */
-    flex-wrap: wrap; /* Se envuelven si es necesario */
-    gap: 0.5rem;
-    margin: 0;
+  .nav-list {
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
   }
 
-  nav ul li {
-    flex: 0 1 auto; /* No crecer, tamaño automático */
+  .nav-list li {
+    flex: 0 1 auto;
   }
 
-  nav ul li a {
+  .nav-list li a {
+    min-width: 100px;
     font-size: 0.7rem;
     padding: 0.5rem 0.6rem;
-    min-height: 35px;
-    min-width: auto;
-    white-space: nowrap; /* Evita que el texto se parta */
+    text-align: center;
+    white-space: nowrap;
   }
 
   #filtrar-personalizado a {
-    font-size: 0.7rem !important;
-    padding: 0.5rem 0.6rem !important;
-    min-height: 35px !important;
+    background-color: #17f151;
+    color: white;
+    border: none;
   }
 
+  .user-welcome-wrapper {
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #4b2e83;
+  }
+
+  body {
+    margin-top: 220px; /* Asegura que no se corte la cartelera */
+  }
+}
   /* Mensaje de bienvenida ABAJO */
   .user-welcome-wrapper {
     order: 3;

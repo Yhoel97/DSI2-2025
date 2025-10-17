@@ -9,38 +9,48 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <header class="header">
-<div class="logo">
-  <a href="/">
-    <img src="{% static 'imagenes/cine.png' %}" alt="CineDot Logo" class="logo-img">
-  </a>
-</div>
-    <nav class="nav">
-      <ul class="nav-list flex">
-        <li><a href="#cartelera">Cartelera</a></li>
-        <li><a href="#contacto">Contacto</a></li>
-        {% if user.is_authenticated %}
-          <li><span class="user-welcome">¡Hola, {{ user.username }}!</span></li>
-          {% if user.is_staff %}
-            <li><a href="{% url 'peliculas' %}" class="btn admin-btn">Panel Admin</a></li>
-          {% endif %}
-          <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
-          <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">🎟️ Ver Horarios</a></li>
-        {% else %}
-          <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
-          <li><a href="{% url 'registro' %}" class="btn register-btn">Registrarse</a></li>
-        {% endif %}
-      </ul>
-
-      <!--Botón Filtrar Películas alineado a la derecha -->
-    <div class="filter-wrapper">
-            <a href="{% url 'filtrar_peliculas' %}" class="btn filter-btn">
-               <i class="fas fa-search"></i> Filtrar Películas
-            </a>
+<header class="header">
+  <div class="header-top">
+    <div class="logo-container">
+      <a href="/">
+        <img src="{% static 'imagenes/cine.png' %}" alt="CineDot Logo" class="logo-img">
+      </a>
     </div>
 
-    </nav>
-    </header>
+    <div class="nav-container">
+      <nav class="nav">
+        <ul class="nav-list flex">
+          <li><a href="#cartelera">Cartelera</a></li>
+          <li><a href="#contacto">Contacto</a></li>
+
+          {% if user.is_authenticated %}
+            {% if user.is_staff %}
+              <li><a href="{% url 'peliculas' %}" class="btn admin-btn">Panel Admin</a></li>
+            {% endif %}
+            <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
+            <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">🎟️ Ver Horarios</a></li>
+          {% else %}
+            <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
+            <li><a href="{% url 'registro' %}" class="btn register-btn">Registrarse</a></li>
+          {% endif %}
+
+          <li id="filtrar-personalizado">
+            <a href="{% url 'filtrar_peliculas' %}" class="btn filter-btn">
+              <i class="fas fa-search"></i> Filtrar Películas
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Mensaje de bienvenida DEBAJO de los botones -->
+      {% if user.is_authenticated %}
+        <div class="user-welcome-wrapper">
+          <span class="user-welcome">¡Hola, {{ user.username }}!</span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</header>
 
 
     <main>

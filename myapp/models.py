@@ -223,3 +223,12 @@ class Valoracion(models.Model):
         verbose_name_plural = 'Valoraciones'
         ordering = ['-fecha_creacion']
 
+#Tabla CodigoDescuento
+class CodigoDescuento(models.Model):
+    codigo = models.CharField(max_length=20, unique=True)
+    porcentaje = models.DecimalField(max_digits=5, decimal_places=2)
+    estado = models.BooleanField(default=True)  
+    
+
+    def _str_(self):
+        return f"{self.codigo} - {self.porcentaje}%"

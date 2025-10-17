@@ -21,4 +21,9 @@ urlpatterns = [
     path('pelicula/<int:pelicula_id>/', views.pelicula_detalle, name='pelicula_detalle'),
     path('pelicula/<int:pelicula_id>/valorar/', views.crear_valoracion, name='crear_valoracion'),
     path('pelicula/<int:pelicula_id>/eliminar-valoracion/', views.eliminar_valoracion, name='eliminar_valoracion'),
+    #URLS para modulo cupones
+      path('cupones/registrar/', views.registrar_cupon, name='registrar_cupon'),
+    path('cupones/eliminar/<int:pk>/', views.eliminar_cupon, name='eliminar_cupon'), 
+    path('cupones/modificar/<int:pk>/', views.modificar_cupon, name='modificar_cupon'),
+    path('aplicar_descuento/', views.aplicar_descuento_ajax, name='aplicar_descuento_ajax'),
 ]

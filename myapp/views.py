@@ -13,9 +13,10 @@ from functools import wraps
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Pelicula, Reserva, Valoracion
+from .models import Pelicula, Reserva, Valoracion,CodigoDescuento
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.db.models import Q
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -208,10 +209,8 @@ def asientos(request, pelicula_id=None):
         combo = request.POST.get('combo', '').strip()  # Ej: "09:30 AM - Sala 1"
         asientos_seleccionados = request.POST.get('asientos', '').strip()
 
-        # Listas base
         salas_list = pelicula.get_salas_list()
         horarios_list = pelicula.get_horarios_list()
-        # Emparejar uno a uno por índice
         combinaciones = [f"{h} - {s}" for h, s in zip(horarios_list, salas_list)]
 
         errores = []
@@ -227,8 +226,15 @@ def asientos(request, pelicula_id=None):
                 horario, sala = combo.split(" - ", 1)
                 precio_por_boleto = {'2D': 3.50, '3D': 4.50, 'IMAX': 6.00}.get(formato, 0)
                 cantidad_boletos = len([a for a in asientos_seleccionados.split(',') if a])
-                precio_total = precio_por_boleto * cantidad_boletos
-
+                
+                #Descuento
+                precio_subtotal = float(precio_por_boleto * cantidad_boletos)
+                descuento_porcentaje = float(request.session.get('descuento_porcentaje', 0))
+                codigo_aplicado = request.session.get('codigo_aplicado')
+                
+                monto_descuento = precio_subtotal * (descuento_porcentaje / 100)
+                precio_total = precio_subtotal - monto_descuento
+                
                 reserva = Reserva(
                     pelicula=pelicula,
                     nombre_cliente=nombre_cliente,
@@ -243,16 +249,22 @@ def asientos(request, pelicula_id=None):
                     estado='RESERVADO'
                 )
                 reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                reserva.save()
 
+                # Limpia las variables de session del cupon para otras compras
+                if 'descuento_porcentaje' in request.session:
+                    del request.session['descuento_porcentaje']
+                if 'codigo_aplicado' in request.session:
+                    del request.session['codigo_aplicado']
+                
+                reserva.save()
+                
                 pdf_buffer = generar_pdf_reserva(reserva)
                 response = HttpResponse(pdf_buffer, content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
 
-                # Señal para limpiar storage en el siguiente load
                 request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
                 request.session['limpiar_form'] = True
-
+                
                 return response
 
             except Exception as e:
@@ -266,16 +278,12 @@ def asientos(request, pelicula_id=None):
         messages.success(request, request.session['reserva_message'])
         del request.session['reserva_message']
 
-    # Listas base
     salas_list = pelicula.get_salas_list()
     horarios_list = pelicula.get_horarios_list()
-    # Emparejar uno a uno por índice (tres opciones si hay 3 y 3)
     combinaciones = [f"{h} - {s}" for h, s in zip(horarios_list, salas_list)]
 
-    # Combo actual por GET/POST o primer emparejamiento
     combo_actual = request.POST.get('combo') or request.GET.get('combo') or (combinaciones[0] if combinaciones else '')
 
-    # Asientos ocupados según combo actual
     asientos_ocupados = []
     if combo_actual:
         try:
@@ -289,7 +297,15 @@ def asientos(request, pelicula_id=None):
             for r in reservas_existentes:
                 asientos_ocupados.extend(r.get_asientos_list())
         except ValueError:
-            pass  # combo malformado en edge cases
+            pass
+ 
+    if request.method == 'GET':
+        request.session.pop('descuento_porcentaje', None)
+        request.session.pop('codigo_aplicado', None)
+        request.session.pop('mensaje_cupon', None)
+
+    descuento_porcentaje = request.session.get('descuento_porcentaje', 0)
+    mensaje_cupon = request.session.pop('mensaje_cupon', '') 
 
     context = {
         'pelicula': pelicula,
@@ -297,12 +313,102 @@ def asientos(request, pelicula_id=None):
         'asientos_ocupados': asientos_ocupados,
         'combinaciones': combinaciones,
         'combo_actual': combo_actual,
+        'descuento_porcentaje': float(descuento_porcentaje), 
+        'mensaje_cupon': mensaje_cupon,
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
     return render(request, "asientos.html", context)
 
 #################################################################
 #################################################################
+@csrf_exempt
+@require_POST
+def aplicar_descuento_ajax(request):
+    """
+    Función que valida un código de descuento y guarda el porcentaje en la sesión.
+    Responde con JSON.
+    """
+    if request.method == 'POST':
+        codigo = request.POST.get('codigo', '').strip().upper()
+        
+        if not codigo:
+            return JsonResponse({'success': False, 'mensaje': 'Ingrese un código de descuento.'})
+
+        try:
+            cupon = CodigoDescuento.objects.get(codigo=codigo, estado=True)
+
+            # Aplicacion de el descuento y guardarlo en la sesión
+            descuento = cupon.porcentaje
+            
+            descuento = float(cupon.porcentaje or 0)
+            request.session['descuento_porcentaje'] = descuento
+            
+            mensaje = f'Cupón "{codigo}" aplicado: ¡{descuento}% de descuento!'
+            request.session['mensaje_cupon'] = mensaje
+            
+            return JsonResponse({'success': True, 'descuento_porcentaje': descuento, 'mensaje': mensaje})
+
+        except CodigoDescuento.DoesNotExist:
+            return JsonResponse({'success': False, 'mensaje': 'Código no válido o inactivo.'})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'mensaje': f'Error interno: {str(e)}'})
+
+    return JsonResponse({'success': False, 'mensaje': 'Método no permitido.'})
+#################################################################
+#################################################################
+def registrar_cupon(request):
+  
+    if request.method == 'POST':
+        
+        form = CodigoDescuentoForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect('registrar_cupon') 
+    
+    else:
+        form = CodigoDescuentoForm()
+
+    cupones_registrados = CodigoDescuento.objects.all().order_by('-id')
+
+    contexto = {
+        'form': form,
+        'cupones': cupones_registrados 
+    }
+
+    return render(request, 'registrar_cupon.html', contexto)
+    
+def eliminar_cupon(request, pk):
+   
+    cupon = get_object_or_404(CodigoDescuento, pk=pk)
+    cupon.delete() 
+    return redirect('registrar_cupon')
+
+def modificar_cupon(request, pk):
+    cupon = get_object_or_404(CodigoDescuento, pk=pk)
+    
+    if request.method == 'POST':
+        form = CodigoDescuentoForm(request.POST, instance=cupon)
+        if form.is_valid():
+            form.save()
+            return redirect('registrar_cupon') 
+    else:
+        form = CodigoDescuentoForm(instance=cupon)
+        
+    cupones_registrados = CodigoDescuento.objects.all().order_by('-id')
+    
+    contexto = {
+        'form': form,
+        'cupones': cupones_registrados,
+        'es_edicion': True, # Sirve para identificar si se esta modificandi
+        'cupon_id': pk
+    }
+    
+    return render(request, 'registrar_cupon.html', contexto)
+
+##################################################################################
+##################################################################################
 @csrf_exempt
 def administrar_salas(request):
     peliculas = Pelicula.objects.all()

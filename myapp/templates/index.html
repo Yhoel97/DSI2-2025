@@ -26,6 +26,7 @@
           {% if user.is_authenticated %}
             {% if user.is_staff %}
               <li><a href="{% url 'peliculas' %}" class="btn admin-btn">Panel Admin</a></li>
+              <li><a href="{% url 'registrar_cupon' %}" class="btn logout-btn">Cupones</a></li>
             {% endif %}
             <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
             <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">🎟️ Ver Horarios</a></li>

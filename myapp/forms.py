@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required
 from .models import Valoracion
+from .models import CodigoDescuento
 import re
 
 
@@ -197,3 +198,24 @@ class ValoracionForm(forms.ModelForm):
         if commit:
             valoracion.save()
         return valoracion
+    
+
+class CodigoDescuentoForm(forms.ModelForm):
+    
+     class Meta:
+        model = CodigoDescuento
+        fields = ['codigo', 'porcentaje', 'estado']
+        widgets = {
+            'estado': forms.Select(
+                choices=[
+                    (True, 'Activo'),   
+                    (False, 'Inactivo'), 
+                ]
+            ),
+        }
+
+     def _init_(self, *args, **kwargs):
+        super()._init_(*args, **kwargs)
+        self.fields['codigo'].label = 'Código de Descuento'
+        self.fields['porcentaje'].label = 'Porcentaje (%)'
+        self.fields['estado'].label = 'Estado del Cupón'

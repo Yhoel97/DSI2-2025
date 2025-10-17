@@ -1,7 +1,7 @@
 /* Estilos generales */
 body {
   font-family: 'Arial', sans-serif;
-  margin-top: 100px; /* Igual a la altura del header */
+  margin-top: 160px; /* Igual a la altura del header */
   padding: 0;
   background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
   color: #333;
@@ -10,7 +10,7 @@ body {
 
 .cine-container {
   max-width: 900px;
-  margin: 2rem auto;
+  margin: 4rem auto 2rem auto; 
   padding: 1rem;
   background-color: #fff;
   border-radius: 5px;
@@ -181,6 +181,15 @@ nav ul li a:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
 }
 
+
+.section-title {
+  font-size: 1.6rem;
+  margin-top: 3rem; 
+  margin-bottom: 1.5rem;
+  color: #4b2e83;
+  text-align: center;
+  font-weight: bold;
+}
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -454,11 +463,21 @@ nav ul li a:hover {
     color: #4b2e83;
   }
 
-  body {
-    margin-top: 220px; /* Asegura que no se corte la cartelera */
-  }
+
+  .section-title {
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.4rem;
+  color: #4b2e83;
+  text-align: center;
+  font-weight: bold;
 }
 
+ body {
+    margin-top: 280px; /* ← más espacio desde el header */
+  }
+
+}
 /* ================================
    💻 RESPONSIVE PARA TABLET
    ================================ */

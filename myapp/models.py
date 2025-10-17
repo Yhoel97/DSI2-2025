@@ -75,7 +75,11 @@ class Pelicula(models.Model):
         """Devuelve una lista con los nombres completos de los géneros."""
         GENERO_CHOICES_DICT = dict(self.GENERO_CHOICES)
         codigos = [g.strip() for g in self.generos.split(",")] if self.generos else []
-        return [GENERO_CHOICES_DICT.get(codigo, codigo) for codigo in codigos]
+        return [GENERO_CHOICES_DICT.get(codigo, codigo) for codigo in codigos] 
+    def get_generos_codigos(self):
+        """Devuelve lista con los códigos de géneros (ej: ['AC', 'DR'])"""
+        return [g.strip() for g in self.generos.split(",")] if self.generos else []
+
 
     def get_horarios_list(self):
         return [h.strip() for h in self.horarios.split(",") if h.strip()] if self.horarios else []

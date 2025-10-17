@@ -145,9 +145,11 @@
 </head>
 <body>
   <header class="header">
-    <div class="logo">
-      <h1>CineDot</h1>
-    </div>
+<div class="logo">
+  <a href="/">
+    <img src="{% static 'imagenes/cine.png' %}" alt="CineDot Logo" class="logo-img">
+  </a>
+</div>
     <nav class="nav">
       <ul class="nav-list flex">
         <li><a href="#cartelera">Cartelera</a></li>
@@ -285,6 +287,17 @@
         <p>© 2025 CineDot. Todos los derechos reservados.</p>
     </footer>
 </body>
+
+<script>
+  window.addEventListener('scroll', function() {
+    const header = document.querySelector('header');
+    if (window.scrollY > 50) {
+      header.style.background = 'linear-gradient(to right, #e0f3ff, #d0e0ff, #e6d6ff)';
+    } else {
+      header.style.background = 'linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff)';
+    }
+  });
+</script>
 </html>
 
 

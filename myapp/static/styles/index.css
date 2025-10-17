@@ -1,9 +1,9 @@
 /* Estilos generales */
 body {
   font-family: 'Arial', sans-serif;
-  margin: 0;
+  margin-top: 100px; /* Igual a la altura del header */
   padding: 0;
-  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff); /* blanco → azul claro → morado pastel */
+  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
   color: #333;
   line-height: 1.6;
 }
@@ -19,15 +19,35 @@ body {
 
 /* Encabezado */
 header {
-  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff); /* blanco → azul claro → morado pastel */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
   color: #4b2e83;
-  padding: 1rem;
-}
-.logo h1 {
-  margin: 0;
-  font-size: 1.8rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: background 0.3s ease;
 }
 
+.logo-img {
+  height: 150px; /* Más grande */
+  width: auto;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.logo-img:hover {
+  transform: scale(1.05); /* Efecto sutil al pasar el mouse */
+}
+
+/* Navegación */
 nav ul {
   list-style: none;
   display: flex;
@@ -46,7 +66,7 @@ nav ul li a {
   border-radius: 5px;
   background: linear-gradient(to right, #00c6ff, #7b68ee);
   color: white;
-  border: 2px solid #000; /* contorno negro */
+  border: 2px solid #000;
   cursor: pointer;
   transition: all 0.3s ease;
   display: inline-block;
@@ -56,7 +76,7 @@ nav ul li a {
 nav ul li a:hover {
   background: linear-gradient(to right, #00a8e1, #6a5acd);
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  border-color: #000; /* mantener contorno negro en hover */
+  border-color: #000;
 }
 /* Cartelera de Películas */
 .peliculas-grid {
@@ -157,6 +177,31 @@ footer {
   font-size: 0.9rem;
 }
 
+
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    height: auto;
+    padding: 10px;
+  }
+
+  nav ul {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  nav ul li a {
+    width: 100%;
+    font-size: 0.95rem;
+    padding: 0.6rem 1rem;
+  }
+
+  .logo-img {
+    height: 70px; /* Ajuste para pantallas pequeñas */
+  }
+}
 /* Responsive */
 @media (max-width: 900px) {
   .peliculas-grid {
@@ -221,6 +266,140 @@ footer {
   border-color: #1565c0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
+       /* Estilos para ratings en la cartelera */
+        .movie-rating {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 1rem 0;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 8px;
+            border-left: 4px solid #ffd700;
+        }
+        
+        .rating-stars {
+            display: flex;
+            gap: 0.2rem;
+        }
+        
+        .rating-stars .star-filled {
+            color: #ffd700;
+            font-size: 1.2rem;
+        }
+        
+        .rating-stars .star-empty {
+            color: #ddd;
+            font-size: 1.2rem;
+        }
+        
+        .rating-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            font-size: 0.9rem;
+        }
+        
+        .rating-score {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        .rating-count {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+        }
+        
+        /* Botón de reseñas */
+        .review-btn {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .review-btn:hover {
+            background: linear-gradient(135deg, #8e44ad, #7d3c98);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(142, 68, 173, 0.3);
+        }
+        
+        /* Responsivo para móviles */
+        @media (max-width: 768px) {
+            .movie-rating {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+            
+            .rating-info {
+                align-items: center;
+            }
+        }
+
+        /* Igual diseño base que los demás botones */
+        .btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        /* 🔧 Contenedor principal del nav */
+        .nav {
+            width: 100%;
+            display: flex;
+            justify-content: center; /* centra el bloque completo */
+            align-items: center;
+            position: relative;
+        }
+
+        /* 🔧 Lista centrada */
+        .nav-list.flex {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .nav-list li {
+            list-style: none;
+        }
+
+        /* 🔧 Botón Filtrar Películas separado a la derecha sin mover los demás */
+        .filter-wrapper {
+            position: absolute;
+            right: 80px; /* distancia desde el borde derecho */
+            top: 50%;
+            transform: translateY(-50%); /* alinea verticalmente */
+        }
+
+        /* ✅ Botón verde */
+        .filter-btn {
+            background-color: #28a745 !important; /* verde puro */
+            color: #fff !important;
+            border: 1px solid #1e7e34 !important;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .filter-btn:hover {
+            background-color: #218838 !important; /* verde más oscuro */
+        }
 
 
 /* ======================================

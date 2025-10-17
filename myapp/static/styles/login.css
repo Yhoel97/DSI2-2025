@@ -19,7 +19,7 @@ body {
   flex-direction: row;
   width: 800px;
   max-width: 100%;
-  background-color: #fff;
+  background-color:linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -31,14 +31,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f7f9fc;
+  background-color: #ffffff;
   padding: 2rem;
 }
 
 .left-section img {
-  width: 100%;
+  width: 400%;
   height: auto;
-  max-width: 300px;
+  max-width: 500px;
   transition: all 0.3s ease;
 }
 

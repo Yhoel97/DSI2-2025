@@ -192,37 +192,40 @@ nav ul li a:hover {
   }
 }
 
-/* Cartelera de Películas */
+/* ===== CARTELERA PARA TODAS LAS PANTALLAS ===== */
 .peliculas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1.5rem;
   padding: 1rem;
+  justify-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .pelicula-card {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
   background-color: #fff;
   border-radius: 5px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
-/* CORRECCIÓN: Altura fija para todas las imágenes de pósters */
 .poster-container {
   width: 100%;
-  height: auto;
-  max-height: 500px; /* límite opcional para evitar imágenes gigantes */
+  height: 350px;
   overflow: hidden;
+  background-color: #000;
 }
 
 .poster-container img {
   width: 100%;
-  height: auto;
-  object-fit: contain; /* muestra la imagen completa sin recortarla */
+  height: 100%;
+  object-fit: cover;
   border-radius: 5px 5px 0 0;
-  background-color: #000; /* fondo negro si hay espacio vacío */
 }
 
 .pelicula-info {
@@ -233,24 +236,23 @@ nav ul li a:hover {
 }
 
 .movie-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
   color: #4b2e83;
 }
 
 .movie-details p {
+  font-size: 0.9rem;
+  text-align: center;
   margin: 0.3rem 0;
-}
-
-.detail-label {
-  font-weight: bold;
-  color: #555;
 }
 
 .movie-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  justify-content: center;
   margin-top: auto;
 }
 

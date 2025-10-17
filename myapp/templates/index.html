@@ -74,8 +74,8 @@
                                     {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
                                 {% endfor %}
                             </p>
-                            <p><strong>Clasificación:</strong> {{ pelicula.get_clasificacion_display }}</p>
-                            <p><strong>Idioma:</strong> {{ pelicula.get_idioma_display }}</p>
+                            <p><span class="detail-label">Clasificacion: </span>{{ pelicula.get_clasificacion_display }}</p>
+                            <p><span class="detail-label">Idioma: </span>{{ pelicula.get_idioma_display }}</p>
                         </div>
                         
                         <!-- Rating de la película -->

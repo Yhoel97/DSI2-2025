@@ -48,6 +48,23 @@
                     <label for="email">Email:</label>
                     <input type="email" id="email" name="email" required>
                 </div>
+                <div class="form-group cupon-section" style="margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+    <label for="codigo_cupon" style="font-weight: bold;">Código de Descuento:</label>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="text" id="codigo_cupon" placeholder="Ingresa tu código" style="flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 3px;">
+        <button type="button" id="btn-aplicar-cupon" class="btn-apply" style="padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Aplicar
+        </button>
+    </div>
+    
+    <p id="cupon-message" style="margin-top: 5px; font-weight: bold; font-size: 0.9em;">
+        {% if mensaje_cupon %}
+            <script>document.getElementById('cupon-message').style.color = 'green';</script>
+        {% endif %}
+        {{ mensaje_cupon }}
+    </p>
+    
+    <input type="hidden" id="descuento_porcentaje_actual" value="{{ descuento_porcentaje|default:0 }}">
 
                 <!-- Formato -->
                 <div class="form-group">
@@ -105,20 +122,31 @@
         </div>
 
         <div class="selection-summary">
-            <h3>Tu selección:</h3>
-            <div class="selected-seats" id="selected-seats">Ningún asiento seleccionado</div>
-            <div class="total-price" id="total-price">Total: $0</div>
-            <div class="ticket-counter" id="ticket-counter">
-                <span>Boletos:</span>
-                <span id="ticket-count">0</span>
-            </div>
-            <button type="submit" form="reserva-form" class="btn-confirm">Confirmar Reserva</button>
+           <h3>Tu selección:</h3>
+<div class="selected-seats" id="selected-seats">Ningún asiento seleccionado</div>
+<div class="ticket-counter" id="ticket-counter">
+    <span>Boletos:</span>
+    <span id="ticket-count">0</span>
+</div>
+
+<hr style="margin: 10px 0;">
+<div class="price-details" style="font-size: 1em;">
+    <p style="display: flex; justify-content: space-between;">Subtotal: <span id="subtotal-display">$0.00</span></p>
+    <p id="discount-row" style="color: green; display: flex; justify-content: space-between;">
+        Descuento (<span id="discount-percent-display">0</span>%): <span id="discount-amount-display">-$0.00</span>
+    </p>
+</div>
+<div class="total-price" id="total-price" style="font-size: 1.5em; font-weight: bold; margin-top: 10px; border-top: 2px solid #333; padding-top: 5px;">
+    Total: $0.00
+</div>
+<button type="submit" form="reserva-form" class="btn-confirm">Confirmar Reserva</button>
         </div>
     </div>
 
     <script>
         let selectedSeats = [];
         const precioBase = 3.50;
+        let descuentoPorcentaje = parseFloat(document.getElementById('descuento_porcentaje_actual').value) || 0;
         const STORAGE_KEY = 'formData_{{ pelicula.id }}';
         const SCROLL_KEY = 'scrollPos_{{ pelicula.id }}';
         const limpiarForm = {{ limpiar_form|yesno:"true,false" }};
@@ -126,19 +154,41 @@
         function updateSummary() {
             const selectedSeatsElement = document.getElementById('selected-seats');
             const ticketCountElement = document.getElementById('ticket-count');
-            const totalPriceElement = document.getElementById('total-price');
             const asientosInput = document.getElementById('asientos');
+
+
+            const subtotalDisplay = document.getElementById('subtotal-display');
+            const discountPercentDisplay = document.getElementById('discount-percent-display');
+            const discountAmountDisplay = document.getElementById('discount-amount-display');
+            const discountRow = document.getElementById('discount-row');
+            const totalPriceElement = document.getElementById('total-price');
 
             selectedSeatsElement.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'Ningún asiento seleccionado';
             ticketCountElement.textContent = selectedSeats.length;
 
-            const formatoSeleccionado = document.querySelector('input[name="formato"]:checked').value;
+             const formatoSeleccionado = document.querySelector('input[name="formato"]:checked').value;
             let precioPorBoleto = precioBase;
             if (formatoSeleccionado === '3D') precioPorBoleto = 4.50;
             if (formatoSeleccionado === 'IMAX') precioPorBoleto = 6.00;
 
-            totalPriceElement.textContent = `Total: $${(selectedSeats.length * precioPorBoleto).toFixed(2)}`;
-            asientosInput.value = selectedSeats.join(',');
+            // Calculo Subtotal
+            let subtotal = selectedSeats.length * precioPorBoleto;
+            
+            // Calculo Descuento
+            let montoDescuento = subtotal * (descuentoPorcentaje / 100);
+            
+            // Calculo Total Final
+            let totalFinal = subtotal - montoDescuento;
+
+            //Actualizar
+            subtotalDisplay.textContent = `$${subtotal.toFixed(2)}`;
+            discountPercentDisplay.textContent = descuentoPorcentaje.toFixed(0);
+            discountAmountDisplay.textContent = `-$${montoDescuento.toFixed(2)}`;
+            totalPriceElement.textContent = `Total: $${totalFinal.toFixed(2)}`;
+            
+            // Ocultar la fila de descuento si no hay descuento
+            discountRow.style.display = descuentoPorcentaje > 0 ? 'flex' : 'none';
+             asientosInput.value = selectedSeats.join(',');
         }
 
         function actualizarAsientos() {
@@ -199,6 +249,58 @@
         });
 
         updateSummary();
+
+        
+document.getElementById('btn-aplicar-cupon').addEventListener('click', async () => {
+    const codigo = document.getElementById('codigo_cupon').value;
+    const cuponMessageElement = document.getElementById('cupon-message');
+
+    if (codigo.length === 0) {
+        cuponMessageElement.textContent = "Ingresa un código.";
+        cuponMessageElement.style.color = 'orange';
+        return;
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value; 
+
+    try {
+        const response = await fetch('{% url "aplicar_descuento_ajax" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken
+            },
+            body: `codigo=${codigo}`
+        });
+
+        const data = await response.json();
+
+        cuponMessageElement.textContent = data.mensaje;
+        
+        if (data.success) {
+
+            descuentoPorcentaje = data.descuento_porcentaje; 
+            cuponMessageElement.style.color = 'green';
+            
+            // Sirve para borrar la caja de texto si el cupon existe
+           // document.getElementById('codigo_cupon').value = '';
+            
+        } else {
+            // Si falla, el descuento es cero
+            descuentoPorcentaje = 0;
+            cuponMessageElement.style.color = 'red';
+        
+        }
+
+        updateSummary(); 
+        
+    } catch (error) {
+        cuponMessageElement.textContent = 'Error de conexión con el servidor.';
+        cuponMessageElement.style.color = 'red';
+        descuentoPorcentaje = 0;
+        updateSummary();
+    }
+});
     </script>
 </body>
 </html>

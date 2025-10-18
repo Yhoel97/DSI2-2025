@@ -13,19 +13,7 @@
 <body>
     <div class="container"> 
         <h1>Administración de Códigos de Descuento</h1>
-        <!-- Botones de navegación -->
-        <div class="mb-3 d-flex gap-2">
-            <a href="{% url 'index' %}" class="btn btn- btn-green">
-                <i class="fas fa-home"></i> Inicio
-            </a>
-            <a href="{% url 'administrar_salas' %}" class="btn btn-green">
-                <i class="fas fa-door-open"></i> Administrar Salas
-            </a>
-        </div>
-
-        <a href="{% url 'administrar_funciones' %}" class="btn btn-green">
-            <i class="fas fa-calendar-alt"></i> Administrar Funciones
-        </a>
+       
 
         <div class="form-container">
             <h2>Registrar Nuevo Cupón</h2>
@@ -102,6 +90,19 @@
         </div>
 
         <p><a href="/" class="btn btn-secondary">Volver a la Página Principal</a></p>
+        <!-- Botones de navegación -->
+        <div class="mb-3 d-flex gap-2">
+            <a href="{% url 'index' %}" class="btn btn- btn-green">
+                <i class="fas fa-home"></i> Inicio
+            </a>
+            <a href="{% url 'administrar_salas' %}" class="btn btn-green">
+                <i class="fas fa-door-open"></i> Administrar Salas
+            </a>
+        </div>
+
+        <a href="{% url 'administrar_funciones' %}" class="btn btn-green">
+            <i class="fas fa-calendar-alt"></i> Administrar Funciones
+        </a>
     </div>
 </body>
 </html>

@@ -27,9 +27,11 @@
             {% if user.is_staff %}
               <li><a href="{% url 'peliculas' %}" class="btn admin-btn">Panel Admin</a></li>
               <li><a href="{% url 'registrar_cupon' %}" class="btn logout-btn">Cupones</a></li>
+              <li><a href="{% url 'administrar_funciones' %}">Administrar Funciones</a></li>
             {% endif %}
             <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
             <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">🎟️ Ver Horarios</a></li>
+
           {% else %}
             <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
             <li><a href="{% url 'registro' %}" class="btn register-btn">Registrarse</a></li>
@@ -115,6 +117,44 @@
                 {% endfor %}
             </div>
         </section>
+                  <!-- Funciones -->
+                  <!-- Funciones disponibles -->
+        <section id="funciones" class="section container">
+          <h2 class="section-title">🎟️ Funciones Disponibles</h2>
+
+          <div class="peliculas-grid grid">
+              {% for funcion in funciones %}
+              <div class="pelicula-card">
+                  <div class="poster-container">
+                      <img src="{{ funcion.pelicula.imagen_url }}" alt="{{ funcion.pelicula.nombre }}" class="movie-poster responsive-img">
+                  </div>
+                  <div class="pelicula-info">
+                      <h3 class="movie-title">{{ funcion.pelicula.nombre }}</h3>
+
+                      <div class="movie-details">
+                          <p><span class="detail-label">Fecha:</span> {{ funcion.fecha|date:"d/m/Y" }}</p>
+                          <p><span class="detail-label">Horario:</span> {{ funcion.horario }}</p>
+                          <p><span class="detail-label">Sala:</span> {{ funcion.sala }}</p>
+                          <p><span class="detail-label">Formato:</span> {{ funcion.formato }}</p>
+                      </div>
+
+                      <div class="movie-actions flex">
+                          <a href="{{ funcion.pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
+                              <i class="fab fa-youtube"></i> Ver Tráiler
+                          </a>
+
+                    <!-- LINK a asientos pasando combo por GET -->
+                          <a href="{% url 'asientos' funcion.pelicula.id %}?combo={{ funcion.horario }} - {{ funcion.sala }}" class="btn buy-btn">
+                              <i class="fas fa-ticket-alt"></i> Comprar ({{ funcion.horario }})
+                          </a>
+                      </div>
+                  </div>
+              </div>
+              {% empty %}
+              <p class="text-center" style="color:#555;">No hay funciones programadas por el momento.</p>
+              {% endfor %}
+          </div>
+        </section>
 
 
             <!-- Próximamente -->
@@ -148,6 +188,9 @@
         </section>
 
 
+
+
+
         <!-- Contacto -->
         <section id="contacto" class="section container">
             <h2 class="section-title">Contacto</h2>
@@ -174,6 +217,8 @@
     }
   });
 </script>
+
+
 </html>
 
 

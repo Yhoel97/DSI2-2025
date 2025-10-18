@@ -26,4 +26,7 @@ urlpatterns = [
     path('cupones/eliminar/<int:pk>/', views.eliminar_cupon, name='eliminar_cupon'), 
     path('cupones/modificar/<int:pk>/', views.modificar_cupon, name='modificar_cupon'),
     path('aplicar_descuento/', views.aplicar_descuento_ajax, name='aplicar_descuento_ajax'),
+
+    #PBI-018 Administrar funciones
+    path('administrar_funciones/', views.administrar_funciones, name='administrar_funciones'),
 ]

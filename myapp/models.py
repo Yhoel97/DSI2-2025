@@ -130,6 +130,26 @@ class Pelicula(models.Model):
         db_table = 'peliculas'
 
 
+from django.db import models
+from datetime import date
+
+class Funcion(models.Model):
+    pelicula = models.ForeignKey('Pelicula', on_delete=models.CASCADE)
+    fecha = models.DateField()
+    horario = models.CharField(max_length=50)
+    sala = models.CharField(max_length=50)
+    formato = models.CharField(
+        max_length=10,
+        choices=[('2D', '2D'), ('3D', '3D'), ('IMAX', 'IMAX')],
+        default='2D'
+    )
+
+    def __str__(self):
+        return f"{self.pelicula.nombre} - {self.fecha} ({self.horario} - {self.sala})"
+
+    class Meta:
+        ordering = ['fecha', 'horario']
+
 
 
 class Reserva(models.Model):

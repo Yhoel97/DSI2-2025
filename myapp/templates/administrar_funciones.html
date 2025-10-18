@@ -1,0 +1,151 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Administrar Funciones</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{% static 'styles/peliculas.css' %}">
+</head>
+<body class="bg-light">
+
+<div class="container mt-4 mb-5">
+    <h1 class="text-center mb-4"><i class="fas fa-calendar-alt"></i> Administrar Funciones</h1>
+
+    <!-- Notificaciones -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+            <div class="mb-3 d-flex gap-2">
+            <a href="{% url 'index' %}" class="btn btn- btn-green">
+                <i class="fas fa-home"></i> Volver al Inicio
+            </a>
+        </div>
+
+    <!-- Formulario Crear / Editar -->
+    <div class="card {% if funcion_editar %}border-warning{% else %}border-success{% endif %}">
+        <div class="card-header {% if funcion_editar %}bg-warning{% else %}bg-success{% endif %} text-white">
+            {% if funcion_editar %}
+                ✏️ Editar Función
+            {% else %}
+                🎬 Agregar Nueva Función
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{% url 'administrar_funciones' %}">
+                {% csrf_token %}
+                {% if funcion_editar %}
+                    <input type="hidden" name="accion" value="editar">
+                    <input type="hidden" name="funcion_id" value="{{ funcion_editar.id }}">
+                {% else %}
+                    <input type="hidden" name="accion" value="crear">
+                {% endif %}
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Película</label>
+                        <select name="pelicula" class="form-select" required>
+                            <option value="">-- Selecciona una película --</option>
+                            {% for p in peliculas %}
+                                <option value="{{ p.id }}" {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>{{ p.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha</label>
+                        <input type="date" name="fecha" class="form-control" value="{{ funcion_editar.fecha|date:'Y-m-d' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Horario</label>
+                        <select name="horario" class="form-select" required>
+                            {% for h in HORARIOS_DISPONIBLES %}
+                                <option value="{{ h }}" {% if funcion_editar and funcion_editar.horario == h %}selected{% endif %}>{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Sala</label>
+                        <select name="sala" class="form-select" required>
+                            {% for s in SALAS_DISPONIBLES %}
+                                <option value="{{ s }}" {% if funcion_editar and funcion_editar.sala == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Formato</label>
+                        <select name="formato" class="form-select">
+                            <option value="2D" {% if funcion_editar and funcion_editar.formato == "2D" %}selected{% endif %}>2D</option>
+                            <option value="3D" {% if funcion_editar and funcion_editar.formato == "3D" %}selected{% endif %}>3D</option>
+                            <option value="IMAX" {% if funcion_editar and funcion_editar.formato == "IMAX" %}selected{% endif %}>IMAX</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                    {% if funcion_editar %}
+                        <button type="submit" class="btn btn-warning px-4"><i class="fas fa-save"></i> Guardar Cambios</button>
+                        <a href="{% url 'administrar_funciones' %}" class="btn btn-secondary px-4">Cancelar</a>
+                    {% else %}
+                        <button type="submit" class="btn btn-success px-4"><i class="fas fa-plus"></i> Agregar</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de funciones -->
+    <div class="card mt-4 shadow-sm">
+        <div class="card-header bg-dark text-white">
+            🎞️ Funciones Programadas
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-striped align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Película</th>
+                        <th>Fecha</th>
+                        <th>Horario</th>
+                        <th>Sala</th>
+                        <th>Formato</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in funciones %}
+                        <tr>
+                            <td>{{ f.pelicula.nombre }}</td>
+                            <td>{{ f.fecha|date:"d/m/Y" }}</td>
+                            <td>{{ f.horario }}</td>
+                            <td>{{ f.sala }}</td>
+                            <td>{{ f.formato }}</td>
+                            <td>
+                                <a href="?editar={{ f.id }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i>Editar</a>
+                                <form method="POST" action="{% url 'administrar_funciones' %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="accion" value="eliminar">
+                                    <input type="hidden" name="funcion_id" value="{{ f.id }}">
+                                    <button class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar esta función?');">
+                                        <i class="fas fa-trash"></i>Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted">No hay funciones registradas</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

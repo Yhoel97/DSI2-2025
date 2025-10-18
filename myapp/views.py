@@ -44,6 +44,14 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.db.models import Q
 
+from datetime import date
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, render, redirect
+from django.views.decorators.csrf import csrf_exempt
+from .models import Pelicula, Funcion, Reserva
+from .decorators import admin_required
+
+
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -80,6 +88,9 @@ def convertir_generos(codigos_generos):
 def index(request):
    hoy = date.today()
 
+   funciones = Funcion.objects.filter(fecha__gte=hoy).select_related('pelicula').order_by('fecha', 'horario')
+
+
    peliculas = Pelicula.objects.filter(
         models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
     ).order_by('-id')
@@ -87,6 +98,7 @@ def index(request):
    peliculas_proximas = Pelicula.objects.filter(
         fecha_estreno__gt=hoy
     ).order_by('fecha_estreno')
+   
 
     # Procesar listas de géneros y horarios
    for pelicula in peliculas:
@@ -100,7 +112,8 @@ def index(request):
 
    return render(request, 'index.html', {
         'peliculas': peliculas,
-        'peliculas_proximas': peliculas_proximas
+        'peliculas_proximas': peliculas_proximas,
+        'funciones': funciones,   # <-- nueva variable para el template
     })
 
 
@@ -1024,3 +1037,73 @@ def horarios_por_pelicula(request):
     return render(request, 'horarios.html', context)
 
 
+@admin_required
+def administrar_funciones(request):
+    peliculas = Pelicula.objects.all()
+    funciones = Funcion.objects.select_related('pelicula').order_by('fecha', 'horario')
+
+    # Estas dos líneas son CLAVE para llenar los select en el formulario
+    HORARIOS_DISPONIBLES = Pelicula.HORARIOS_DISPONIBLES
+    SALAS_DISPONIBLES = Pelicula.SALAS_DISPONIBLES
+
+    funcion_editar = None
+    if 'editar' in request.GET:
+        funcion_id = request.GET.get('editar')
+        funcion_editar = get_object_or_404(Funcion, id=funcion_id)
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        pelicula_id = request.POST.get('pelicula')
+        sala = request.POST.get('sala')
+        horario = request.POST.get('horario')
+        fecha = request.POST.get('fecha')
+        formato = request.POST.get('formato')
+
+        if accion == 'crear':
+            # Verificar duplicados
+            duplicada = Funcion.objects.filter(
+                pelicula_id=pelicula_id,
+                sala=sala,
+                horario=horario,
+                fecha=fecha
+            ).exists()
+
+            if duplicada:
+                messages.error(request, '⚠️ Ya existe una función con esa película, sala, horario y fecha.')
+                return redirect('administrar_funciones')
+
+            Funcion.objects.create(
+                pelicula_id=pelicula_id,
+                sala=sala,
+                horario=horario,
+                fecha=fecha,
+                formato=formato
+            )
+            messages.success(request, '✅ Función agregada correctamente.')
+            return redirect('administrar_funciones')
+
+        elif accion == 'editar':
+            funcion_id = request.POST.get('funcion_id')
+            funcion = get_object_or_404(Funcion, id=funcion_id)
+            funcion.pelicula_id = pelicula_id
+            funcion.sala = sala
+            funcion.horario = horario
+            funcion.fecha = fecha
+            funcion.formato = formato
+            funcion.save()
+            messages.success(request, '✏️ Función actualizada correctamente.')
+            return redirect('administrar_funciones')
+
+        elif accion == 'eliminar':
+            funcion_id = request.POST.get('funcion_id')
+            Funcion.objects.filter(id=funcion_id).delete()
+            messages.success(request, '🗑️ Función eliminada correctamente.')
+            return redirect('administrar_funciones')
+
+    return render(request, 'administrar_funciones.html', {
+        'peliculas': peliculas,
+        'funciones': funciones,
+        'funcion_editar': funcion_editar,
+        'HORARIOS_DISPONIBLES': HORARIOS_DISPONIBLES,
+        'SALAS_DISPONIBLES': SALAS_DISPONIBLES,
+    })

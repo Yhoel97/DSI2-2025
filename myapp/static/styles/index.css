@@ -1,4 +1,8 @@
-/* Estilos generales */
+/* ============================================================
+   🏠 INDEX.CSS — Estilos para la página principal (Cartelera)
+   ============================================================ */
+
+/* ===== Estilos generales ===== */
 body {
   font-family: 'Arial', sans-serif;
   margin-top: 160px; /* Igual a la altura del header */
@@ -10,15 +14,14 @@ body {
 
 .cine-container {
   max-width: 900px;
-  margin: 4rem auto 2rem auto; 
+  margin: 4rem auto 2rem auto;
   padding: 1rem;
   background-color: #fff;
   border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Encabezado */
-/* ===== ENCABEZADO REORGANIZADO ===== */
+/* ===== ENCABEZADO ===== */
 header {
   position: fixed;
   top: 0;
@@ -29,13 +32,13 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 15px 20px; /* Aumentado el padding superior */
+  padding: 15px 20px;
   background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
   color: #4b2e83;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   transition: background 0.3s ease;
 }
-/* Fila superior: logo + navegación */
+
 .header-top {
   display: flex;
   align-items: center;
@@ -44,7 +47,7 @@ header {
   flex: 1;
 }
 
-/* Logo a la izquierda */
+/* Logo */
 .logo-container {
   display: flex;
   align-items: center;
@@ -62,7 +65,7 @@ header {
   transform: scale(1.05);
 }
 
-/* ===== NAVEGACIÓN CENTRADA ===== */
+/* ===== NAVEGACIÓN ===== */
 .nav-container {
   display: flex;
   flex-direction: column;
@@ -78,7 +81,7 @@ nav ul {
   gap: 1rem;
   justify-content: center;
   padding: 0;
-  margin: 10px 0 0 0; /* Margen superior de 10px */
+  margin: 10px 0 0 0;
 }
 
 nav ul li {
@@ -86,7 +89,6 @@ nav ul li {
   align-items: stretch;
 }
 
-/* BOTONES CON MISMO ALTO Y TAMAÑO */
 nav ul li a {
   text-decoration: none;
   font-weight: bold;
@@ -102,47 +104,47 @@ nav ul li a {
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  min-width: 120px; /* Ancho mínimo para consistencia */
+  min-width: 120px;
   box-sizing: border-box;
   text-align: center;
 }
 
 nav ul li a:hover {
   background: linear-gradient(to right, #00a8e1, #6a5acd);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   border-color: #000;
   transform: translateY(-2px);
 }
 
-/* BOTÓN FILTRAR PELÍCULAS - VERDE (MISMO TAMAÑO) */
+/* ===== Botón Filtrar (verde) ===== */
 #filtrar-personalizado a,
 #filtrar-personalizado a:link,
 #filtrar-personalizado a:visited {
-    background: linear-gradient(to right, #28a745, #218838) !important;
-    color: #fff !important;
-    border: 2px solid #000 !important;
-    border-radius: 5px !important;
-    padding: 0.7rem 1.1rem !important;
-    font-weight: bold !important;
-    text-decoration: none !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-    min-height: 44px !important;
-    min-width: 120px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 0.95rem !important;
+  background: linear-gradient(to right, #28a745, #218838) !important;
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: 5px !important;
+  padding: 0.7rem 1.1rem !important;
+  font-weight: bold !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  min-height: 44px !important;
+  min-width: 120px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.95rem !important;
 }
 
 #filtrar-personalizado a:hover {
-    background: linear-gradient(to right, #218838, #1e7e34) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-    border-color: #000 !important;
-    transform: translateY(-2px) !important;
+  background: linear-gradient(to right, #218838, #1e7e34) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  border-color: #000 !important;
+  transform: translateY(-2px) !important;
 }
 
-/* ===== MENSAJE DE BIENVENIDA DEBAJO DE LOS BOTONES ===== */
+/* ===== Bienvenida del usuario ===== */
 .user-welcome-wrapper {
   text-align: center;
   margin: 0.3rem 0 0 0;
@@ -181,15 +183,16 @@ nav ul li a:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
 }
 
-
+/* ===== Título de secciones ===== */
 .section-title {
   font-size: 1.6rem;
-  margin-top: 3rem; 
+  margin-top: 3rem;
   margin-bottom: 1.5rem;
   color: #4b2e83;
   text-align: center;
   font-weight: bold;
 }
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -201,9 +204,9 @@ nav ul li a:hover {
   }
 }
 
-/* ================================
-   🎬 ESTILOS BASE PARA ESCRITORIO
-   ================================ */
+/* ============================================================
+   🎬 TARJETAS DE PELÍCULAS
+   ============================================================ */
 
 .peliculas-grid {
   display: grid;
@@ -222,13 +225,13 @@ nav ul li a:hover {
   flex-direction: column;
   background-color: #fff;
   border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
 .pelicula-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
 
@@ -243,7 +246,6 @@ nav ul li a:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 5px 5px 0 0;
 }
 
 .pelicula-info {
@@ -252,45 +254,75 @@ nav ul li a:hover {
   display: flex;
   flex-direction: column;
 }
-/* Título de la película */
 
 .movie-title {
-  font-size: 1.4rem; 
+  font-size: 1.4rem;
   text-align: left;
   color: #4b2e83;
   font-weight: bold;
   margin-bottom: 0.6rem;
 }
 
-/* Detalles generales */
 .movie-details p {
-  font-size: 1.05rem; /* antes 0.9rem */
+  font-size: 1.05rem;
   text-align: left;
   margin: 0.4rem 0;
   line-height: 1.5;
 }
 
-/* Etiquetas como “Género”, “Director”, etc. */
 .detail-label {
   font-weight: bold;
   color: #4b2e83;
   margin-right: 0.3rem;
-  font-size: 1.05rem; /* igual que el texto para mantener consistencia */
-}
-
-/* Rating visual */
-.movie-rating {
   font-size: 1.05rem;
 }
 
-.rating-score {
+/* ===== Rating visual ===== */
+.movie-rating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1rem 0;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 8px;
+  border-left: 4px solid #ffd700;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.rating-stars .star-filled {
+  color: #ffd700;
   font-size: 1.2rem;
 }
 
-.rating-count {
-  font-size: 1rem;
+.rating-stars .star-empty {
+  color: #ddd;
+  font-size: 1.2rem;
 }
 
+.rating-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.9rem;
+}
+
+.rating-score {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.rating-count {
+  color: #7f8c8d;
+  font-size: 0.8rem;
+}
+
+/* ===== Botones ===== */
 .movie-actions {
   display: flex;
   flex-direction: row;
@@ -322,7 +354,6 @@ nav ul li a:hover {
 .trailer-btn:hover {
   background-color: #d32f2f;
   border-color: #d32f2f;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 /* 🎟️ Botón Comprar Boleto */
@@ -334,7 +365,6 @@ nav ul li a:hover {
 .buy-btn:hover {
   background-color: #1565c0;
   border-color: #1565c0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 /* 📝 Botón Ver Reseñas */
@@ -349,56 +379,41 @@ nav ul li a:hover {
   box-shadow: 0 4px 12px rgba(142, 68, 173, 0.3);
 }
 
-/* ⭐ Rating visual */
-.movie-rating {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 1rem 0;
-  padding: 0.8rem;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-  border-radius: 8px;
-  border-left: 4px solid #ffd700;
+/* ================================
+   📞 SECCIÓN DE CONTACTO CENTRADA
+   ================================ */
+.contacto-info {
+  text-align: center;              /* centra el texto */
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.8;
 }
 
-.rating-stars {
-  display: flex;
-  gap: 0.2rem;
-}
-.rating-stars .star-filled {
-  color: #ffd700;
-  font-size: 1.2rem;
-}
-.rating-stars .star-empty {
-  color: #ddd;
-  font-size: 1.2rem;
+.contacto-info p {
+  margin: 0.4rem 0;
+  font-size: 1rem;
+  color: #333;
 }
 
-.rating-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  font-size: 0.9rem;
-}
-.rating-score {
-  font-weight: bold;
-  color: #2c3e50;
-  font-size: 1.1rem;
-}
-.rating-count {
-  color: #7f8c8d;
-  font-size: 0.8rem;
+.contacto-info .icono {
+  color: #4b2e83;                  /* color morado como el resto del tema */
+  margin-right: 8px;
 }
 
+/* Footer centrado */
+.footer {
+  text-align: center;
+  background: transparent;
+  color: #333;
+  font-size: 0.95rem;
+  padding-bottom: 1.5rem;
+}
 
-
-/* ======================================
-   📱 RESPONSIVE COMPLETO 
-   ====================================== */
-
+/* ============================================================
+   📱 RESPONSIVE
+   ============================================================ */
 @media (max-width: 768px) {
-  .header {
-    display: flex;
+  header {
     flex-direction: column;
     align-items: center;
     padding: 10px 15px;
@@ -407,77 +422,49 @@ nav ul li a:hover {
   }
 
   .header-top {
-    width: 100%;
-    display: flex;
     flex-direction: column;
     align-items: center;
   }
 
-  .logo-container {
-    width: 100%;
-    text-align: center;
-    margin-bottom: 10px;
-  }
-
   .logo-img {
     height: 60px;
-    margin: 0 auto;
   }
 
-  .nav-container {
-    width: 100%;
-  }
-
-  .nav-list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+  nav ul {
     gap: 0.5rem;
-    padding: 0;
-    margin: 0;
   }
 
-  .nav-list li {
-    flex: 0 1 auto;
-  }
-
-  .nav-list li a {
+  nav ul li a {
     min-width: 100px;
     font-size: 0.7rem;
     padding: 0.5rem 0.6rem;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  #filtrar-personalizado a {
-    background-color: #17f151;
-    color: white;
-    border: none;
   }
 
   .user-welcome-wrapper {
-    width: 100%;
-    text-align: center;
-    margin-top: 10px;
     font-size: 0.85rem;
-    color: #4b2e83;
+    margin-top: 10px;
   }
 
-
-  .section-title {
-  margin-top: 2rem;
-  margin-bottom: 1.5rem;
-  font-size: 1.4rem;
-  color: #4b2e83;
-  text-align: center;
-  font-weight: bold;
+  body {
+    margin-top: 280px;
+  }
 }
 
- body {
-    margin-top: 280px; /* ← más espacio desde el header */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .peliculas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.2rem;
   }
 
-}
+  .pelicula-card {
+    max-width: 220px;
+  }
+
+  .poster-container {
+    height: 300px;
+  }
+} 
+
 /* ================================
    💻 RESPONSIVE PARA TABLET
    ================================ */
@@ -495,11 +482,6 @@ nav ul li a:hover {
     height: 300px;
   }
 }
-
-
-
-
-
 
 /* ======================================
    🎯 MEJORAS DE USABILIDAD MÓVIL
@@ -526,230 +508,8 @@ nav ul li a:hover {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-/* ======================================
-   🎬 ESTILOS DE HORARIOS
-   ====================================== */
-
-/* Título "Horarios disponibles" */
-.card .horarios-titulo,
-.horarios-titulo {
-  color: #000 !important;
-  font-weight: bold !important;
-  font-size: 1rem !important;
-}
-
-/* Botones de horarios */
-.card a.btn-horario,
-.card a.btn-horario:link,
-.card a.btn-horario:visited {
-  background-color: #FFD700 !important; /* amarillo */
-  color: #000 !important;               /* texto negro */
-  font-weight: bold !important;
-  border: none !important;
-  border-radius: 6px !important;
-  padding: 6px 12px !important;
-  text-decoration: none !important;
-  display: inline-block !important;
-  font-size: 0.95rem !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s ease-in-out;
-}
-
-/* Hover */
-.card a.btn-horario:hover,
-.card a.btn-horario:active {
-  background-color: #FFC107 !important; /* amarillo más oscuro */
-  color: #000 !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  text-decoration: none !important;
-}
-
-/* Elimina estilos de enlace (subrayado y color azul) */
-.card a.btn-horario:focus,
-.card a.btn-horario:visited,
-.card a.btn-horario:active {
-  outline: none !important;
-  text-decoration: none !important;
-  color: #000 !important;
-}
-
-/* Estilos para ratings en la cartelera */
-.movie-rating {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 1rem 0;
-    padding: 0.8rem;
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-    border-radius: 8px;
-    border-left: 4px solid #ffd700;
-}
-
-.rating-stars {
-    display: flex;
-    gap: 0.2rem;
-}
-
-.rating-stars .star-filled {
-    color: #ffd700;
-    font-size: 1.2rem;
-}
-
-.rating-stars .star-empty {
-    color: #ddd;
-    font-size: 1.2rem;
-}
-
-.rating-info {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    font-size: 0.9rem;
-}
-
-.rating-score {
-    font-weight: bold;
-    color: #2c3e50;
-    font-size: 1.1rem;
-}
-
-.rating-count {
-    color: #7f8c8d;
-    font-size: 0.8rem;
-}
-
-/* Botón de reseñas */
-.review-btn {
-    background: linear-gradient(135deg, #9b59b6, #8e44ad);
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.review-btn:hover {
-    background: linear-gradient(135deg, #8e44ad, #7d3c98);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(142, 68, 173, 0.3);
-}
-
-/* Responsivo para móviles - ratings */
-@media (max-width: 768px) {
-    .movie-rating {
-        flex-direction: column;
-        gap: 0.5rem;
-        text-align: center;
-    }
-    
-    .rating-info {
-        align-items: center;
-    }
-}
-
-/* Igual diseño base que los demás botones */
-.btn {
-    padding: 10px 18px;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: 0.3s;
-}
-
-/* 🔧 Contenedor principal del nav */
-.nav {
-    width: 100%;
-    display: flex;
-    justify-content: center; /* centra el bloque completo */
-    align-items: center;
-    position: relative;
-}
-
-/* 🔧 Lista centrada */
-.nav-list.flex {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-}
-
-.nav-list li {
-    list-style: none;
-}
-
-/* ====== ENCABEZADO DE HORARIOS ====== */
-body {
-  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
-  font-family: 'Arial', sans-serif;
-  color: #333;
-}
-
-/* Fondo y alineación como el index */
-.main-header {
-  background: linear-gradient(to right, #00c6ff, #7b68ee);
-  padding: 2rem 0;
-  text-align: center;
-  color: white;
-  border-bottom: 3px solid #000;
-  margin-bottom: 20px;
-}
-
-/* Contenedor del título y botón */
-.header-content {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 380px; /* separación aproximada de 10 cm */
-  flex-wrap: wrap;
-}
-
-/* Título principal */
-.page-title {
-  font-size: 2rem;
-  font-weight: bold;
-  color: white;
-  margin: 0;
-}
-
-/* ===== Botones del header (idénticos al de Ver Horarios) ===== */
-.header-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: linear-gradient(to right, #00c6ff, #7b68ee);
-  color: #fff;
-  font-weight: bold;
-  border: 2px solid #000;
-  border-radius: 10px;
-  padding: 10px 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.header-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-  color: #fff;
-  text-decoration: none;
-}
+/* ============================================================
+   ✅ FIN DEL INDEX.CSS
+   ============================================================ */
 
 

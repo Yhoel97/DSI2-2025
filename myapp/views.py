@@ -1028,7 +1028,7 @@ def horarios_por_pelicula(request):
             'generos': ", ".join(p.get_generos_list()),
             'clasificacion': p.clasificacion,
             'idioma': p.idioma,
-            'año': p.año,
+            'anio': p.anio,
             'fecha_estreno': p.fecha_estreno,
             'pares': pares
         })

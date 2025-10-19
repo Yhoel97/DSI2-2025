@@ -52,7 +52,7 @@ class Pelicula(models.Model):
     max_length=10,
     choices=[
         ('APT', 'Todo Publico'),
-        ('13+', 'Mayores de 13 anos'),
+        ('13+', 'Mayores de 13 años'),
         ('18+', 'Solo Adultos'),
     ],
     default='APT'  # valor por defecto

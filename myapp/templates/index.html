@@ -30,8 +30,7 @@
               <li><a href="{% url 'administrar_funciones' %}">Administrar Funciones</a></li>
             {% endif %}
             <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
-            <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">🎟️ Ver Horarios</a></li>
-
+            <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">Ver Horarios</a></li>
           {% else %}
             <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
             <li><a href="{% url 'registro' %}" class="btn register-btn">Registrarse</a></li>

@@ -967,13 +967,13 @@ def filtrar_peliculas(request):
     idioma = request.GET.get('idioma', '').strip()
     horario = request.GET.get('horario', '').strip()
 
-    # 🔹 Solo películas en cartelera (ya estrenadas o sin fecha definida)
+    # Solo películas en cartelera (ya estrenadas o sin fecha definida)
     hoy = date.today()
     peliculas = Pelicula.objects.filter(
         models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
     )
 
-    # 🎯 Aplica los filtros seleccionados
+    # Aplica los filtros seleccionados
     if genero:
         peliculas = peliculas.filter(generos__icontains=genero)
 
@@ -1028,7 +1028,7 @@ def horarios_por_pelicula(request):
             'generos': ", ".join(p.get_generos_list()),
             'clasificacion': p.clasificacion,
             'idioma': p.idioma,
-            'anio': p.anio,
+            'año': p.año,
             'fecha_estreno': p.fecha_estreno,
             'pares': pares
         })

@@ -52,7 +52,6 @@ from .models import Pelicula, Funcion, Reserva
 from .decorators import admin_required
 
 
-
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
     "AC": "Acción",
@@ -86,35 +85,46 @@ def convertir_generos(codigos_generos):
             for codigo in codigos_generos.split(",")]
 
 def index(request):
-   hoy = date.today()
+    hoy = date.today()
 
-   funciones = Funcion.objects.filter(fecha__gte=hoy).select_related('pelicula').order_by('fecha', 'horario')
+    funciones = Funcion.objects.filter(
+        fecha__gte=hoy
+    ).select_related('pelicula').order_by('fecha', 'horario')
 
-
-   peliculas = Pelicula.objects.filter(
+    peliculas = Pelicula.objects.filter(
         models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
     ).order_by('-id')
 
-   peliculas_proximas = Pelicula.objects.filter(
+    peliculas_proximas = Pelicula.objects.filter(
         fecha_estreno__gt=hoy
     ).order_by('fecha_estreno')
-   
 
     # Procesar listas de géneros y horarios
-   for pelicula in peliculas:
+    for pelicula in peliculas:
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
         horarios = pelicula.get_horarios_list()
         salas = pelicula.get_salas_list()
         pelicula.horario_sala_pares = list(zip(horarios, salas))
+        # Aseguramos que cada película tenga info de rating
+        if hasattr(pelicula, 'get_rating_estrellas'):
+            pelicula.estrellas = pelicula.get_rating_estrellas()
+        else:
+            pelicula.estrellas = {'llenas': 0, 'media': False}
 
-   for pelicula in peliculas_proximas:
+    for pelicula in peliculas_proximas:
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
+        
 
-   return render(request, 'index.html', {
+    # ✅ NUEVO: detectar si el usuario es admin (staff o superuser)
+    es_admin = request.user.is_authenticated and request.user.is_staff
+
+    return render(request, 'index.html', {
         'peliculas': peliculas,
         'peliculas_proximas': peliculas_proximas,
-        'funciones': funciones,   # <-- nueva variable para el template
+        'funciones': funciones,
+        'es_admin': es_admin,  # <-- ENVÍALO AL TEMPLATE
     })
+
 
 
 def my_login(request):

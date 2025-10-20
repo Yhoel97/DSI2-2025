@@ -44,8 +44,8 @@
                                 {% if pelicula.fecha_estreno %}
                                     <p class="card-text mb-1"><strong>Estreno:</strong> {{ pelicula.fecha_estreno|date:"d/m/Y" }}</p>
                                 {% endif %}
-                                <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.clasificacion }}</p>
-                                <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.idioma }}</p>
+                                <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.get_clasificacion_display }}</p>
+                                <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.get_idioma_display }}</p>
 
                                 <h6 class="horarios-titulo"><i class="fas fa-clock"></i> Horarios disponibles:</h6>
                                 <div class="d-flex flex-wrap gap-2 mt-2">

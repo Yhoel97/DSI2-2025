@@ -29,4 +29,9 @@ urlpatterns = [
 
     #PBI-018 Administrar funciones
     path('administrar_funciones/', views.administrar_funciones, name='administrar_funciones'),
+
+    # PBI 28 Reportes Administrativos
+    path('reportes/', views.reportes_admin, name='reportes_admin'),
+    path('exportar_excel/', views.exportar_excel, name='exportar_excel'),
+    path('exportar_pdf/', views.exportar_pdf, name='exportar_pdf'),
 ]

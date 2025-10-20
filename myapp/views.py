@@ -50,6 +50,16 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from .models import Pelicula, Funcion, Reserva
 from .decorators import admin_required
+from django.http import HttpResponse
+import pandas as pd
+from reportlab.pdfgen import canvas
+from .models import Pelicula, Venta
+from django.db.models import Sum
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from django.http import HttpResponse
+from .models import Venta
+
 
 
 # Diccionario de géneros con nombres completos
@@ -1025,19 +1035,37 @@ def filtrar_peliculas(request):
 #######
 
 def horarios_por_pelicula(request):
-    """Muestra solo películas en cartelera con sus horarios"""
+    """Muestra solo películas con funciones activas HOY, con filtros opcionales"""
     hoy = date.today()
 
-    # Solo películas que ya están en cartelera
-    peliculas = Pelicula.objects.filter(
-        models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
-    ).order_by('-fecha_estreno', '-id')
+    # Filtros opcionales
+    genero = request.GET.get('genero', '').strip()
+    clasificacion = request.GET.get('clasificacion', '').strip()
+    idioma = request.GET.get('idioma', '').strip()
 
+    # 🎬 Solo películas que tienen una función hoy
+    peliculas = Pelicula.objects.filter(
+        funcion__fecha=hoy
+    ).distinct()
+
+    # Aplica filtros si el usuario los selecciona
+    if genero:
+        peliculas = peliculas.filter(generos__icontains=genero)
+    if clasificacion:
+        peliculas = peliculas.filter(clasificacion__icontains=clasificacion)
+    if idioma:
+        peliculas = peliculas.filter(idioma__icontains=idioma)
+
+    peliculas = peliculas.order_by('-fecha_estreno', '-id')
+
+    # 🔹 Reúne los horarios y salas de las funciones de hoy
     peliculas_data = []
     for p in peliculas:
-        horarios = p.get_horarios_list()
-        salas = p.get_salas_list()
+        funciones_hoy = Funcion.objects.filter(pelicula=p, fecha=hoy)
+        horarios = [f.horario for f in funciones_hoy]  # ✅ aquí ya no usamos strftime
+        salas = [f.sala for f in funciones_hoy]
         pares = list(zip(horarios, salas))
+
         peliculas_data.append({
             'id': p.id,
             'nombre': p.nombre,
@@ -1047,12 +1075,21 @@ def horarios_por_pelicula(request):
             'idioma': p.idioma,
             'anio': p.anio,
             'fecha_estreno': p.fecha_estreno,
-            'pares': pares
+            'pares': pares,
         })
 
-    context = {'peliculas': peliculas_data}
-    return render(request, 'horarios.html', context)
+    context = {
+        'peliculas': peliculas_data,
+        'fecha': hoy,
+        'genero': genero,
+        'clasificacion': clasificacion,
+        'idioma': idioma,
+        'GENERO_CHOICES': Pelicula.GENERO_CHOICES,
+        'CLASIFICACION_CHOICES': Pelicula._meta.get_field('clasificacion').choices,
+        'IDIOMA_CHOICES': Pelicula._meta.get_field('idioma').choices,
+    }
 
+    return render(request, 'horarios.html', context)
 
 @admin_required 
 def administrar_funciones(request):
@@ -1172,3 +1209,188 @@ def administrar_funciones(request):
         "HORARIOS_DISPONIBLES": HORARIOS_DISPONIBLES,
         "SALAS_DISPONIBLES": SALAS_DISPONIBLES,
     })
+### Reportes Administrativos
+
+from django.db.models import Sum
+from django.shortcuts import render
+from .models import Venta, Pelicula
+
+def reportes_admin(request):
+    peliculas = Pelicula.objects.all()
+    pelicula_id = request.GET.get('pelicula')
+    sala = request.GET.get('sala')
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+
+    # Si hay filtros aplicados, se filtra; si no, no se muestran ventas ni popularidad
+    if pelicula_id or sala or fecha_inicio or fecha_fin:
+        ventas = Venta.objects.all()
+
+        if pelicula_id:
+            ventas = ventas.filter(pelicula_id=pelicula_id)
+        if sala:
+            ventas = ventas.filter(sala__icontains=sala)
+        if fecha_inicio and fecha_fin:
+            ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+
+        # Popularidad SOLO cuando hay filtros
+        popularidad = (
+            ventas.values('pelicula__nombre')
+            .annotate(total_boletos=Sum('cantidad_boletos'))
+            .order_by('-total_boletos')[:5]
+        )
+    else:
+        ventas = Venta.objects.none()
+        popularidad = []  # 👈 Se limpia también el bloque de popularidad
+
+    # Resumen
+    resumen = ventas.aggregate(
+        total_boletos=Sum('cantidad_boletos'),
+        total_ventas=Sum('total_venta')
+    )
+
+    context = {
+        'ventas': ventas,
+        'peliculas': peliculas,
+        'resumen': resumen,
+        'popularidad': popularidad,
+    }
+
+    return render(request, 'reportes_admin.html', context)
+
+### Exportar Reportes exell y pdf
+
+def exportar_excel(request):
+    # Obtener filtros del formulario
+    pelicula_id = request.GET.get('pelicula')
+    sala = request.GET.get('sala')
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+
+    ventas = Venta.objects.all()
+
+    if pelicula_id:
+        ventas = ventas.filter(pelicula_id=pelicula_id)
+    if sala:
+        ventas = ventas.filter(sala__icontains=sala)
+    if fecha_inicio and fecha_fin:
+        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+
+    # Crear DataFrame con los datos
+    datos = []
+    for v in ventas:
+        datos.append({
+            "Película": v.pelicula.nombre,
+            "Sala": v.sala,
+            "Fecha": v.fecha.strftime("%d/%m/%Y"),
+            "Boletos vendidos": v.cantidad_boletos,
+            "Total ($)": float(v.total_venta),
+        })
+
+    # Si no hay datos, crear DataFrame vacío
+    if not datos:
+        df = pd.DataFrame(columns=["Película", "Sala", "Fecha", "Boletos vendidos", "Total ($)"])
+    else:
+        df = pd.DataFrame(datos)
+
+    # Calcular totales
+    total_boletos = sum([v["Boletos vendidos"] for v in datos]) if datos else 0
+    total_ventas = sum([v["Total ($)"] for v in datos]) if datos else 0
+
+    # Agregar fila de totales al final
+    df.loc[len(df)] = {
+        "Película": "TOTAL GENERAL",
+        "Sala": "",
+        "Fecha": "",
+        "Boletos vendidos": total_boletos,
+        "Total ($)": total_ventas,
+    }
+
+    # Crear respuesta con archivo Excel
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="reporte_cinedot.xlsx"'
+
+    # Exportar a Excel
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Reporte de Ventas')
+
+        # Formatear hoja
+        hoja = writer.sheets['Reporte de Ventas']
+        for columna in hoja.columns:
+            hoja.column_dimensions[columna[0].column_letter].width = 20
+
+    return response
+
+### Reportes PDF#########
+
+def exportar_pdf(request):
+    # Obtener ventas (usando mismos filtros que el reporte principal)
+    pelicula_id = request.GET.get('pelicula')
+    sala = request.GET.get('sala')
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+
+    ventas = Venta.objects.all()
+
+    if pelicula_id:
+        ventas = ventas.filter(pelicula_id=pelicula_id)
+    if sala:
+        ventas = ventas.filter(sala__icontains=sala)
+    if fecha_inicio and fecha_fin:
+        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+
+    # Crear el PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="reporte_cinedot.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # Encabezado
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(180, height - 50, "🎬 Reporte de Ventas Cinedot")
+
+    p.setFont("Helvetica", 10)
+    p.drawString(50, height - 70, "Generado automáticamente por el sistema")
+
+    # Espaciado inicial
+    y = height - 110
+
+    # Encabezado de tabla
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, y, "Película")
+    p.drawString(220, y, "Sala")
+    p.drawString(300, y, "Fecha")
+    p.drawString(380, y, "Boletos")
+    p.drawString(460, y, "Total ($)")
+    y -= 15
+    p.line(50, y, 530, y)
+    y -= 20
+
+    # Contenido de ventas
+    p.setFont("Helvetica", 10)
+    if ventas.exists():
+        for v in ventas:
+            if y < 100:  # Salto de página si se acaba el espacio
+                p.showPage()
+                y = height - 100
+                p.setFont("Helvetica", 10)
+
+            p.drawString(50, y, str(v.pelicula.nombre))
+            p.drawString(220, y, str(v.sala))
+            p.drawString(300, y, v.fecha.strftime("%d/%m/%Y"))
+            p.drawString(380, y, str(v.cantidad_boletos))
+            p.drawString(460, y, f"${v.total_venta:.2f}")
+            y -= 20
+    else:
+        p.drawString(50, y, "No hay datos disponibles con los filtros seleccionados.")
+        y -= 20
+
+    # Línea final y cierre
+    p.showPage()
+    p.save()
+    return response
+
+

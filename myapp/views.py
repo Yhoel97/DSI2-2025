@@ -1138,6 +1138,15 @@ def administrar_funciones(request):
 
         # --- Validaciones ---
 
+        # 🛑 1️⃣ Nueva validación: No permitir funciones antes del estreno
+        if pelicula.fecha_estreno and pelicula.fecha_estreno > hoy:
+            messages.warning(
+                request,
+                f"⚠️ '{pelicula.nombre}' es un próximo estreno (se estrena el {pelicula.fecha_estreno.strftime('%d/%m/%Y')}). "
+                "No se puede crear una función antes de esa fecha."
+            )
+            return redirect("administrar_funciones")
+
         # 1️⃣ Limitar máximo 3 funciones por sala y día
         # Si estamos editando y la función permanece en la misma fecha/sala, descontamos la propia entrada
         funciones_en_sala_qs = Funcion.objects.filter(fecha=fecha, sala=sala)
@@ -1209,6 +1218,8 @@ def administrar_funciones(request):
         "HORARIOS_DISPONIBLES": HORARIOS_DISPONIBLES,
         "SALAS_DISPONIBLES": SALAS_DISPONIBLES,
     })
+
+
 ### Reportes Administrativos
 
 from django.db.models import Sum

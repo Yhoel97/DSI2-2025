@@ -1055,7 +1055,7 @@ def horarios_por_pelicula(request):
     return render(request, 'horarios.html', context)
 
 
-@admin_required
+@admin_required 
 def administrar_funciones(request):
     hoy = date.today()
     peliculas = Pelicula.objects.all().order_by("nombre")
@@ -1067,9 +1067,22 @@ def administrar_funciones(request):
 
     funcion_editar = None
 
-    # --- CREAR o EDITAR FUNCIÓN ---
+    # --- CREAR, EDITAR o ELIMINAR FUNCIÓN ---
     if request.method == "POST":
         accion = request.POST.get("accion")
+
+        # --- ELIMINAR: se procesa inmediatamente (no requiere otros campos) ---
+        if accion == "eliminar":
+            funcion_id = request.POST.get("funcion_id")
+            if not funcion_id:
+                messages.error(request, "No se especificó la función a eliminar.")
+                return redirect("administrar_funciones")
+            funcion = get_object_or_404(Funcion, id=funcion_id)
+            funcion.delete()
+            messages.success(request, "🗑️ Función eliminada correctamente.")
+            return redirect("administrar_funciones")
+
+        # Para crear/editar necesitamos estos campos
         pelicula_id = request.POST.get("pelicula")
         fecha = request.POST.get("fecha")
         horario = request.POST.get("horario")
@@ -1082,19 +1095,42 @@ def administrar_funciones(request):
 
         pelicula = get_object_or_404(Pelicula, id=pelicula_id)
 
+        # Si estamos editando, obtén el id para poder excluirlo en validaciones
+        funcion_id_editar = None
+        if accion == "editar":
+            funcion_id_editar = request.POST.get("funcion_id")
+
         # --- Validaciones ---
+
         # 1️⃣ Limitar máximo 3 funciones por sala y día
-        funciones_en_sala = Funcion.objects.filter(fecha=fecha, sala=sala).count()
+        # Si estamos editando y la función permanece en la misma fecha/sala, descontamos la propia entrada
+        funciones_en_sala_qs = Funcion.objects.filter(fecha=fecha, sala=sala)
+        if funcion_id_editar:
+            funciones_en_sala_qs = funciones_en_sala_qs.exclude(id=funcion_id_editar)
+        funciones_en_sala = funciones_en_sala_qs.count()
         if funciones_en_sala >= 3:
             messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
             return redirect("administrar_funciones")
 
-        # 2️⃣ Evitar duplicar misma película, sala y horario
-        duplicada = Funcion.objects.filter(
+        # 2️⃣ Evitar duplicar la misma película en la misma sala, horario y fecha
+        duplicada_qs = Funcion.objects.filter(
             pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
-        ).exists()
-        if duplicada:
-            messages.error(request, "Ya existe una función para esta película en ese horario y sala.")
+        )
+        if funcion_id_editar:
+            duplicada_qs = duplicada_qs.exclude(id=funcion_id_editar)
+        if duplicada_qs.exists():
+            messages.error(request, "❌ Ya existe una función para esta película en ese horario y sala.")
+            return redirect("administrar_funciones")
+
+        # 3️⃣ Evitar películas diferentes en la misma sala y horario (aunque sean distintas)
+        conflicto_qs = Funcion.objects.filter(
+            fecha=fecha, horario=horario, sala=sala
+        )
+        if funcion_id_editar:
+            conflicto_qs = conflicto_qs.exclude(id=funcion_id_editar)
+        conflicto_qs = conflicto_qs.exclude(pelicula=pelicula)
+        if conflicto_qs.exists():
+            messages.error(request, f"❌ En {sala} ya hay otra película programada a las {horario}.")
             return redirect("administrar_funciones")
 
         # --- Acción CREAR ---
@@ -1111,8 +1147,7 @@ def administrar_funciones(request):
 
         # --- Acción EDITAR ---
         elif accion == "editar":
-            funcion_id = request.POST.get("funcion_id")
-            funcion = get_object_or_404(Funcion, id=funcion_id)
+            funcion = get_object_or_404(Funcion, id=funcion_id_editar)
             funcion.pelicula = pelicula
             funcion.fecha = fecha
             funcion.horario = horario
@@ -1122,15 +1157,11 @@ def administrar_funciones(request):
             messages.success(request, "✏️ Función actualizada correctamente.")
             return redirect("administrar_funciones")
 
-        # --- Acción ELIMINAR ---
-        elif accion == "eliminar":
-            funcion_id = request.POST.get("funcion_id")
-            funcion = get_object_or_404(Funcion, id=funcion_id)
-            funcion.delete()
-            messages.success(request, "🗑️ Función eliminada correctamente.")
+        else:
+            messages.error(request, "Acción no reconocida.")
             return redirect("administrar_funciones")
 
-    # --- MODO EDICIÓN ---
+    # --- MODO EDICIÓN (GET con ?editar=ID) ---
     elif request.method == "GET" and "editar" in request.GET:
         funcion_id = request.GET.get("editar")
         funcion_editar = get_object_or_404(Funcion, id=funcion_id)
@@ -1139,4 +1170,6 @@ def administrar_funciones(request):
         "peliculas": peliculas,
         "funciones": funciones,
         "funcion_editar": funcion_editar,
+        "HORARIOS_DISPONIBLES": HORARIOS_DISPONIBLES,
+        "SALAS_DISPONIBLES": SALAS_DISPONIBLES,
     })

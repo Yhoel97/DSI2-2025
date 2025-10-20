@@ -985,13 +985,14 @@ def filtrar_peliculas(request):
     idioma = request.GET.get('idioma', '').strip()
     horario = request.GET.get('horario', '').strip()
 
-    # Solo películas en cartelera (ya estrenadas o sin fecha definida)
     hoy = date.today()
-    peliculas = Pelicula.objects.filter(
-        models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
-    )
 
-    # Aplica los filtros seleccionados
+    # 🔹 Solo películas que tienen una función activa HOY
+    peliculas = Pelicula.objects.filter(
+        funcion__fecha=hoy  # 'funcion' es el related_name del modelo Funcion (por defecto nombre_del_modelo en minúsculas)
+    ).distinct()
+
+    # 🔹 Aplica filtros adicionales si el usuario los usa
     if genero:
         peliculas = peliculas.filter(generos__icontains=genero)
 
@@ -999,13 +1000,12 @@ def filtrar_peliculas(request):
         peliculas = peliculas.filter(clasificacion__icontains=clasificacion)
 
     if idioma:
-        # Acepta tanto "Inglés" como "Inglés Subtitulado" si el usuario elige inglés
         peliculas = peliculas.filter(idioma__icontains=idioma)
 
     if horario:
         peliculas = peliculas.filter(horarios__icontains=horario)
 
-    # 🔹 Ordena de las más recientes a las más antiguas
+    # 🔹 Ordena las películas más recientes primero
     peliculas = peliculas.distinct().order_by('-fecha_estreno', '-id')
 
     context = {
@@ -1021,7 +1021,6 @@ def filtrar_peliculas(request):
     }
 
     return render(request, 'filtrar.html', context)
-
 
 #######
 

@@ -87,9 +87,17 @@ def convertir_generos(codigos_generos):
 def index(request):
     hoy = date.today()
 
-    funciones = Funcion.objects.filter(
-        fecha__gte=hoy
-    ).select_related('pelicula').order_by('fecha', 'horario')
+    #funciones = Funcion.objects.filter(
+    #    fecha__gte=hoy
+    #).select_related('pelicula').order_by('fecha', 'horario')
+
+
+        # ✅ Solo funciones del día actual
+    funciones = (
+        Funcion.objects.filter(fecha=hoy)
+        .select_related('pelicula')
+        .order_by('horario')
+    )
 
     peliculas = Pelicula.objects.filter(
         models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
@@ -1049,7 +1057,8 @@ def horarios_por_pelicula(request):
 
 @admin_required
 def administrar_funciones(request):
-    peliculas = Pelicula.objects.all()
+    hoy = date.today()
+    peliculas = Pelicula.objects.all().order_by("nombre")
     funciones = Funcion.objects.select_related('pelicula').order_by('fecha', 'horario')
 
     # Estas dos líneas son CLAVE para llenar los select en el formulario
@@ -1057,63 +1066,77 @@ def administrar_funciones(request):
     SALAS_DISPONIBLES = Pelicula.SALAS_DISPONIBLES
 
     funcion_editar = None
-    if 'editar' in request.GET:
-        funcion_id = request.GET.get('editar')
-        funcion_editar = get_object_or_404(Funcion, id=funcion_id)
 
-    if request.method == 'POST':
-        accion = request.POST.get('accion')
-        pelicula_id = request.POST.get('pelicula')
-        sala = request.POST.get('sala')
-        horario = request.POST.get('horario')
-        fecha = request.POST.get('fecha')
-        formato = request.POST.get('formato')
+    # --- CREAR o EDITAR FUNCIÓN ---
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        pelicula_id = request.POST.get("pelicula")
+        fecha = request.POST.get("fecha")
+        horario = request.POST.get("horario")
+        sala = request.POST.get("sala")
+        formato = request.POST.get("formato")
 
-        if accion == 'crear':
-            # Verificar duplicados
-            duplicada = Funcion.objects.filter(
-                pelicula_id=pelicula_id,
-                sala=sala,
-                horario=horario,
-                fecha=fecha
-            ).exists()
+        if not (pelicula_id and fecha and horario and sala):
+            messages.error(request, "Todos los campos son obligatorios.")
+            return redirect("administrar_funciones")
 
-            if duplicada:
-                messages.error(request, '⚠️ Ya existe una función con esa película, sala, horario y fecha.')
-                return redirect('administrar_funciones')
+        pelicula = get_object_or_404(Pelicula, id=pelicula_id)
 
+        # --- Validaciones ---
+        # 1️⃣ Limitar máximo 3 funciones por sala y día
+        funciones_en_sala = Funcion.objects.filter(fecha=fecha, sala=sala).count()
+        if funciones_en_sala >= 3:
+            messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
+            return redirect("administrar_funciones")
+
+        # 2️⃣ Evitar duplicar misma película, sala y horario
+        duplicada = Funcion.objects.filter(
+            pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
+        ).exists()
+        if duplicada:
+            messages.error(request, "Ya existe una función para esta película en ese horario y sala.")
+            return redirect("administrar_funciones")
+
+        # --- Acción CREAR ---
+        if accion == "crear":
             Funcion.objects.create(
-                pelicula_id=pelicula_id,
-                sala=sala,
-                horario=horario,
+                pelicula=pelicula,
                 fecha=fecha,
+                horario=horario,
+                sala=sala,
                 formato=formato
             )
-            messages.success(request, '✅ Función agregada correctamente.')
-            return redirect('administrar_funciones')
+            messages.success(request, "✅ Función agregada correctamente.")
+            return redirect("administrar_funciones")
 
-        elif accion == 'editar':
-            funcion_id = request.POST.get('funcion_id')
+        # --- Acción EDITAR ---
+        elif accion == "editar":
+            funcion_id = request.POST.get("funcion_id")
             funcion = get_object_or_404(Funcion, id=funcion_id)
-            funcion.pelicula_id = pelicula_id
-            funcion.sala = sala
-            funcion.horario = horario
+            funcion.pelicula = pelicula
             funcion.fecha = fecha
+            funcion.horario = horario
+            funcion.sala = sala
             funcion.formato = formato
             funcion.save()
-            messages.success(request, '✏️ Función actualizada correctamente.')
-            return redirect('administrar_funciones')
+            messages.success(request, "✏️ Función actualizada correctamente.")
+            return redirect("administrar_funciones")
 
-        elif accion == 'eliminar':
-            funcion_id = request.POST.get('funcion_id')
-            Funcion.objects.filter(id=funcion_id).delete()
-            messages.success(request, '🗑️ Función eliminada correctamente.')
-            return redirect('administrar_funciones')
+        # --- Acción ELIMINAR ---
+        elif accion == "eliminar":
+            funcion_id = request.POST.get("funcion_id")
+            funcion = get_object_or_404(Funcion, id=funcion_id)
+            funcion.delete()
+            messages.success(request, "🗑️ Función eliminada correctamente.")
+            return redirect("administrar_funciones")
 
-    return render(request, 'administrar_funciones.html', {
-        'peliculas': peliculas,
-        'funciones': funciones,
-        'funcion_editar': funcion_editar,
-        'HORARIOS_DISPONIBLES': HORARIOS_DISPONIBLES,
-        'SALAS_DISPONIBLES': SALAS_DISPONIBLES,
+    # --- MODO EDICIÓN ---
+    elif request.method == "GET" and "editar" in request.GET:
+        funcion_id = request.GET.get("editar")
+        funcion_editar = get_object_or_404(Funcion, id=funcion_id)
+
+    return render(request, "administrar_funciones.html", {
+        "peliculas": peliculas,
+        "funciones": funciones,
+        "funcion_editar": funcion_editar,
     })

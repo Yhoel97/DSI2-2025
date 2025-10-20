@@ -77,6 +77,24 @@
                         <p><span class="detail-label">Clasificación:</span> {{ pelicula.get_clasificacion_display }}</p>
                         <p><span class="detail-label">Idioma:</span> {{ pelicula.get_idioma_display }}</p>
                         <p><span class="detail-label">Año:</span> {{ pelicula.anio }}</p>
+
+                            <!-- ✅ Mostrar Horarios y Salas que están en la Base de Datos-->
+                        <p><span class="detail-label">Horarios:</span>
+                            {% for h in pelicula.get_horarios_list %}
+                                {{ h }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                <span class="text-muted">No especificado</span>
+                            {% endfor %}
+                        </p>
+
+                        <p><span class="detail-label">Salas:</span>
+                            {% for s in pelicula.get_salas_list %}
+                                {{ s }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                <span class="text-muted">No especificado</span>
+                            {% endfor %}
+                        </p>
+                        
                     </div>
 
                     <!-- ⭐ Rating -->

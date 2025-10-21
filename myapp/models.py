@@ -52,7 +52,7 @@ class Pelicula(models.Model):
     max_length=10,
     choices=[
         ('APT', 'Todo Publico'),
-        ('13+', 'Mayores de 13 anos'),
+        ('13+', 'Mayores de 13 años'),
         ('18+', 'Solo Adultos'),
     ],
     default='APT'  # valor por defecto
@@ -252,3 +252,15 @@ class CodigoDescuento(models.Model):
 
     def _str_(self):
         return f"{self.codigo} - {self.porcentaje}%"
+    
+### Clase para reportes administrativos PBI 28
+    
+class Venta(models.Model):
+    pelicula = models.ForeignKey(Pelicula, on_delete=models.CASCADE)
+    sala = models.CharField(max_length=50)
+    fecha = models.DateField()
+    cantidad_boletos = models.PositiveIntegerField()
+    total_venta = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.pelicula.nombre} - {self.fecha}"

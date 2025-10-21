@@ -1,0 +1,240 @@
+/* ============================================================
+   📊 REPORTES.CSS — Estilos para Reportes Administrativos
+   Basado en index.css para mantener coherencia visual
+   ============================================================ */
+
+/* ===== Estilos generales ===== */
+body {
+  font-family: 'Arial', sans-serif;
+  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===== Encabezado ===== */
+header {
+  background: linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff);
+  border-bottom: 2px solid #7b68ee;
+  padding: 2rem 1rem;
+  text-align: center;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+header h2 {
+  color: #4b2e83;
+  font-weight: bold;
+}
+
+.btn-home {
+  background: linear-gradient(to right, #00c6ff, #7b68ee) !important;
+  color: white !important;
+  border: 2px solid #000 !important;
+  border-radius: 5px !important;
+  padding: 0.7rem 1.1rem !important;
+  font-weight: bold !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  min-height: 44px !important;
+  min-width: 140px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.95rem !important;
+}
+
+.btn-home:hover {
+  background: linear-gradient(to right, #00a8e1, #6a5acd) !important;
+  transform: translateY(-2px);
+}
+
+/* ===== Contenedor principal ===== */
+.container {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  max-width: 1100px;
+}
+
+/* ===== Título de secciones ===== */
+h5 {
+  color: #4b2e83;
+  font-weight: bold;
+}
+
+/* ===== Botones personalizados ===== */
+.btn-filtrar,
+.btn-pdf,
+.btn-excel {
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: 5px !important;
+  padding: 0.7rem 1.1rem !important;
+  font-weight: bold !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  min-height: 44px !important;
+  min-width: 140px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.95rem !important;
+}
+
+/* Botón Filtrar (verde) */
+.btn-filtrar {
+  background: linear-gradient(to right, #28a745, #218838) !important;
+}
+.btn-filtrar:hover {
+  background: linear-gradient(to right, #218838, #1e7e34) !important;
+  transform: translateY(-2px);
+}
+
+/* Botón PDF (rojo) */
+.btn-pdf {
+  background: linear-gradient(to right, #ff4b2b, #c0392b) !important;
+}
+.btn-pdf:hover {
+  background: linear-gradient(to right, #e74c3c, #b33a2b) !important;
+  transform: translateY(-2px);
+}
+
+/* Botón Excel (azul) */
+.btn-excel {
+  background: linear-gradient(to right, #007bff, #004aad) !important;
+}
+.btn-excel:hover {
+  background: linear-gradient(to right, #0056b3, #003f88) !important;
+  transform: translateY(-2px);
+}
+
+/* ===== Tabla ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+table thead {
+  background: linear-gradient(to right, #00c6ff, #7b68ee);
+  color: white;
+  font-weight: bold;
+}
+
+table th, table td {
+  padding: 0.75rem;
+  text-align: center;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+}
+
+table tbody tr:hover {
+  background-color: #f2f6ff;
+  transition: 0.3s ease;
+}
+
+/* ===== Tarjetas de resumen ===== */
+.summary-box {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  border-left: 5px solid #4b2e83;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.summary-box h5 {
+  color: #4b2e83;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* ===== Listas de popularidad ===== */
+.summary-box ul {
+  list-style: none;
+  padding-left: 1rem;
+}
+
+.summary-box li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.summary-box li:last-child {
+  border-bottom: none;
+}
+
+/* ===== Inputs y selects ===== */
+form .form-control,
+form .form-select {
+  border: 2px solid #7b68ee;
+  border-radius: 5px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+form .form-control:focus,
+form .form-select:focus {
+  border-color: #4b2e83;
+  box-shadow: 0 0 5px rgba(75, 46, 131, 0.3);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  header {
+    padding: 1rem;
+  }
+
+  .btn-filtrar,
+  .btn-pdf,
+  .btn-excel {
+    min-width: 100px;
+    font-size: 0.85rem;
+  }
+
+  table th, table td {
+    font-size: 0.85rem;
+  }
+}
+
+/* ===== Animaciones suaves ===== */
+button:hover, a.btn:hover {
+  transform: translateY(-2px);
+}
+
+button:active, a.btn:active {
+  transform: scale(0.98);
+}
+
+/* ===== Botón Limpiar (morado degradado) ===== */
+.btn-limpiar {
+  background: linear-gradient(to right, #6a5acd, #4b2e83) !important;
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: 5px !important;
+  padding: 0.7rem 1.1rem !important;
+  font-weight: bold !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  min-height: 44px !important;
+  min-width: 140px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.95rem !important;
+}
+
+.btn-limpiar:hover {
+  background: linear-gradient(to right, #5b4acb, #3e237d) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ============================================================
+   ✅ FIN DEL REPORTES.CSS
+   ============================================================ */

@@ -12,7 +12,7 @@
 <div class="container mt-4 mb-5">
     <h1 class="text-center mb-4"><i class="fas fa-calendar-alt"></i> Administrar Funciones</h1>
 
-    <!-- Notificaciones -->
+    <!-- Mensajes -->
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -22,68 +22,103 @@
         {% endfor %}
     {% endif %}
 
-            <div class="mb-3 d-flex gap-2">
-            <a href="{% url 'index' %}" class="btn btn- btn-green">
-                <i class="fas fa-home"></i> Volver al Inicio
-            </a>
-        </div>
+    <div class="mb-3 d-flex gap-2">
+        <a href="{% url 'index' %}" class="btn btn-primary">
+            <i class="fas fa-home"></i> Volver al Inicio
+        </a>
+        <a href="{% url 'peliculas' %}" class="btn btn-primary">Administrar Películas</a>
+    </div>
 
     <!-- Formulario Crear / Editar -->
-    <div class="card {% if funcion_editar %}border-warning{% else %}border-success{% endif %}">
+    <div class="card shadow-sm">
         <div class="card-header {% if funcion_editar %}bg-warning{% else %}bg-success{% endif %} text-white">
-            {% if funcion_editar %}
-                ✏️ Editar Función
-            {% else %}
-                🎬 Agregar Nueva Función
-            {% endif %}
+            {% if funcion_editar %}✏️ Editar Función{% else %}🎥 Agregar Nueva Función{% endif %}
         </div>
         <div class="card-body">
             <form method="POST" action="{% url 'administrar_funciones' %}">
                 {% csrf_token %}
+                <input type="hidden" name="accion" value="{% if funcion_editar %}editar{% else %}crear{% endif %}">
                 {% if funcion_editar %}
-                    <input type="hidden" name="accion" value="editar">
                     <input type="hidden" name="funcion_id" value="{{ funcion_editar.id }}">
-                {% else %}
-                    <input type="hidden" name="accion" value="crear">
                 {% endif %}
 
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <!-- Película -->
+                    <div class="col-md-6">
                         <label class="form-label">Película</label>
-                        <select name="pelicula" class="form-select" required>
+                        <select name="pelicula" class="form-select" id="peliculaSelect" required>
                             <option value="">-- Selecciona una película --</option>
                             {% for p in peliculas %}
-                                <option value="{{ p.id }}" {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>{{ p.nombre }}</option>
+                                {# incluimos datos en atributos data-* para que JS los use #}
+                                <option value="{{ p.id }}"
+                                    data-horarios="{{ p.horarios|default:'' }}"
+                                    data-salas="{{ p.salas|default:'' }}"
+                                    data-formato="{{ p.formato|default:'2D' }}"
+                                    data-idioma="{{ p.idioma|default:'' }}"
+                                    data-clasificacion="{{ p.clasificacion|default:'' }}"
+                                    data-director="{{ p.director|default:'' }}"
+                                    data-anio="{{ p.anio|default:'' }}"
+                                    data-generos="{{ p.generos|default:'' }}"
+                                    data-imagen="{{ p.imagen_url|default:'' }}"
+                                    data-trailer="{{ p.trailer_url|default:'' }}"
+                                    {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>
+                                    {{ p.nombre }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-3">
+
+                    <!-- Fecha (el admin debe elegirla) -->
+                    <div class="col-md-6">
                         <label class="form-label">Fecha</label>
-                        <input type="date" name="fecha" class="form-control" value="{{ funcion_editar.fecha|date:'Y-m-d' }}" required>
+                        <input type="date" name="fecha" id="fechaInput" class="form-control"
+                               value="{% if funcion_editar %}{{ funcion_editar.fecha|date:'Y-m-d' }}{% endif %}"
+                               required>
                     </div>
-                    <div class="col-md-3">
+
+                    <!-- Horario -->
+                    <div class="col-md-4">
                         <label class="form-label">Horario</label>
-                        <select name="horario" class="form-select" required>
-                            {% for h in HORARIOS_DISPONIBLES %}
-                                <option value="{{ h }}" {% if funcion_editar and funcion_editar.horario == h %}selected{% endif %}>{{ h }}</option>
-                            {% endfor %}
+                        <select name="horario" class="form-select" id="horarioSelect" required>
+                            <option value="">Selecciona una película primero</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+
+                    <!-- Sala -->
+                    <div class="col-md-4">
                         <label class="form-label">Sala</label>
-                        <select name="sala" class="form-select" required>
-                            {% for s in SALAS_DISPONIBLES %}
-                                <option value="{{ s }}" {% if funcion_editar and funcion_editar.sala == s %}selected{% endif %}>{{ s }}</option>
-                            {% endfor %}
+                        <select name="sala" class="form-select" id="salaSelect" required>
+                            <option value="">Selecciona una película primero</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+
+                    <!-- Formato -->
+                    <div class="col-md-4">
                         <label class="form-label">Formato</label>
-                        <select name="formato" class="form-select">
-                            <option value="2D" {% if funcion_editar and funcion_editar.formato == "2D" %}selected{% endif %}>2D</option>
-                            <option value="3D" {% if funcion_editar and funcion_editar.formato == "3D" %}selected{% endif %}>3D</option>
-                            <option value="IMAX" {% if funcion_editar and funcion_editar.formato == "IMAX" %}selected{% endif %}>IMAX</option>
+                        <select name="formato" class="form-select" id="formatoSelect" required>
+                            <option value="2D">2D</option>
+                            <option value="3D">3D</option>
+                            <option value="IMAX">IMAX</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- Info de la película (solo lectura, se carga al elegir la película) -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card p-2">
+                            <strong id="infoTitulo">—</strong>
+                            <p class="mb-1"><small><b>Director:</b> <span id="infoDirector">—</span></small></p>
+                            <p class="mb-1"><small><b>Año:</b> <span id="infoAnio">—</span></small></p>
+                            <p class="mb-1"><small><b>Géneros:</b> <span id="infoGeneros">—</span></small></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card p-2">
+                            <p class="mb-1"><small><b>Idioma:</b> <span id="infoIdioma">—</span></small></p>
+                            <p class="mb-1"><small><b>Clasificación:</b> <span id="infoClasificacion">—</span></small></p>
+                            <p class="mb-1"><small><b>Trailer:</b> <a href="#" id="infoTrailer" target="_blank">—</a></small></p>
+                        </div>
                     </div>
                 </div>
 
@@ -125,15 +160,49 @@
                             <td>{{ f.sala }}</td>
                             <td>{{ f.formato }}</td>
                             <td>
-                                <a href="?editar={{ f.id }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i>Editar</a>
-                                <form method="POST" action="{% url 'administrar_funciones' %}" style="display:inline;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="accion" value="eliminar">
-                                    <input type="hidden" name="funcion_id" value="{{ f.id }}">
-                                    <button class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar esta función?');">
-                                        <i class="fas fa-trash"></i>Eliminar
-                                    </button>
-                                </form>
+                                <a href="?editar={{ f.id }}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                <!-- Botón que abre el modal -->
+                                <button type="button" class="btn btn-danger btn-sm" 
+                                        data-bs-toggle="modal" data-bs-target="#modalEliminar{{ f.id }}">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+
+                                <!-- Modal de confirmación elegante -->
+                                <div class="modal fade" id="modalEliminar{{ f.id }}" tabindex="-1" aria-labelledby="modalLabel{{ f.id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow-lg">
+                                    <div class="modal-header bg-danger text-white">
+                                        <h5 class="modal-title" id="modalLabel{{ f.id }}">
+                                        <i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body text-center">
+                                        <p class="fs-5">¿Estás seguro de que deseas eliminar esta función?</p>
+                                        <p class="text-muted mb-0">
+                                        <strong>{{ f.pelicula.nombre }}</strong><br>
+                                        {{ f.fecha|date:"d/m/Y" }} - {{ f.horario }} - {{ f.sala }}
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer d-flex justify-content-center">
+                                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">
+                                        <i class="fas fa-times"></i> Cancelar
+                                        </button>
+                                        <form method="POST" action="{% url 'administrar_funciones' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="accion" value="eliminar">
+                                            <input type="hidden" name="funcion_id" value="{{ f.id }}">
+                                            <button type="submit" class="btn btn-danger px-4">
+                                                <i class="fas fa-trash-alt"></i> Eliminar
+                                            </button>
+                                        </form>
+                                    </div>
+                                    </div>
+                                </div>
+                                </div>
+
                             </td>
                         </tr>
                     {% empty %}
@@ -145,7 +214,135 @@
     </div>
 </div>
 
+<!-- Scripts -->
 <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const peliculaSelect = document.getElementById("peliculaSelect");
+    const formatoSelect = document.getElementById("formatoSelect");
+    const horarioSelect = document.getElementById("horarioSelect");
+    const salaSelect = document.getElementById("salaSelect");
+    const fechaInput = document.getElementById("fechaInput");
+
+    // info show
+    const infoTitulo = document.getElementById("infoTitulo");
+    const infoDirector = document.getElementById("infoDirector");
+    const infoAnio = document.getElementById("infoAnio");
+    const infoGeneros = document.getElementById("infoGeneros");
+    const infoIdioma = document.getElementById("infoIdioma");
+    const infoClasificacion = document.getElementById("infoClasificacion");
+    const infoTrailer = document.getElementById("infoTrailer");
+
+    // Helper: convierte CSV "a,b,c" en array y limpia espacios
+    function csvToArray(csv) {
+        if (!csv) return [];
+        return csv.split(',').map(s => s.trim()).filter(s => s.length);
+    }
+
+    function populateFromOption(optionEl) {
+        if (!optionEl) return;
+
+        // leer atributos data-*
+        const horariosCSV = optionEl.dataset.horarios || "";
+        const salasCSV = optionEl.dataset.salas || "";
+        const formato = optionEl.dataset.formato || "2D";
+        const idioma = optionEl.dataset.idioma || "";
+        const clasificacion = optionEl.dataset.clasificacion || "";
+        const director = optionEl.dataset.director || "";
+        const anio = optionEl.dataset.anio || "";
+        const generosCSV = optionEl.dataset.generos || "";
+        const trailer = optionEl.dataset.trailer || "#";
+
+        // poblar selects
+        const horarios = csvToArray(horariosCSV);
+        horarioSelect.innerHTML = "";
+        if (horarios.length) {
+            horarios.forEach(h => {
+                const o = document.createElement("option");
+                o.value = h; o.textContent = h;
+                horarioSelect.appendChild(o);
+            });
+        } else {
+            // fallback: opciones genéricas
+            ["12:00","15:00","18:00","21:00"].forEach(h => {
+                const o = document.createElement("option");
+                o.value = h; o.textContent = h;
+                horarioSelect.appendChild(o);
+            });
+        }
+
+        const salas = csvToArray(salasCSV);
+        salaSelect.innerHTML = "";
+        if (salas.length) {
+            salas.forEach(s => {
+                const o = document.createElement("option");
+                o.value = s; o.textContent = s;
+                salaSelect.appendChild(o);
+            });
+        } else {
+            ["Sala 1","Sala 2","Sala 3"].forEach(s => {
+                const o = document.createElement("option");
+                o.value = s; o.textContent = s;
+                salaSelect.appendChild(o);
+            });
+        }
+
+        // formatear
+        formatoSelect.value = formato;
+
+        // mostrar info de solo lectura
+        infoTitulo.textContent = optionEl.textContent.trim();
+        infoDirector.textContent = director || "—";
+        infoAnio.textContent = anio || "—";
+        infoGeneros.textContent = (generosCSV ? csvToArray(generosCSV).join(", ") : "—");
+        infoIdioma.textContent = idioma || "—";
+        infoClasificacion.textContent = clasificacion || "—";
+        if (trailer && trailer !== "#") {
+            infoTrailer.href = trailer;
+            infoTrailer.textContent = "Ver Trailer";
+        } else {
+            infoTrailer.href = "#";
+            infoTrailer.textContent = "—";
+        }
+    }
+
+    // Cuando cambie la película, cargar sus datos
+    peliculaSelect.addEventListener("change", (e) => {
+        const opt = e.target.options[e.target.selectedIndex];
+        populateFromOption(opt);
+    });
+
+    // Si estamos en modo edición, precargamos los valores de la función en el form
+    {% if funcion_editar %}
+    (function prefillEdit() {
+        // 1) seleccionar la película (ya tiene selected por el template)
+        const selected = peliculaSelect.options[peliculaSelect.selectedIndex];
+        populateFromOption(selected);
+
+        // 2) seleccionar horario/sala/formato según funcion_editar
+        const editarHorario = "{{ funcion_editar.horario|escapejs }}";
+        const editarSala = "{{ funcion_editar.sala|escapejs }}";
+        const editarFormato = "{{ funcion_editar.formato|escapejs }}";
+
+        // esperar un tick para asegurarnos que las opciones estén creadas
+        setTimeout(() => {
+            // seleccionar horario
+            for (const opt of horarioSelect.options) {
+                if (opt.value === editarHorario) { opt.selected = true; break; }
+            }
+            // seleccionar sala
+            for (const opt of salaSelect.options) {
+                if (opt.value === editarSala) { opt.selected = true; break; }
+            }
+            // seleccionar formato
+            formatoSelect.value = editarFormato || formatoSelect.value;
+        }, 0);
+    })();
+    {% endif %}
+});
+</script>
+
 </body>
 </html>

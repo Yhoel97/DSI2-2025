@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 
@@ -29,4 +29,5 @@ urlpatterns = [
 
     #PBI-018 Administrar funciones
     path('administrar_funciones/', views.administrar_funciones, name='administrar_funciones'),
+   # path('', include('django.contrib.auth.urls')),
 ]

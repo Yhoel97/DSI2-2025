@@ -13,6 +13,9 @@ import dj_database_url
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv 
+load_dotenv()
+
 
 
 
@@ -65,7 +68,7 @@ ROOT_URLCONF = 'DSI2025.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -139,6 +142,9 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+PASSWORD_RESET_SUBJECT = 'Restablecer Contraseña Cinedot'
+
+PASSWORD_RESET_TIMEOUT = 3600
 
 # This production code might break development mode, so we check whether we're in DEBUG mode
 if not DEBUG:

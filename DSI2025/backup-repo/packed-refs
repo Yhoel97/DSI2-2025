@@ -1,0 +1,6 @@
+# pack-refs with: peeled fully-peeled sorted 
+7fddc2b3b1212ec304467502df44d11dd17af9ba refs/heads/PBI-19-Registro-de-usuario
+f97c6c03d15b0a5db8dcad8e96850f20a595a987 refs/heads/PBI-24-Valoraciones-y-resenas
+d6992b0f591c71a6e219326ebee50e1a1882127a refs/heads/main
+a654aa170bb5a8e45bf75d13c19471b541dd5d35 refs/heads/pruebas-db
+a654aa170bb5a8e45bf75d13c19471b541dd5d35 refs/pull/1/head

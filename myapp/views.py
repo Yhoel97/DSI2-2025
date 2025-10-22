@@ -60,6 +60,17 @@ from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from .models import Venta
 
+#Prueba de correo
+
+from myapp.email import send_brevo_email
+
+def enviar_correo_prueba(request):
+    send_brevo_email(
+        to_emails=["usuario@ejemplo.com"],
+        subject="¡Bienvenido!",
+        html_content="<p>Gracias por registrarte.</p>"
+    )
+    return HttpResponse("Correo enviado")
 
 
 # Diccionario de géneros con nombres completos
@@ -1405,3 +1416,26 @@ def exportar_pdf(request):
     return response
 
 
+from django.contrib.auth.views import PasswordResetView
+from django.contrib.auth.forms import PasswordResetForm
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
+from urllib.parse import urlencode
+from myapp.email import send_brevo_email  # la función que creamos
+
+
+class CustomPasswordResetView(PasswordResetView):
+    email_template_name = 'registration/password_reset_email.html'  # plantilla del correo
+    subject_template_name = 'registration/password_reset_subject.txt'  # asunto
+
+    def send_mail(self, subject, email_template_name, context, from_email, to_email, html_email_template_name=None):
+        # Renderizamos el contenido del correo
+        html_content = render_to_string(email_template_name, context)
+        send_brevo_email(
+            to_emails=[to_email],
+            subject=subject,
+            html_content=html_content
+        )

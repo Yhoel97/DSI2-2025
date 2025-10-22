@@ -1,6 +1,7 @@
 from django.urls import path, include
 from . import views
-
+from django.urls import path, include
+from myapp.views import CustomPasswordResetView
 
 
 urlpatterns = [
@@ -38,5 +39,10 @@ urlpatterns = [
     path('reportes/', views.reportes_admin, name='reportes_admin'),
     path('exportar_excel/', views.exportar_excel, name='exportar_excel'),
     path('exportar_pdf/', views.exportar_pdf, name='exportar_pdf'),
+
+  # Rutas password reset
+    path('password_reset/', CustomPasswordResetView.as_view(), name='password_reset'),
+   # path('accounts/', include('django.contrib.auth.urls')),  # esto incluye las demás vistas (login, logout, etc.)
+
 ]
 

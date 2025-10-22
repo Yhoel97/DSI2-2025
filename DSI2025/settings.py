@@ -135,20 +135,27 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp-relay.brevo.com' # <-- ¡Host de Brevo!
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#EMAIL_HOST = 'smtp-relay.brevo.com' # <-- ¡Host de Brevo!
+#EMAIL_PORT = 587
+#EMAIL_USE_TLS = True
+#EMAIL_HOST_USER = os.environ.get('BREVO_SMTP_LOGIN')
+#EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')
 
 
-EMAIL_HOST_USER = os.environ.get('BREVO_SMTP_LOGIN')
+# -----------------------------
+# Configuración API Brevo para recuperación de contraseña
+# -----------------------------
+#BREVO_API_KEY ='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'
+BREVO_API_KEY = os.environ.get(
+    "BREVO_API_KEY",
+    "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"
+)
 
-EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_KEY')
+EMAIL_BACKEND = "myapp.backends.brevo_backend.BrevoEmailBackend"
+DEFAULT_FROM_EMAIL ='soportecinedot@gmail.com'
+PASSWORD_RESET_TIMEOUT = 3600 * 5
 
-
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
-
-PASSWORD_RESET_TIMEOUT = 3600
 
 # This production code might break development mode, so we check whether we're in DEBUG mode
 if not DEBUG:

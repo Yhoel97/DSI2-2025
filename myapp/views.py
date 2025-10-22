@@ -59,18 +59,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from .models import Venta
-
-#Prueba de correo
-
-from myapp.email import send_brevo_email
-
-def enviar_correo_prueba(request):
-    send_brevo_email(
-        to_emails=["usuario@ejemplo.com"],
-        subject="¡Bienvenido!",
-        html_content="<p>Gracias por registrarte.</p>"
-    )
-    return HttpResponse("Correo enviado")
+from django.db.models import Prefetch
 
 
 # Diccionario de géneros con nombres completos
@@ -309,7 +298,21 @@ def asientos(request, pelicula_id=None):
                     del request.session['codigo_aplicado']
                 
                 reserva.save()
-                
+
+                reserva.save()
+
+                # ✅ Registrar la venta automáticamente
+                try:
+                   Venta.objects.create(
+                       pelicula=reserva.pelicula,
+                       sala=reserva.sala,
+                       fecha=date.today(),
+                       cantidad_boletos=reserva.cantidad_boletos,
+                       total_venta=reserva.precio_total
+                    )
+                except Exception as e:
+                    print(f"⚠️ Error al registrar la venta: {e}")
+
                 pdf_buffer = generar_pdf_reserva(reserva)
                 response = HttpResponse(pdf_buffer, content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
@@ -1008,29 +1011,44 @@ def filtrar_peliculas(request):
 
     hoy = date.today()
 
-    # 🔹 Solo películas que tienen una función activa HOY
-    peliculas = Pelicula.objects.filter(
-        funcion__fecha=hoy  # 'funcion' es el related_name del modelo Funcion (por defecto nombre_del_modelo en minúsculas)
-    ).distinct()
+    # 🔹 Películas con funciones activas hoy
+    peliculas = Pelicula.objects.filter(funcion__fecha=hoy).distinct()
 
-    # 🔹 Aplica filtros adicionales si el usuario los usa
+    # 🔹 Aplicar filtros si el usuario los usa
     if genero:
         peliculas = peliculas.filter(generos__icontains=genero)
-
     if clasificacion:
         peliculas = peliculas.filter(clasificacion__icontains=clasificacion)
-
     if idioma:
         peliculas = peliculas.filter(idioma__icontains=idioma)
-
     if horario:
-        peliculas = peliculas.filter(horarios__icontains=horario)
+        peliculas = peliculas.filter(funcion__horario__icontains=horario)
 
-    # 🔹 Ordena las películas más recientes primero
-    peliculas = peliculas.distinct().order_by('-fecha_estreno', '-id')
+    peliculas = peliculas.order_by('-fecha_estreno', '-id')
+
+    # 🔹 Construir los datos combinando Pelicula + Funcion
+    peliculas_data = []
+    for p in peliculas:
+        funciones_hoy = Funcion.objects.filter(pelicula=p, fecha=hoy)
+        horarios = [f.horario for f in funciones_hoy]
+        salas = [f.sala for f in funciones_hoy]
+        pares = list(zip(horarios, salas))
+
+        peliculas_data.append({
+            'id': p.id,
+            'nombre': p.nombre,
+            'imagen_url': p.imagen_url,
+            'anio': p.anio,
+            'director': p.director or "No especificado",
+            'generos': ", ".join(p.get_generos_list()) if hasattr(p, 'get_generos_list') else p.generos,
+            'clasificacion': p.clasificacion or "No definida",
+            'idioma': p.idioma or "No especificado",
+            'fecha_estreno': p.fecha_estreno,
+            'pares': pares,  # 🔹 horarios y salas reales de hoy
+        })
 
     context = {
-        'peliculas': peliculas,
+        'peliculas': peliculas_data,
         'genero': genero,
         'clasificacion': clasificacion,
         'idioma': idioma,
@@ -1042,24 +1060,28 @@ def filtrar_peliculas(request):
     }
 
     return render(request, 'filtrar.html', context)
-
 #######
 
 def horarios_por_pelicula(request):
-    """Muestra solo películas con funciones activas HOY, con filtros opcionales"""
+    """
+    Muestra solo películas con funciones activas HOY,
+    agrupando todos sus horarios y salas.
+    """
     hoy = date.today()
 
-    # Filtros opcionales
+    # Filtros opcionales del formulario
     genero = request.GET.get('genero', '').strip()
     clasificacion = request.GET.get('clasificacion', '').strip()
     idioma = request.GET.get('idioma', '').strip()
 
-    # 🎬 Solo películas que tienen una función hoy
+    # 🎬 Solo películas que tienen funciones hoy (agrupadas por película)
     peliculas = Pelicula.objects.filter(
         funcion__fecha=hoy
+    ).prefetch_related(
+        Prefetch('funcion_set', queryset=Funcion.objects.filter(fecha=hoy))
     ).distinct()
 
-    # Aplica filtros si el usuario los selecciona
+    # 🔍 Aplicar filtros si el usuario selecciona alguno
     if genero:
         peliculas = peliculas.filter(generos__icontains=genero)
     if clasificacion:
@@ -1069,13 +1091,11 @@ def horarios_por_pelicula(request):
 
     peliculas = peliculas.order_by('-fecha_estreno', '-id')
 
-    # 🔹 Reúne los horarios y salas de las funciones de hoy
+    # 🔹 Construir lista de películas con horarios y salas del día
     peliculas_data = []
     for p in peliculas:
-        funciones_hoy = Funcion.objects.filter(pelicula=p, fecha=hoy)
-        horarios = [f.horario for f in funciones_hoy]  # ✅ aquí ya no usamos strftime
-        salas = [f.sala for f in funciones_hoy]
-        pares = list(zip(horarios, salas))
+        funciones_hoy = p.funcion_set.all()  # gracias al prefetch_related, no hace más queries
+        pares = [(f.horario, f.sala) for f in funciones_hoy]
 
         peliculas_data.append({
             'id': p.id,
@@ -1102,13 +1122,13 @@ def horarios_por_pelicula(request):
 
     return render(request, 'horarios.html', context)
 
-@admin_required 
+@admin_required
 def administrar_funciones(request):
     hoy = date.today()
     peliculas = Pelicula.objects.all().order_by("nombre")
     funciones = Funcion.objects.select_related('pelicula').order_by('fecha', 'horario')
 
-    # Estas dos líneas son CLAVE para llenar los select en el formulario
+    # Listas de opciones desde el modelo
     HORARIOS_DISPONIBLES = Pelicula.HORARIOS_DISPONIBLES
     SALAS_DISPONIBLES = Pelicula.SALAS_DISPONIBLES
 
@@ -1118,38 +1138,34 @@ def administrar_funciones(request):
     if request.method == "POST":
         accion = request.POST.get("accion")
 
-        # --- ELIMINAR: se procesa inmediatamente (no requiere otros campos) ---
+        # --- ELIMINAR ---
         if accion == "eliminar":
             funcion_id = request.POST.get("funcion_id")
             if not funcion_id:
                 messages.error(request, "No se especificó la función a eliminar.")
                 return redirect("administrar_funciones")
+
             funcion = get_object_or_404(Funcion, id=funcion_id)
             funcion.delete()
             messages.success(request, "🗑️ Función eliminada correctamente.")
             return redirect("administrar_funciones")
 
-        # Para crear/editar necesitamos estos campos
+        # --- CREAR o EDITAR ---
         pelicula_id = request.POST.get("pelicula")
         fecha = request.POST.get("fecha")
-        horario = request.POST.get("horario")
-        sala = request.POST.get("sala")
-        formato = request.POST.get("formato")
 
-        if not (pelicula_id and fecha and horario and sala):
+        # 🔹 En el nuevo template, los horarios, salas y formatos vienen como listas
+        horarios = request.POST.getlist("horario[]")
+        salas = request.POST.getlist("sala[]")
+        formatos = request.POST.getlist("formato[]")
+
+        if not (pelicula_id and fecha and horarios and salas):
             messages.error(request, "Todos los campos son obligatorios.")
             return redirect("administrar_funciones")
 
         pelicula = get_object_or_404(Pelicula, id=pelicula_id)
 
-        # Si estamos editando, obtén el id para poder excluirlo en validaciones
-        funcion_id_editar = None
-        if accion == "editar":
-            funcion_id_editar = request.POST.get("funcion_id")
-
-        # --- Validaciones ---
-
-        # 🛑 1️⃣ Nueva validación: No permitir funciones antes del estreno
+        # --- Validaciones generales ---
         if pelicula.fecha_estreno and pelicula.fecha_estreno > hoy:
             messages.warning(
                 request,
@@ -1158,52 +1174,35 @@ def administrar_funciones(request):
             )
             return redirect("administrar_funciones")
 
-        # 1️⃣ Limitar máximo 3 funciones por sala y día
-        # Si estamos editando y la función permanece en la misma fecha/sala, descontamos la propia entrada
-        funciones_en_sala_qs = Funcion.objects.filter(fecha=fecha, sala=sala)
-        if funcion_id_editar:
-            funciones_en_sala_qs = funciones_en_sala_qs.exclude(id=funcion_id_editar)
-        funciones_en_sala = funciones_en_sala_qs.count()
-        if funciones_en_sala >= 3:
-            messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
-            return redirect("administrar_funciones")
-
-        # 2️⃣ Evitar duplicar la misma película en la misma sala, horario y fecha
-        duplicada_qs = Funcion.objects.filter(
-            pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
-        )
-        if funcion_id_editar:
-            duplicada_qs = duplicada_qs.exclude(id=funcion_id_editar)
-        if duplicada_qs.exists():
-            messages.error(request, "❌ Ya existe una función para esta película en ese horario y sala.")
-            return redirect("administrar_funciones")
-
-        # 3️⃣ Evitar películas diferentes en la misma sala y horario (aunque sean distintas)
-        conflicto_qs = Funcion.objects.filter(
-            fecha=fecha, horario=horario, sala=sala
-        )
-        if funcion_id_editar:
-            conflicto_qs = conflicto_qs.exclude(id=funcion_id_editar)
-        conflicto_qs = conflicto_qs.exclude(pelicula=pelicula)
-        if conflicto_qs.exists():
-            messages.error(request, f"❌ En {sala} ya hay otra película programada a las {horario}.")
-            return redirect("administrar_funciones")
-
-        # --- Acción CREAR ---
-        if accion == "crear":
-            Funcion.objects.create(
-                pelicula=pelicula,
-                fecha=fecha,
-                horario=horario,
-                sala=sala,
-                formato=formato
-            )
-            messages.success(request, "✅ Función agregada correctamente.")
-            return redirect("administrar_funciones")
-
-        # --- Acción EDITAR ---
-        elif accion == "editar":
+        # --- EDITAR (solo una función, como antes) ---
+        if accion == "editar":
+            funcion_id_editar = request.POST.get("funcion_id")
             funcion = get_object_or_404(Funcion, id=funcion_id_editar)
+            horario = horarios[0] if horarios else None
+            sala = salas[0] if salas else None
+            formato = formatos[0] if formatos else "2D"
+
+            # Reutilizamos las mismas validaciones que tenías
+            funciones_en_sala_qs = Funcion.objects.filter(fecha=fecha, sala=sala).exclude(id=funcion_id_editar)
+            if funciones_en_sala_qs.count() >= 3:
+                messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
+                return redirect("administrar_funciones")
+
+            duplicada_qs = Funcion.objects.filter(
+                pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
+            ).exclude(id=funcion_id_editar)
+            if duplicada_qs.exists():
+                messages.error(request, "❌ Ya existe una función para esta película en ese horario y sala.")
+                return redirect("administrar_funciones")
+
+            conflicto_qs = Funcion.objects.filter(
+                fecha=fecha, horario=horario, sala=sala
+            ).exclude(id=funcion_id_editar).exclude(pelicula=pelicula)
+            if conflicto_qs.exists():
+                messages.error(request, f"❌ En {sala} ya hay otra película programada a las {horario}.")
+                return redirect("administrar_funciones")
+
+            # Guardamos cambios
             funcion.pelicula = pelicula
             funcion.fecha = fecha
             funcion.horario = horario
@@ -1213,11 +1212,51 @@ def administrar_funciones(request):
             messages.success(request, "✏️ Función actualizada correctamente.")
             return redirect("administrar_funciones")
 
+        # --- CREAR (puede crear múltiples funciones a la vez) ---
+        elif accion == "crear":
+            creadas = 0
+            for i in range(len(horarios)):
+                horario = horarios[i]
+                sala = salas[i] if i < len(salas) else ""
+                formato = formatos[i] if i < len(formatos) else "2D"
+
+                # Validaciones individuales (reusando las tuyas)
+                if Funcion.objects.filter(fecha=fecha, sala=sala).count() >= 3:
+                    messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
+                    continue
+
+                if Funcion.objects.filter(
+                    pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
+                ).exists():
+                    messages.warning(request, f"⏰ '{pelicula.nombre}' ya tiene una función en {sala} a las {horario}.")
+                    continue
+
+                if Funcion.objects.filter(
+                    fecha=fecha, horario=horario, sala=sala
+                ).exclude(pelicula=pelicula).exists():
+                    messages.warning(request, f"⚠️ En {sala} ya hay otra película a las {horario}.")
+                    continue
+
+                Funcion.objects.create(
+                    pelicula=pelicula,
+                    fecha=fecha,
+                    horario=horario,
+                    sala=sala,
+                    formato=formato
+                )
+                creadas += 1
+
+            if creadas:
+                messages.success(request, f"✅ {creadas} función(es) agregada(s) correctamente.")
+            else:
+                messages.warning(request, "⚠️ No se agregaron funciones por conflictos o duplicados.")
+            return redirect("administrar_funciones")
+
         else:
             messages.error(request, "Acción no reconocida.")
             return redirect("administrar_funciones")
 
-    # --- MODO EDICIÓN (GET con ?editar=ID) ---
+    # --- MODO EDICIÓN ---
     elif request.method == "GET" and "editar" in request.GET:
         funcion_id = request.GET.get("editar")
         funcion_editar = get_object_or_404(Funcion, id=funcion_id)
@@ -1229,6 +1268,7 @@ def administrar_funciones(request):
         "HORARIOS_DISPONIBLES": HORARIOS_DISPONIBLES,
         "SALAS_DISPONIBLES": SALAS_DISPONIBLES,
     })
+
 
 
 ### Reportes Administrativos

@@ -81,33 +81,40 @@
     <!-- Resultados -->
     <div class="row">
         {% if peliculas %}
-            {% for pelicula in peliculas %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="poster-container">
-                            <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster img-fluid rounded-top">
-                        </div>
+          {% for pelicula in peliculas %}
+            <div class="col-md-4 mb-4">
+              <div class="card h-100 shadow-sm">
+                <div class="poster-container">
+                  <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster img-fluid rounded-top">
+            </div>
 
-                        <div class="card-body">
-                            <h5 class="card-title">{{ pelicula.nombre }}</h5>
-                            <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.get_generos_list|join:", " }}</p>
-                            <p class="card-text mb-1"><strong>Año:</strong> {{ pelicula.anio }}</p>
-                            <p class="card-text mb-1"><strong>Director:</strong> {{ pelicula.director }}</p>
-                            <p class="card-text mb-1"><strong>Horario y Sala:</strong>
-                                {% for h, s in pelicula.horario_sala_pares %}
-                                    {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
-                                {% endfor %}
-                            </p>
-                            <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.get_clasificacion_display }}</p>
-                            <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.get_idioma_display }}</p>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <p class="text-center text-muted">No se encontraron películas con esos filtros.</p>
-        {% endif %}
+            <div class="card-body">
+              <h5 class="card-title text-primary fw-bold">{{ pelicula.nombre }}</h5>
+                <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.generos }}</p>
+                <p class="card-text mb-1"><strong>Año:</strong> {{ pelicula.anio }}</p>
+                <p class="card-text mb-1"><strong>Director:</strong> {{ pelicula.director }}</p>
+
+                {% if pelicula.pares %}
+                  <p class="card-text mb-1"><strong>Horario y Sala:</strong>
+                    {% for horario, sala in pelicula.pares %}
+                      {{ horario }} - {{ sala }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                  </p>
+                {% else %}
+                  <p class="card-text mb-1"><strong>Horario y Sala:</strong> No disponibles</p>
+                {% endif %}
+
+                <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.clasificacion }}</p>
+                <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.idioma }}</p>
+            </div>
+        </div>
     </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-center text-muted">No se encontraron películas con esos filtros.</p>
+  {% endif %}
+</div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

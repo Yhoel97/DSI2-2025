@@ -14,7 +14,8 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")  # Carga tu archivo .env
 
 
 
@@ -147,10 +148,7 @@ STATIC_URL = '/static/'
 # Configuración API Brevo para recuperación de contraseña
 # -----------------------------
 #BREVO_API_KEY ='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'
-BREVO_API_KEY = os.environ.get(
-    "BREVO_API_KEY",
-    "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"
-)
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 
 EMAIL_BACKEND = "myapp.backends.brevo_backend.BrevoEmailBackend"
 DEFAULT_FROM_EMAIL ='soportecinedot@gmail.com'

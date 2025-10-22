@@ -1277,45 +1277,77 @@ from django.db.models import Sum
 from django.shortcuts import render
 from .models import Venta, Pelicula
 
+from django.db.models import Sum, Q
+from django.shortcuts import render
+from .models import Venta, Pelicula
+
+@admin_required
 def reportes_admin(request):
     peliculas = Pelicula.objects.all()
     pelicula_id = request.GET.get('pelicula')
-    sala = request.GET.get('sala')
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    # Si hay filtros aplicados, se filtra; si no, no se muestran ventas ni popularidad
-    if pelicula_id or sala or fecha_inicio or fecha_fin:
-        ventas = Venta.objects.all()
+    ventas = Venta.objects.all()
 
-        if pelicula_id:
-            ventas = ventas.filter(pelicula_id=pelicula_id)
-        if sala:
-            ventas = ventas.filter(sala__icontains=sala)
-        if fecha_inicio and fecha_fin:
-            ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+    # Filtros
+    if fecha_inicio and fecha_fin:
+        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+    if pelicula_id:
+        ventas = ventas.filter(pelicula_id=pelicula_id)
 
-        # Popularidad SOLO cuando hay filtros
-        popularidad = (
-            ventas.values('pelicula__nombre')
-            .annotate(total_boletos=Sum('cantidad_boletos'))
-            .order_by('-total_boletos')[:5]
-        )
-    else:
-        ventas = Venta.objects.none()
-        popularidad = []  # 👈 Se limpia también el bloque de popularidad
+    # Agrupar por película y fecha
+    ventas_resumen = (
+        ventas.values('pelicula__nombre', 'fecha')
+        .annotate(total_boletos=Sum('cantidad_boletos'), total_venta=Sum('total_venta'))
+        .order_by('fecha')
+    )
 
-    # Resumen
-    resumen = ventas.aggregate(
+    # Totales generales
+    resumen_general = ventas.aggregate(
         total_boletos=Sum('cantidad_boletos'),
         total_ventas=Sum('total_venta')
     )
 
+    # --- Cálculo de boletos por formato y fecha ---
+    formatos_info = {}
+    if pelicula_id:
+        pelicula_filtrada = Pelicula.objects.get(id=pelicula_id)
+        funciones = Funcion.objects.filter(pelicula_id=pelicula_id).values('formato').distinct()
+
+        for v in ventas_resumen:
+            fecha = v['fecha']
+            formatos_info[fecha] = []
+
+            for funcion in funciones:
+                formato = funcion['formato']
+                boletos = ventas.filter(
+                    pelicula_id=pelicula_id,
+                    fecha=fecha,
+                    sala__in=Funcion.objects.filter(
+                        pelicula_id=pelicula_id, formato=formato
+                    ).values_list('sala', flat=True)
+                ).aggregate(Sum('cantidad_boletos'))['cantidad_boletos__sum'] or 0
+
+                if boletos > 0:
+                    formatos_info[fecha].append({'formato': formato, 'boletos': boletos})
+    else:
+        pelicula_filtrada = None
+
+    # Películas más populares
+    popularidad = (
+        Venta.objects.values('pelicula__nombre')
+        .annotate(total_boletos=Sum('cantidad_boletos'))
+        .order_by('-total_boletos')[:5]
+    )
+
     context = {
-        'ventas': ventas,
         'peliculas': peliculas,
-        'resumen': resumen,
+        'pelicula_filtrada': pelicula_filtrada,
+        'ventas_resumen': ventas_resumen,
+        'resumen_general': resumen_general,
         'popularidad': popularidad,
+        'formatos_info': formatos_info,
     }
 
     return render(request, 'reportes_admin.html', context)

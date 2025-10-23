@@ -52,8 +52,9 @@
               <i class="fas fa-broom me-1"></i> Limpiar Filtro
             </a>
 
-            <a href="{% url 'exportar_pdf' %}" class="btn-pdf me-2">
-                 <i class="fas fa-file-pdf me-1"></i> Exportar PDF
+            <a href="{% url 'exportar_pdf' %}?pelicula={{ request.GET.pelicula }}&fecha_inicio={{ request.GET.fecha_inicio }}&fecha_fin={{ request.GET.fecha_fin }}" 
+                class="btn-pdf me-2">
+                <i class="fas fa-file-pdf me-1"></i> Exportar PDF
             </a>
 
             <a href="{% url 'exportar_excel' %}" class="btn-excel">
@@ -62,43 +63,55 @@
         </div>
     </form>
 
-<table class="table table-bordered table-striped text-center align-middle">
-  <thead class="table-dark">
-    <tr>
-      <th>Película</th>
-      <th>Fecha</th>
-      <th>Boletos por formato</th>
-      <th>Total boletos</th>
-      <th>Total ($)</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for v in ventas_resumen %}
-  <tr>
-    <td>{{ v.pelicula__nombre }}</td>
-    <td>{{ v.fecha|date:"d/m/Y" }}</td>
-    <td>
-      {% if formatos_info.v.fecha %}
-        {% for f in formatos_info.v.fecha %}
-          {{ f.formato }}: {{ f.boletos }}
-          {% if not forloop.last %}<br>{% endif %}
-        {% endfor %}
-      {% else %}
-        Sin formato
-      {% endif %}
-    </td>
-    <td>{{ v.total_boletos }}</td>
-    <td>${{ v.total_venta|floatformat:2 }}</td>
-  </tr>
-  {% endfor %}
-  <tr class="table-dark">
-    <th colspan="3">Totales</th>
-    <th>{{ resumen_general.total_boletos|default:0 }}</th>
-    <th>${{ resumen_general.total_ventas|floatformat:2 }}</th>
-  </tr>
-</tbody>
-</table>
-
+    <!-- Tabla de resultados -->
+    <table class="table table-bordered table-striped text-center align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Película</th>
+                <th>Fecha</th>
+                <th>Boletos por formato</th>
+                <th>Total boletos</th>
+                <th>Total ($)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in ventas_resumen %}
+            <tr>
+                <td>{{ v.pelicula__nombre }}</td>
+                <td>
+                    {% if request.GET.fecha_inicio and request.GET.fecha_fin %}
+                        Desde {{ request.GET.fecha_inicio }} hasta {{ request.GET.fecha_fin }}
+                    {% else %}
+                        Todo el periodo
+                    {% endif %}
+                </td>
+                <td>
+                    {% for key, lista in formatos_info.items %}
+                        {% if key == v.pelicula__nombre %}
+                            {% if lista %}
+                                {% for f in lista %}
+                                    {{ f.formato }}: {{ f.total_boletos }} boletos
+                                    {% if not forloop.last %}<br>{% endif %}
+                                {% endfor %}
+                            {% else %}
+                                Sin formato
+                            {% endif %}
+                        {% endif %}
+                    {% empty %}
+                        Sin formato
+                    {% endfor %}
+                </td>
+                <td>{{ v.total_boletos }}</td>
+                <td>${{ v.total_venta|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="table-dark">
+                <th colspan="3">Totales</th>
+                <th>{{ resumen_general.total_boletos|default:0 }}</th>
+                <th>${{ resumen_general.total_ventas|floatformat:2 }}</th>
+            </tr>
+        </tbody>
+    </table>
 
     <!-- Popularidad -->
     <div class="summary-box">
@@ -130,7 +143,7 @@ document.addEventListener("DOMContentLoaded", function() {
         limpiarBtn.addEventListener("click", function(e) {
             e.preventDefault();
 
-            // 1️⃣ Limpia todos los inputs y selects del formulario
+            // Limpia todos los inputs y selects del formulario
             const form = limpiarBtn.closest("form");
             form.querySelectorAll("input, select").forEach(el => {
                 if (el.type === "date" || el.type === "text" || el.tagName === "SELECT") {
@@ -138,10 +151,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
 
-            // 2️⃣ Quita los parámetros de la URL (deja la ruta limpia /reportes/)
+            // Redirige sin parámetros (limpia la URL)
             const baseUrl = window.location.origin + window.location.pathname;
-
-            // 3️⃣ Redirige sin parámetros
             window.location.href = baseUrl;
         });
     }
@@ -153,4 +164,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 </body>
 </html>
+
+
 

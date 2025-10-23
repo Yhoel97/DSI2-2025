@@ -1,4 +1,5 @@
 from io import BytesIO
+from zipfile import ZipFile
 import json
 import random
 import string
@@ -60,6 +61,7 @@ from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from .models import Venta
 from django.db.models import Prefetch
+from datetime import datetime
 
 
 # Diccionario de géneros con nombres completos
@@ -1288,63 +1290,62 @@ def reportes_admin(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    ventas = Venta.objects.all()
+    reservas = Reserva.objects.all()
 
-    # Filtros
+    # --- Filtros por fecha y película
     if fecha_inicio and fecha_fin:
-        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+        reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
+
     if pelicula_id:
-        ventas = ventas.filter(pelicula_id=pelicula_id)
+        reservas = reservas.filter(pelicula_id=pelicula_id)
 
-    # Agrupar por película y fecha
-    ventas_resumen = (
-        ventas.values('pelicula__nombre', 'fecha')
-        .annotate(total_boletos=Sum('cantidad_boletos'), total_venta=Sum('total_venta'))
-        .order_by('fecha')
+    # --- Agrupar por película
+    reservas_resumen = (
+        reservas.values('pelicula__nombre')
+        .annotate(
+            total_boletos=Sum('cantidad_boletos'),
+            total_venta=Sum('precio_total')
+        )
+        .order_by('pelicula__nombre')
     )
 
-    # Totales generales
-    resumen_general = ventas.aggregate(
-        total_boletos=Sum('cantidad_boletos'),
-        total_ventas=Sum('total_venta')
-    )
-
-    # --- Cálculo de boletos por formato y fecha ---
+    # --- Calcular boletos por formato (por película)
+    formatos_disponibles = ['2D', '3D', 'IMAX']
     formatos_info = {}
-    if pelicula_id:
-        pelicula_filtrada = Pelicula.objects.get(id=pelicula_id)
-        funciones = Funcion.objects.filter(pelicula_id=pelicula_id).values('formato').distinct()
 
-        for v in ventas_resumen:
-            fecha = v['fecha']
-            formatos_info[fecha] = []
+    for r in reservas_resumen:
+        pelicula_nombre = r['pelicula__nombre']
+        key = pelicula_nombre
+        formatos_info[key] = []
 
-            for funcion in funciones:
-                formato = funcion['formato']
-                boletos = ventas.filter(
-                    pelicula_id=pelicula_id,
-                    fecha=fecha,
-                    sala__in=Funcion.objects.filter(
-                        pelicula_id=pelicula_id, formato=formato
-                    ).values_list('sala', flat=True)
-                ).aggregate(Sum('cantidad_boletos'))['cantidad_boletos__sum'] or 0
+        for formato in formatos_disponibles:
+            boletos = reservas.filter(
+                pelicula__nombre=pelicula_nombre,
+                formato=formato
+            ).aggregate(Sum('cantidad_boletos'))['cantidad_boletos__sum'] or 0
 
-                if boletos > 0:
-                    formatos_info[fecha].append({'formato': formato, 'boletos': boletos})
-    else:
-        pelicula_filtrada = None
+            if boletos > 0:
+                formatos_info[key].append({
+                    'formato': formato,
+                    'total_boletos': boletos
+                })
 
-    # Películas más populares
+    # --- Totales generales
+    resumen_general = reservas.aggregate(
+        total_boletos=Sum('cantidad_boletos'),
+        total_ventas=Sum('precio_total')
+    )
+
+    # --- Películas más populares
     popularidad = (
-        Venta.objects.values('pelicula__nombre')
+        reservas.values('pelicula__nombre')
         .annotate(total_boletos=Sum('cantidad_boletos'))
         .order_by('-total_boletos')[:5]
     )
 
     context = {
         'peliculas': peliculas,
-        'pelicula_filtrada': pelicula_filtrada,
-        'ventas_resumen': ventas_resumen,
+        'ventas_resumen': reservas_resumen,
         'resumen_general': resumen_general,
         'popularidad': popularidad,
         'formatos_info': formatos_info,
@@ -1357,136 +1358,227 @@ def reportes_admin(request):
 def exportar_excel(request):
     # Obtener filtros del formulario
     pelicula_id = request.GET.get('pelicula')
-    sala = request.GET.get('sala')
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    ventas = Venta.objects.all()
+    reservas = Reserva.objects.all()
+
+    # --- Aplicar filtros ---
+    if fecha_inicio and fecha_fin:
+        reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
 
     if pelicula_id:
-        ventas = ventas.filter(pelicula_id=pelicula_id)
-    if sala:
-        ventas = ventas.filter(sala__icontains=sala)
-    if fecha_inicio and fecha_fin:
-        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+        reservas = reservas.filter(pelicula_id=pelicula_id)
+
+    # Determinar si es un reporte general o filtrado
+    es_filtrado = pelicula_id or (fecha_inicio and fecha_fin)
 
     # Crear DataFrame con los datos
     datos = []
-    for v in ventas:
+    for v in reservas:
         datos.append({
             "Película": v.pelicula.nombre,
             "Sala": v.sala,
-            "Fecha": v.fecha.strftime("%d/%m/%Y"),
-            "Boletos vendidos": v.cantidad_boletos,
-            "Total ($)": float(v.total_venta),
+            "Formato": v.formato,
+            "Horario": v.horario,
+            "Cantidad de boletos": v.cantidad_boletos,
+            "Total ($)": float(v.precio_total),
+            "Fecha de reserva": v.fecha_reserva.strftime("%d/%m/%Y %H:%M"),
         })
 
     # Si no hay datos, crear DataFrame vacío
     if not datos:
-        df = pd.DataFrame(columns=["Película", "Sala", "Fecha", "Boletos vendidos", "Total ($)"])
+        df = pd.DataFrame(columns=["Película", "Sala", "Formato", "Horario", "Cantidad de boletos", "Total ($)", "Fecha de reserva"])
     else:
         df = pd.DataFrame(datos)
 
     # Calcular totales
-    total_boletos = sum([v["Boletos vendidos"] for v in datos]) if datos else 0
+    total_boletos = sum([v["Cantidad de boletos"] for v in datos]) if datos else 0
     total_ventas = sum([v["Total ($)"] for v in datos]) if datos else 0
 
     # Agregar fila de totales al final
     df.loc[len(df)] = {
-        "Película": "TOTAL GENERAL",
+        "Película": "TOTAL GENERAL" if not es_filtrado else "TOTAL FILTRADO",
         "Sala": "",
-        "Fecha": "",
-        "Boletos vendidos": total_boletos,
+        "Formato": "",
+        "Horario": "",
+        "Cantidad de boletos": total_boletos,
         "Total ($)": total_ventas,
+        "Fecha de reserva": "",
     }
 
     # Crear respuesta con archivo Excel
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response["Content-Disposition"] = 'attachment; filename="reporte_cinedot.xlsx"'
+
+    # Nombre dinámico del archivo
+    if es_filtrado:
+        response["Content-Disposition"] = 'attachment; filename="reporte_filtrado_cinedot.xlsx"'
+    else:
+        response["Content-Disposition"] = 'attachment; filename="reporte_general_cinedot.xlsx"'
 
     # Exportar a Excel
     with pd.ExcelWriter(response, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Reporte de Ventas')
+        hoja_nombre = 'Reporte Filtrado' if es_filtrado else 'Reporte General'
+        df.to_excel(writer, index=False, sheet_name=hoja_nombre)
 
         # Formatear hoja
-        hoja = writer.sheets['Reporte de Ventas']
+        hoja = writer.sheets[hoja_nombre]
         for columna in hoja.columns:
-            hoja.column_dimensions[columna[0].column_letter].width = 20
+            hoja.column_dimensions[columna[0].column_letter].width = 22
+
+        # Encabezado más vistoso
+        hoja.freeze_panes = "A2"  # Fija los encabezados
 
     return response
 
 ### Reportes PDF#########
 
 def exportar_pdf(request):
-    # Obtener ventas (usando mismos filtros que el reporte principal)
+    # --- Obtener filtros ---
     pelicula_id = request.GET.get('pelicula')
-    sala = request.GET.get('sala')
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    ventas = Venta.objects.all()
+    # --- Base de datos ---
+    reservas = Reserva.objects.all()
+    filtros_activos = False
 
     if pelicula_id:
-        ventas = ventas.filter(pelicula_id=pelicula_id)
-    if sala:
-        ventas = ventas.filter(sala__icontains=sala)
+        reservas = reservas.filter(pelicula_id=pelicula_id)
+        filtros_activos = True
+
     if fecha_inicio and fecha_fin:
-        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+        reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
+        filtros_activos = True
 
-    # Crear el PDF
+    # --- Crear respuesta PDF ---
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="reporte_cinedot.pdf"'
 
-    p = canvas.Canvas(response, pagesize=letter)
+    if filtros_activos:
+        response['Content-Disposition'] = 'attachment; filename="reporte_filtrado.pdf"'
+        titulo = "Reporte Filtrado de Ventas"
+    else:
+        response['Content-Disposition'] = 'attachment; filename="reporte_general.pdf"'
+        titulo = "Reporte General de Ventas (Todas las Películas)"
+
+    # --- Crear PDF en memoria ---
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
 
-    # Encabezado
+    # --- Encabezado ---
     p.setFont("Helvetica-Bold", 16)
-    p.drawString(180, height - 50, "🎬 Reporte de Ventas Cinedot")
+    p.drawString(130, height - 50, f"🎬 {titulo}")
 
     p.setFont("Helvetica", 10)
-    p.drawString(50, height - 70, "Generado automáticamente por el sistema")
+    p.drawString(50, height - 70, "Generado automáticamente por el sistema Cinedot")
+    p.drawString(50, height - 85, f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-    # Espaciado inicial
     y = height - 110
 
-    # Encabezado de tabla
+    # --- Mostrar criterios de filtro ---
+    if filtros_activos:
+        p.setFont("Helvetica-Oblique", 9)
+        if pelicula_id:
+            peli = Pelicula.objects.get(id=pelicula_id)
+            p.drawString(50, y, f"Película: {peli.nombre}")
+            y -= 12
+        if fecha_inicio and fecha_fin:
+            p.drawString(50, y, f"Rango de fechas: {fecha_inicio} a {fecha_fin}")
+            y -= 12
+        y -= 10
+
+    # --- Encabezado de tabla ---
     p.setFont("Helvetica-Bold", 12)
     p.drawString(50, y, "Película")
-    p.drawString(220, y, "Sala")
-    p.drawString(300, y, "Fecha")
-    p.drawString(380, y, "Boletos")
-    p.drawString(460, y, "Total ($)")
+    p.drawString(220, y, "Boletos por formato")
+    p.drawString(420, y, "Total boletos")
+    p.drawString(510, y, "Total ($)")
     y -= 15
-    p.line(50, y, 530, y)
+    p.line(50, y, 560, y)
     y -= 20
 
-    # Contenido de ventas
-    p.setFont("Helvetica", 10)
-    if ventas.exists():
-        for v in ventas:
-            if y < 100:  # Salto de página si se acaba el espacio
+    # --- Cálculo de datos por película ---
+    total_general_boletos = 0
+    total_general_ventas = 0
+
+    if reservas.exists():
+        # Agrupar por película
+        peliculas = reservas.values('pelicula__nombre').annotate(
+            total_boletos=Sum('cantidad_boletos'),
+            total_venta=Sum('precio_total')
+        ).order_by('pelicula__nombre')
+
+        for peli in peliculas:
+            nombre = peli['pelicula__nombre']
+
+            # Formatos disponibles por película
+            formatos = reservas.filter(pelicula__nombre=nombre).values('formato').annotate(
+                total_boletos=Sum('cantidad_boletos')
+            )
+
+            # Calcular total
+            total_boletos = peli['total_boletos']
+            total_venta = peli['total_venta']
+
+            # Mostrar nombre
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(50, y, nombre)
+            y -= 15
+
+            # Mostrar formatos
+            p.setFont("Helvetica", 9)
+            if formatos:
+                for f in formatos:
+                    texto = f"{f['formato']}: {f['total_boletos']} boletos"
+                    p.drawString(70, y, texto)
+                    y -= 12
+            else:
+                p.drawString(70, y, "Sin formato")
+                y -= 12
+
+            # Mostrar totales por película
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(420, y + 5, str(total_boletos))
+            p.drawString(510, y + 5, f"${total_venta:.2f}")
+            y -= 18
+
+            # Línea divisoria
+            p.setFont("Helvetica", 9)
+            p.line(50, y, 560, y)
+            y -= 10
+
+            total_general_boletos += total_boletos
+            total_general_ventas += float(total_venta)
+
+            # Salto de página si se llena
+            if y < 100:
                 p.showPage()
                 y = height - 100
-                p.setFont("Helvetica", 10)
 
-            p.drawString(50, y, str(v.pelicula.nombre))
-            p.drawString(220, y, str(v.sala))
-            p.drawString(300, y, v.fecha.strftime("%d/%m/%Y"))
-            p.drawString(380, y, str(v.cantidad_boletos))
-            p.drawString(460, y, f"${v.total_venta:.2f}")
-            y -= 20
     else:
         p.drawString(50, y, "No hay datos disponibles con los filtros seleccionados.")
         y -= 20
 
-    # Línea final y cierre
+    # --- Totales generales ---
+    p.setFont("Helvetica-Bold", 11)
+    y -= 10
+    p.line(50, y, 560, y)
+    y -= 20
+    p.drawString(50, y, "Totales generales:")
+    p.drawString(420, y, str(total_general_boletos))
+    p.drawString(510, y, f"${total_general_ventas:.2f}")
+
+    # --- Guardar PDF ---
     p.showPage()
     p.save()
-    return response
 
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    return response
 
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.auth.forms import PasswordResetForm

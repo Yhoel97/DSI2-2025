@@ -44,7 +44,6 @@
         </ul>
       </nav>
 
-      <!-- Mensaje de bienvenida -->
       {% if user.is_authenticated %}
         <div class="user-welcome-wrapper">
           <span class="user-welcome">¡Hola, {{ user.username }}!</span>
@@ -78,7 +77,6 @@
                         <p><span class="detail-label">Idioma:</span> {{ pelicula.get_idioma_display }}</p>
                         <p><span class="detail-label">Año:</span> {{ pelicula.anio }}</p>
 
-                            <!-- ✅ Mostrar Horarios y Salas que están en la Base de Datos-->
                         <p><span class="detail-label">Horarios:</span>
                             {% for h in pelicula.get_horarios_list %}
                                 {{ h }}{% if not forloop.last %}, {% endif %}
@@ -94,7 +92,6 @@
                                 <span class="text-muted">No especificado</span>
                             {% endfor %}
                         </p>
-                        
                     </div>
 
                     <!-- ⭐ Rating -->
@@ -136,35 +133,40 @@
     {% endif %}
 
 
-    <!-- 🎞️ Películas en Cartelera (para todos los usuarios, toma de las funciones) -->
+    <!-- 🎞️ Películas en Cartelera -->
     <section id="cartelera" class="section container">
         <h2 class="section-title">🎞️ Películas en Cartelera</h2>
 
         <div class="peliculas-grid grid">
-            {% for funcion in funciones %}
+            {% for pelicula in peliculas_cartelera %}
             <div class="pelicula-card">
                 <div class="poster-container">
-                    <img src="{{ funcion.pelicula.imagen_url }}" alt="{{ funcion.pelicula.nombre }}" class="movie-poster responsive-img">
+                    <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster responsive-img">
                 </div>
 
                 <div class="pelicula-info">
-                    <h3 class="movie-title">{{ funcion.pelicula.nombre }}</h3>
+                    <h3 class="movie-title">{{ pelicula.nombre }}</h3>
 
                     <div class="movie-details">
-                        <p><span class="detail-label">Género:</span> {{ funcion.pelicula.get_generos_list|join:", " }}</p>
-                        <p><span class="detail-label">Director:</span> {{ funcion.pelicula.director }}</p>
-                        <p><span class="detail-label">Clasificación:</span> {{ funcion.pelicula.get_clasificacion_display }}</p>
-                        <p><span class="detail-label">Idioma:</span> {{ funcion.pelicula.get_idioma_display }}</p>
-                        <p><span class="detail-label">Fecha:</span> {{ funcion.fecha|date:"d/m/Y" }}</p>
-                        <p><span class="detail-label">Horario:</span> {{ funcion.horario }}</p>
-                        <p><span class="detail-label">Sala:</span> {{ funcion.sala }}</p>
-                        <p><span class="detail-label">Formato:</span> {{ funcion.formato }}</p>
+                        <p><span class="detail-label">Género:</span> {{ pelicula.get_generos_list|join:", " }}</p>
+                        <p><span class="detail-label">Director:</span> {{ pelicula.director }}</p>
+                        <p><span class="detail-label">Clasificación:</span> {{ pelicula.get_clasificacion_display }}</p>
+                        <p><span class="detail-label">Idioma:</span> {{ pelicula.get_idioma_display }}</p>
+                        <p><span class="detail-label">Año:</span> {{ pelicula.anio }}</p>
+
+                        <p><span class="detail-label">Horarios disponibles:</span>
+                            {% for funcion in pelicula.funciones %}
+                                {{ funcion.horario }} ({{ funcion.sala }}) - {{ funcion.formato }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                <span class="text-muted">No hay horarios disponibles</span>
+                            {% endfor %}
+                        </p>
                     </div>
 
                     <!-- ⭐ Rating -->
                     <div class="movie-rating">
                         <div class="rating-stars">
-                            {% with estrellas=funcion.pelicula.get_rating_estrellas %}
+                            {% with estrellas=pelicula.get_rating_estrellas %}
                                 {% for i in "12345"|make_list %}
                                     {% if forloop.counter <= estrellas.llenas %}
                                         <i class="fas fa-star star-filled"></i>
@@ -177,21 +179,21 @@
                             {% endwith %}
                         </div>
                         <div class="rating-info">
-                            <span class="rating-score">{{ funcion.pelicula.get_rating_promedio }}/5</span>
-                            <span class="rating-count">({{ funcion.pelicula.get_total_valoraciones }} valoración{{ funcion.pelicula.get_total_valoraciones|pluralize:"es" }})</span>
+                            <span class="rating-score">{{ pelicula.get_rating_promedio }}/5</span>
+                            <span class="rating-count">({{ pelicula.get_total_valoraciones }} valoración{{ pelicula.get_total_valoraciones|pluralize:"es" }})</span>
                         </div>
                     </div>
 
                     <!-- 🎬 Acciones -->
                     <div class="movie-actions flex">
-                        <a href="{{ funcion.pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
+                        <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
                             <i class="fab fa-youtube"></i> Ver Tráiler
                         </a>
-                        <a href="{% url 'pelicula_detalle' funcion.pelicula.id %}" class="btn review-btn">
+                        <a href="{% url 'pelicula_detalle' pelicula.id %}" class="btn review-btn">
                             <i class="fas fa-star"></i> Ver Reseñas
                         </a>
-                        <a href="{% url 'asientos' funcion.pelicula.id %}?combo={{ funcion.horario }} - {{ funcion.sala }}" class="btn buy-btn">
-                            <i class="fas fa-ticket-alt"></i> Comprar Boleto ({{ funcion.horario }})
+                        <a href="{% url 'asientos' pelicula.id %}" class="btn buy-btn">
+                            <i class="fas fa-ticket-alt"></i> Comprar Boletos
                         </a>
                     </div>
                 </div>
@@ -202,37 +204,34 @@
         </div>
     </section>
 
-
-
-        <!-- 🎬 Próximamente -->
-        <section id="proximas" class="section container">
-            <h2 class="section-title">🎬 Próximamente</h2>
-            <div class="peliculas-grid grid">
-                {% for pelicula in peliculas_proximas %}
-                <div class="pelicula-card">
-                    <div class="poster-container">
-                        <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster responsive-img">
+    <!-- 🎬 Próximamente -->
+    <section id="proximas" class="section container">
+        <h2 class="section-title">🎬 Próximamente</h2>
+        <div class="peliculas-grid grid">
+            {% for pelicula in peliculas_proximas %}
+            <div class="pelicula-card">
+                <div class="poster-container">
+                    <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster responsive-img">
+                </div>
+                <div class="pelicula-info">
+                    <h3 class="movie-title">{{ pelicula.nombre }}</h3>
+                    <div class="movie-details">
+                        <p><span class="detail-label">Género:</span> {{ pelicula.get_generos_list|join:", " }}</p>
+                        <p><span class="detail-label">Director:</span> {{ pelicula.director }}</p>
+                        <p><span class="detail-label">Fecha de Estreno:</span> {{ pelicula.fecha_estreno|date:"d/m/Y" }}</p>
                     </div>
-                    <div class="pelicula-info">
-                        <h3 class="movie-title">{{ pelicula.nombre }}</h3>
-                        <div class="movie-details">
-                            <p><span class="detail-label">Género:</span> {{ pelicula.get_generos_list|join:", " }}</p>
-                            <p><span class="detail-label">Director:</span> {{ pelicula.director }}</p>
-                            <p><span class="detail-label">Fecha de Estreno:</span> {{ pelicula.fecha_estreno|date:"d/m/Y" }}</p>
-                        </div>
-                        <div class="movie-actions flex">
-                            <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
-                                <i class="fab fa-youtube"></i> Ver Tráiler
-                            </a>
-                        </div>
+                    <div class="movie-actions flex">
+                        <a href="{{ pelicula.trailer_url }}" target="_blank" class="btn trailer-btn">
+                            <i class="fab fa-youtube"></i> Ver Tráiler
+                        </a>
                     </div>
                 </div>
-                {% empty %}
-                <p style="text-align:center; color:#555;">No hay películas próximas por el momento.</p>
-                {% endfor %}
             </div>
-        </section>
-
+            {% empty %}
+            <p style="text-align:center; color:#555;">No hay películas próximas por el momento.</p>
+            {% endfor %}
+        </div>
+    </section>
 
     <!-- 📞 Contacto -->
     <section id="contacto" class="section container">

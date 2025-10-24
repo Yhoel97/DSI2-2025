@@ -57,7 +57,8 @@
                 <i class="fas fa-file-pdf me-1"></i> Exportar PDF
             </a>
 
-            <a href="{% url 'exportar_excel' %}" class="btn-excel">
+            <a href="{% url 'exportar_excel' %}?pelicula={{ request.GET.pelicula }}&fecha_inicio={{ request.GET.fecha_inicio }}&fecha_fin={{ request.GET.fecha_fin }}" 
+                class="btn-excel me-2">
                 <i class="fas fa-file-excel me-1"></i> Exportar Excel
             </a>
         </div>

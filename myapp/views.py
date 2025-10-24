@@ -41,6 +41,7 @@ from reportlab.platypus import Image as RLImage
 from PIL import Image as PILImage
 from datetime import date
 from django.db import models
+from itertools import groupby
 from django.shortcuts import render
 from django.urls import reverse
 from django.db.models import Q
@@ -99,18 +100,20 @@ def convertir_generos(codigos_generos):
 def index(request):
     hoy = date.today()
 
-    #funciones = Funcion.objects.filter(
-    #    fecha__gte=hoy
-    #).select_related('pelicula').order_by('fecha', 'horario')
-
-
-        # ✅ Solo funciones del día actual
+    # ✅ Traer las funciones del día actual
     funciones = (
         Funcion.objects.filter(fecha=hoy)
         .select_related('pelicula')
-        .order_by('horario')
+        .order_by('pelicula__nombre', 'horario')
     )
 
+    # ✅ Agrupar funciones por película
+    peliculas_cartelera = []
+    for pelicula, grupo_funciones in groupby(funciones, key=lambda f: f.pelicula):
+        pelicula.funciones = list(grupo_funciones)
+        peliculas_cartelera.append(pelicula)
+
+    # ✅ Películas base de datos y próximas (sin tocar)
     peliculas = Pelicula.objects.filter(
         models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
     ).order_by('-id')
@@ -119,30 +122,27 @@ def index(request):
         fecha_estreno__gt=hoy
     ).order_by('fecha_estreno')
 
-    # Procesar listas de géneros y horarios
     for pelicula in peliculas:
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
         horarios = pelicula.get_horarios_list()
         salas = pelicula.get_salas_list()
         pelicula.horario_sala_pares = list(zip(horarios, salas))
-        # Aseguramos que cada película tenga info de rating
-        if hasattr(pelicula, 'get_rating_estrellas'):
-            pelicula.estrellas = pelicula.get_rating_estrellas()
-        else:
-            pelicula.estrellas = {'llenas': 0, 'media': False}
+        pelicula.estrellas = (
+            pelicula.get_rating_estrellas()
+            if hasattr(pelicula, 'get_rating_estrellas')
+            else {'llenas': 0, 'media': False}
+        )
 
     for pelicula in peliculas_proximas:
         pelicula.get_generos_list = convertir_generos(pelicula.generos)
-        
 
-    # ✅ NUEVO: detectar si el usuario es admin (staff o superuser)
     es_admin = request.user.is_authenticated and request.user.is_staff
 
     return render(request, 'index.html', {
         'peliculas': peliculas,
         'peliculas_proximas': peliculas_proximas,
-        'funciones': funciones,
-        'es_admin': es_admin,  # <-- ENVÍALO AL TEMPLATE
+        'peliculas_cartelera': peliculas_cartelera,  # 👈 agrupadas
+        'es_admin': es_admin,
     })
 
 
@@ -1292,24 +1292,24 @@ def reportes_admin(request):
 
     reservas = Reserva.objects.all()
 
-    # --- Filtros por fecha y película
+    # --- Filtros por fecha y película ---
     if fecha_inicio and fecha_fin:
         reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
 
     if pelicula_id:
         reservas = reservas.filter(pelicula_id=pelicula_id)
 
-    # --- Agrupar por película
+    # --- Agrupar por película y ordenar por total de boletos (descendente) ---
     reservas_resumen = (
         reservas.values('pelicula__nombre')
         .annotate(
             total_boletos=Sum('cantidad_boletos'),
             total_venta=Sum('precio_total')
         )
-        .order_by('pelicula__nombre')
+        .order_by('-total_boletos')  # 👈 Orden descendente por boletos vendidos
     )
 
-    # --- Calcular boletos por formato (por película)
+    # --- Calcular boletos por formato (por película) ---
     formatos_disponibles = ['2D', '3D', 'IMAX']
     formatos_info = {}
 
@@ -1330,13 +1330,13 @@ def reportes_admin(request):
                     'total_boletos': boletos
                 })
 
-    # --- Totales generales
+    # --- Totales generales ---
     resumen_general = reservas.aggregate(
         total_boletos=Sum('cantidad_boletos'),
         total_ventas=Sum('precio_total')
     )
 
-    # --- Películas más populares
+    # --- Películas más populares ---
     popularidad = (
         reservas.values('pelicula__nombre')
         .annotate(total_boletos=Sum('cantidad_boletos'))
@@ -1356,82 +1356,113 @@ def reportes_admin(request):
 ### Exportar Reportes exell y pdf
 
 def exportar_excel(request):
-    # Obtener filtros del formulario
+    # --- Obtener filtros ---
     pelicula_id = request.GET.get('pelicula')
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
+    # --- Base de datos ---
     reservas = Reserva.objects.all()
-
-    # --- Aplicar filtros ---
-    if fecha_inicio and fecha_fin:
-        reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
+    filtros_activos = False
 
     if pelicula_id:
         reservas = reservas.filter(pelicula_id=pelicula_id)
+        filtros_activos = True
 
-    # Determinar si es un reporte general o filtrado
-    es_filtrado = pelicula_id or (fecha_inicio and fecha_fin)
+    if fecha_inicio and fecha_fin:
+        reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
+        filtros_activos = True
 
-    # Crear DataFrame con los datos
+    # --- Agrupar por película ---
+    peliculas = reservas.values('pelicula__nombre').annotate(
+        total_boletos=Sum('cantidad_boletos'),
+        total_venta=Sum('precio_total')
+    ).order_by('pelicula__nombre')
+
+    # --- Calcular boletos por formato ---
     datos = []
-    for v in reservas:
+    for peli in peliculas:
+        nombre = peli['pelicula__nombre']
+        total_boletos = peli['total_boletos']
+        total_venta = peli['total_venta']
+
+        # Obtener datos de formatos
+        formatos = reservas.filter(pelicula__nombre=nombre).values('formato').annotate(
+            total_boletos=Sum('cantidad_boletos')
+        )
+
+        # Combinar datos de formatos en una cadena
+        if formatos:
+            formatos_texto = ", ".join([f"{f['formato']}: {f['total_boletos']} boletos" for f in formatos])
+        else:
+            formatos_texto = "Sin formato"
+
         datos.append({
-            "Película": v.pelicula.nombre,
-            "Sala": v.sala,
-            "Formato": v.formato,
-            "Horario": v.horario,
-            "Cantidad de boletos": v.cantidad_boletos,
-            "Total ($)": float(v.precio_total),
-            "Fecha de reserva": v.fecha_reserva.strftime("%d/%m/%Y %H:%M"),
+            "Película": nombre,
+            "Boletos por formato": formatos_texto,
+            "Total boletos": total_boletos,
+            "Total ($)": float(total_venta)
         })
 
-    # Si no hay datos, crear DataFrame vacío
-    if not datos:
-        df = pd.DataFrame(columns=["Película", "Sala", "Formato", "Horario", "Cantidad de boletos", "Total ($)", "Fecha de reserva"])
-    else:
-        df = pd.DataFrame(datos)
+    # --- Calcular totales generales ---
+    total_general_boletos = sum(p['Total boletos'] for p in datos)
+    total_general_ventas = sum(p['Total ($)'] for p in datos)
 
-    # Calcular totales
-    total_boletos = sum([v["Cantidad de boletos"] for v in datos]) if datos else 0
-    total_ventas = sum([v["Total ($)"] for v in datos]) if datos else 0
+    # Agregar fila de totales
+    datos.append({
+        "Película": "TOTAL GENERAL" if not filtros_activos else "TOTAL FILTRADO",
+        "Boletos por formato": "",
+        "Total boletos": total_general_boletos,
+        "Total ($)": total_general_ventas
+    })
 
-    # Agregar fila de totales al final
-    df.loc[len(df)] = {
-        "Película": "TOTAL GENERAL" if not es_filtrado else "TOTAL FILTRADO",
-        "Sala": "",
-        "Formato": "",
-        "Horario": "",
-        "Cantidad de boletos": total_boletos,
-        "Total ($)": total_ventas,
-        "Fecha de reserva": "",
-    }
+    # --- Crear DataFrame ---
+    df = pd.DataFrame(datos)
 
-    # Crear respuesta con archivo Excel
+    # --- Crear respuesta con archivo Excel ---
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
     # Nombre dinámico del archivo
-    if es_filtrado:
+    if filtros_activos:
         response["Content-Disposition"] = 'attachment; filename="reporte_filtrado_cinedot.xlsx"'
+        hoja_nombre = "Reporte Filtrado"
     else:
         response["Content-Disposition"] = 'attachment; filename="reporte_general_cinedot.xlsx"'
+        hoja_nombre = "Reporte General"
 
-    # Exportar a Excel
+    # --- Exportar a Excel ---
     with pd.ExcelWriter(response, engine='openpyxl') as writer:
-        hoja_nombre = 'Reporte Filtrado' if es_filtrado else 'Reporte General'
         df.to_excel(writer, index=False, sheet_name=hoja_nombre)
 
-        # Formatear hoja
         hoja = writer.sheets[hoja_nombre]
-        for columna in hoja.columns:
-            hoja.column_dimensions[columna[0].column_letter].width = 22
 
-        # Encabezado más vistoso
-        hoja.freeze_panes = "A2"  # Fija los encabezados
+        # Ajustar ancho de columnas
+        for columna in hoja.columns:
+            hoja.column_dimensions[columna[0].column_letter].width = 30
+
+        # Fijar encabezados
+        hoja.freeze_panes = "A2"
+
+        # Estilo más profesional
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+
+        for cell in hoja[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Centrar contenido
+        for fila in hoja.iter_rows(min_row=2, max_row=hoja.max_row):
+            for celda in fila:
+                celda.alignment = Alignment(horizontal="center", vertical="center")
 
     return response
+
 
 ### Reportes PDF#########
 

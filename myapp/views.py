@@ -72,11 +72,6 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from urllib.parse import urlencode
 from myapp.email import send_brevo_email 
-import os
-from django.core.mail import EmailMessage
-from django.conf import settings
-import logging
-
 
 
 # Diccionario de géneros con nombres completos
@@ -315,6 +310,8 @@ def asientos(request, pelicula_id=None):
                 
                 reserva.save()
 
+                reserva.save()
+
                 # ✅ Registrar la venta automáticamente
                 try:
                    Venta.objects.create(
@@ -328,22 +325,19 @@ def asientos(request, pelicula_id=None):
                     print(f"⚠️ Error al registrar la venta: {e}")
 
                 pdf_buffer = generar_pdf_reserva(reserva)
+                response = HttpResponse(pdf_buffer, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
 
-            # ✅ ENVIAR TICKET POR CORREO AL USUARIO
-        try:
-            # Cerrar el buffer actual y crear uno nuevo
-            pdf_buffer.close()
-            pdf_buffer_nuevo = generar_pdf_reserva(reserva)
-            
-            correo_enviado = enviar_ticket_por_correo(reserva, pdf_buffer_nuevo, email)
-            
-            if correo_enviado:
-                messages.success(request, f'¡Reserva exitosa! Se ha enviado el ticket a {email}')
-            else:
-                messages.warning(request, f'¡Reserva exitosa! Código: {reserva.codigo_reserva}. El ticket se descargará, pero no se pudo enviar por correo.')
+                request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
+                request.session['limpiar_form'] = True
                 
-        except Exception as e:
-            messages.warning(request, f'¡Reserva exitosa! Código: {reserva.codigo_reserva}. Pero no se pudo enviar el correo: {str(e)}')
+                return response
+
+            except Exception as e:
+                messages.error(request, f'Error al crear la reserva: {str(e)}')
+        else:
+            for error in errores:
+                messages.error(request, error)
 
     # Mensaje post-reserva
     if 'reserva_message' in request.session:
@@ -391,63 +385,6 @@ def asientos(request, pelicula_id=None):
     }
     return render(request, "asientos.html", context)
 
-
-#######################################################################
-####################################################################
-
-logger = logging.getLogger(__name__)
-
-def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
-    """
-    Envía el ticket PDF por correo al cliente usando Brevo
-    """
-    try:
-        subject = f'Tu ticket para {reserva.pelicula.nombre} - CineDot'
-        message = f'''
-        Hola {reserva.nombre_cliente} {reserva.apellido_cliente},
-
-        Gracias por tu reserva en CineDot. Aquí tienes los detalles:
-
-        Película: {reserva.pelicula.nombre}
-        Fecha y Hora: {reserva.horario}
-        Sala: {reserva.sala}
-        Formato: {reserva.formato}
-        Asientos: {reserva.asientos}
-        Cantidad de boletos: {reserva.cantidad_boletos}
-        Total pagado: ${reserva.precio_total:.2f}
-        Código de reserva: {reserva.codigo_reserva}
-
-        Presenta este código en taquilla para canjear tus boletos.
-
-        ¡Disfruta de la película!
-
-        Saludos,
-        El equipo de CineDot
-        '''
-
-        email = EmailMessage(
-            subject=subject,
-            body=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[email_cliente],
-        )
-
-        # Adjuntar el PDF
-        email.attach(
-            filename=f'ticket_{reserva.codigo_reserva}.pdf',
-            content=pdf_buffer.getvalue(),
-            mimetype='application/pdf'
-        )
-
-        # Enviar el correo
-        email.send(fail_silently=False)
-        
-        logger.info(f"Ticket enviado exitosamente a {email_cliente}")
-        return True
-
-    except Exception as e:
-        logger.error(f"Error al enviar ticket por correo: {str(e)}")
-        return False
 #################################################################
 #################################################################
 @csrf_exempt
@@ -1682,6 +1619,8 @@ def exportar_pdf(request):
     buffer.close()
     response.write(pdf)
     return response
+
+ # la función que creamos
 
 
 class CustomPasswordResetView(PasswordResetView):

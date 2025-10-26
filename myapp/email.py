@@ -15,7 +15,7 @@ def send_brevo_email(to_emails, subject, html_content, sender_email=None, sender
         raise ValueError("La variable BREVO_API_KEY no está configurada en settings.py")
 
     sender_email = sender_email or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@tu-dominio.com")
-    sender_name = sender_name or "Tu Aplicación"
+    sender_name = sender_name or "CineDot"
 
     configuration = Configuration()
     configuration.api_key["api-key"] = api_key

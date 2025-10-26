@@ -731,15 +731,19 @@ def generar_pdf_reserva(reserva):
 
 
 
-
+#########################################################################
 
 def descargar_ticket(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
     pdf_buffer = generar_pdf_reserva(reserva)
-    
+
     response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-    
+
+    # Guardar en sesión que debe recargar
+    request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
+    request.session['limpiar_form'] = True
+
     return response
 ##########################################################################
 

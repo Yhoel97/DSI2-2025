@@ -152,6 +152,8 @@ BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 
 EMAIL_BACKEND = "myapp.backends.brevo_backend.BrevoEmailBackend"
 DEFAULT_FROM_EMAIL ='soportecinedot@gmail.com'
+DEFAULT_FROM_NAME = "CineDot"
+
 PASSWORD_RESET_TIMEOUT = 3600 * 5
 
 

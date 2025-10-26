@@ -302,5 +302,14 @@ document.getElementById('btn-aplicar-cupon').addEventListener('click', async () 
     }
 });
     </script>
+
+    {% if messages %}
+<script>
+    // Si hay mensajes de éxito, recargar la página después de unos segundos
+    setTimeout(function() {
+        window.location.href = "{% url 'asientos' pelicula.id %}";
+    }, 2000); // 2 segundos de espera antes de recargar
+</script>
+{% endif %}
 </body>
 </html>

@@ -385,64 +385,81 @@ def asientos(request, pelicula_id=None):
         'mensaje_cupon': mensaje_cupon,
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
+
+    pdf_buffer = generar_pdf_reserva(reserva)
+    enviar_ticket_por_correo(reserva, pdf_buffer, reserva.email)
+
+
     return render(request, "asientos.html", context)
 
 
 ##########################################################################################
 ##########################################################################################
 
+from sib_api_v3_sdk import (
+    ApiClient,
+    Configuration,
+    SendSmtpEmail,
+    TransactionalEmailsApi,
+    SendSmtpEmailAttachment
+)
+from sib_api_v3_sdk.rest import ApiException
+
 logger = logging.getLogger(__name__)
 
 def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
     """
-    Envía el ticket PDF por correo al cliente usando tu función Brevo
+    Envía el ticket PDF por correo usando Brevo (Sendinblue).
     """
     try:
-        logger.info(f"Intentando enviar correo a: {email_cliente}")
-        
-        subject = f'Tu ticket para {reserva.pelicula.nombre} - CineDot'
-        
-        # Mensaje simple en HTML
-        html_content = '''
-        <html>
-            <body>
-                <p>Aquí está tu ticket.</p>
-                <p>Gracias por preferir a CineDot.</p>
-            </body>
-        </html>
-        '''
+        # Convertir PDF a base64
+        pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode()
 
-        # Convertir PDF a base64 para adjuntar
-        pdf_content = pdf_buffer.getvalue()
-        pdf_base64 = base64.b64encode(pdf_content).decode()
-        
-        logger.info(f"PDF generado, tamaño: {len(pdf_content)} bytes")
-        
-        # Preparar el adjunto
-        attachments = [{
-            'name': f'ticket_{reserva.codigo_reserva}.pdf',
-            'content': pdf_base64
-        }]
-        
-        # Llamar a tu función de Brevo con el adjunto
-        from .email import send_brevo_email  # Import aquí para evitar circular imports
-        
-        resultado = send_brevo_email(
-            to_emails=[email_cliente],
-            subject=subject,
-            html_content=html_content,
-            attachments=attachments
-        )
-        
-        if resultado:
-            logger.info(f"Ticket enviado exitosamente a {email_cliente}")
-            return True
-        else:
-            logger.error(f"Fallo al enviar ticket a {email_cliente}")
+        # Configuración de Brevo
+        api_key = getattr(settings, "BREVO_API_KEY", None)
+        if not api_key:
+            logger.error("BREVO_API_KEY no está configurada en settings.py")
             return False
 
+        configuration = Configuration()
+        configuration.api_key["api-key"] = api_key
+        api_client = ApiClient(configuration)
+        api_instance = TransactionalEmailsApi(api_client)
+
+        # Crear adjunto
+        attachment = SendSmtpEmailAttachment(
+            name=f"ticket_{reserva.codigo_reserva}.pdf",
+            content=pdf_base64,
+            content_type="application/pdf"
+        )
+
+        # Crear email
+        send_smtp_email = SendSmtpEmail(
+            to=[{"email": email_cliente}],
+            sender={"email": settings.DEFAULT_FROM_EMAIL, "name": "CineDot"},
+            subject=f"Tu ticket para {reserva.pelicula.nombre} - CineDot",
+            html_content="""
+                <html>
+                <body>
+                    <p>Aquí está tu ticket.</p>
+                    <p>Gracias por preferir a CineDot.</p>
+                </body>
+                </html>
+            """,
+            attachment=[attachment]
+        )
+
+        # Enviar correo
+        response = api_instance.send_transac_email(send_smtp_email)
+        logger.info(f"Ticket enviado exitosamente a {email_cliente}. Respuesta: {response}")
+        return True
+
+    except ApiException as e:
+        logger.error(f"Error API Brevo: {e}")
+        logger.error(f"Respuesta completa: {e.body}")
+        return False
     except Exception as e:
-        logger.error(f"Error en enviar_ticket_por_correo: {str(e)}")
+        logger.error(f"Error inesperado al enviar ticket: {str(e)}")
         return False
 #################################################################
 #################################################################

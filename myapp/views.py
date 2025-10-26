@@ -63,6 +63,20 @@ from django.http import HttpResponse
 from .models import Venta
 from django.db.models import Prefetch
 from datetime import datetime
+from django.contrib.auth.views import PasswordResetView
+from django.contrib.auth.forms import PasswordResetForm
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
+from urllib.parse import urlencode
+from myapp.email import send_brevo_email 
+import os
+from django.core.mail import EmailMessage
+from django.conf import settings
+import logging
+
 
 
 # Diccionario de géneros con nombres completos
@@ -301,8 +315,6 @@ def asientos(request, pelicula_id=None):
                 
                 reserva.save()
 
-                reserva.save()
-
                 # ✅ Registrar la venta automáticamente
                 try:
                    Venta.objects.create(
@@ -316,6 +328,15 @@ def asientos(request, pelicula_id=None):
                     print(f"⚠️ Error al registrar la venta: {e}")
 
                 pdf_buffer = generar_pdf_reserva(reserva)
+
+                # ✅ ENVIAR TICKET POR CORREO AL USUARIO
+                try:
+                    enviar_ticket_por_correo(reserva, pdf_buffer, email)
+                    messages.success(request, f'¡Reserva exitosa! Se ha enviado el ticket a {email}')
+                except Exception as e:
+                    # Si falla el envío del correo, aún así mostrar éxito pero con advertencia
+                    messages.warning(request, f'¡Reserva exitosa! Código: {reserva.codigo_reserva}. Pero no se pudo enviar el correo: {str(e)}')
+
                 response = HttpResponse(pdf_buffer, content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
 
@@ -375,6 +396,65 @@ def asientos(request, pelicula_id=None):
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
     return render(request, "asientos.html", context)
+
+
+#######################################################################
+####################################################################
+
+
+logger = logging.getLogger(__name__)
+
+def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
+    """
+    Envía el ticket PDF por correo al cliente usando Brevo
+    """
+    try:
+        subject = f'Tu ticket para {reserva.pelicula.nombre} - CineDot'
+        message = f'''
+        Hola {reserva.nombre_cliente} {reserva.apellido_cliente},
+
+        Gracias por tu reserva en CineDot. Aquí tienes los detalles:
+
+        Película: {reserva.pelicula.nombre}
+        Fecha y Hora: {reserva.horario}
+        Sala: {reserva.sala}
+        Formato: {reserva.formato}
+        Asientos: {reserva.asientos}
+        Cantidad de boletos: {reserva.cantidad_boletos}
+        Total pagado: ${reserva.precio_total:.2f}
+        Código de reserva: {reserva.codigo_reserva}
+
+        Presenta este código en taquilla para canjear tus boletos.
+
+        ¡Disfruta de la película!
+
+        Saludos,
+        El equipo de CineDot
+        '''
+
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email_cliente],  # Usar el email que ingresó el usuario
+        )
+
+        # Adjuntar el PDF
+        email.attach(
+            filename=f'ticket_{reserva.codigo_reserva}.pdf',
+            content=pdf_buffer.getvalue(),
+            mimetype='application/pdf'
+        )
+
+        # Enviar el correo
+        email.send(fail_silently=False)
+        
+        logger.info(f"Ticket enviado exitosamente a {email_cliente}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error al enviar ticket por correo: {str(e)}")
+        return False
 
 #################################################################
 #################################################################
@@ -1610,16 +1690,6 @@ def exportar_pdf(request):
     buffer.close()
     response.write(pdf)
     return response
-
-from django.contrib.auth.views import PasswordResetView
-from django.contrib.auth.forms import PasswordResetForm
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.contrib.sites.shortcuts import get_current_site
-from django.urls import reverse
-from urllib.parse import urlencode
-from myapp.email import send_brevo_email  # la función que creamos
 
 
 class CustomPasswordResetView(PasswordResetView):

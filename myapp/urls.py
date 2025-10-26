@@ -12,7 +12,7 @@ urlpatterns = [
     path('peliculas/', views.peliculas, name='peliculas'),
     path('peliculas/filtrar/', views.filtrar_peliculas, name='filtrar_peliculas'),
     path('horarios/', views.horarios_por_pelicula, name='horarios_por_pelicula'),
-    path('admin/dashboard/', views.dashboard_admin, name='dashboard_admin'),
+    path('dashboard/', views.dashboard_admin, name='dashboard_admin')
 
 
     path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),

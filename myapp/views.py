@@ -63,17 +63,6 @@ from django.http import HttpResponse
 from .models import Venta
 from django.db.models import Prefetch
 from datetime import datetime
-from django.contrib.auth.views import PasswordResetView
-from django.contrib.auth.forms import PasswordResetForm
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.contrib.sites.shortcuts import get_current_site
-from django.urls import reverse
-from urllib.parse import urlencode
-from .email import send_brevo_email
-import base64
-import logging
 
 
 # Diccionario de géneros con nombres completos
@@ -385,96 +374,8 @@ def asientos(request, pelicula_id=None):
         'mensaje_cupon': mensaje_cupon,
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
-
-
     return render(request, "asientos.html", context)
 
-
-##########################################################################################
-##########################################################################################
-
-import requests
-import json
-from django.conf import settings
-import logging
-
-logger = logging.getLogger(__name__)
-
-def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
-    """
-    Envía el ticket PDF por correo usando Brevo API directamente
-    """
-    try:
-        # Convertir PDF a base64 para enviar por API
-        import base64
-        pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode()
-        
-        # Configurar el email usando Brevo API
-        brevo_url = "https://api.brevo.com/v3/smtp/email"
-        
-        email_data = {
-            "sender": {
-                "name": "CineDot",
-                "email": settings.DEFAULT_FROM_EMAIL
-            },
-            "to": [{"email": email_cliente}],
-            "subject": f'Tu ticket para {reserva.pelicula.nombre} - CineDot',
-            "htmlContent": f'''
-            <html>
-            <body>
-                <h2>Hola {reserva.nombre_cliente} {reserva.apellido_cliente},</h2>
-                <p>Gracias por tu reserva en CineDot. Aquí tienes los detalles:</p>
-                <ul>
-                    <li><strong>Película:</strong> {reserva.pelicula.nombre}</li>
-                    <li><strong>Fecha y Hora:</strong> {reserva.horario}</li>
-                    <li><strong>Sala:</strong> {reserva.sala}</li>
-                    <li><strong>Formato:</strong> {reserva.formato}</li>
-                    <li><strong>Asientos:</strong> {reserva.asientos}</li>
-                    <li><strong>Cantidad de boletos:</strong> {reserva.cantidad_boletos}</li>
-                    <li><strong>Total pagado:</strong> ${reserva.precio_total:.2f}</li>
-                    <li><strong>Código de reserva:</strong> {reserva.codigo_reserva}</li>
-                </ul>
-                <p>El ticket PDF está adjunto a este correo.</p>
-                <p>¡Disfruta de la película!</p>
-                <p><strong>Saludos,<br>El equipo de CineDot</strong></p>
-            </body>
-            </html>
-            ''',
-            "attachment": [
-                {
-                    "name": f"ticket_{reserva.codigo_reserva}.pdf",
-                    "content": pdf_base64
-                }
-            ]
-        }
-        
-        headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "api-key": settings.BREVO_API_KEY
-        }
-        
-        # Hacer la request con timeout corto
-        response = requests.post(
-            brevo_url, 
-            json=email_data, 
-            headers=headers,
-            timeout=10  # 10 segundos máximo
-        )
-        
-        if response.status_code == 201:
-            logger.info(f"Ticket enviado exitosamente a {email_cliente}")
-            return True
-        else:
-            logger.error(f"Error Brevo API: {response.status_code} - {response.text}")
-            return False
-            
-    except requests.exceptions.Timeout:
-        logger.error("Timeout al enviar email - Brevo API no respondió en 10 segundos")
-        return False
-    except Exception as e:
-        logger.error(f"Error al enviar ticket por correo: {str(e)}")
-        return False
 #################################################################
 #################################################################
 @csrf_exempt
@@ -1710,7 +1611,15 @@ def exportar_pdf(request):
     response.write(pdf)
     return response
 
- # la función que creamos
+from django.contrib.auth.views import PasswordResetView
+from django.contrib.auth.forms import PasswordResetForm
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
+from urllib.parse import urlencode
+from myapp.email import send_brevo_email  # la función que creamos
 
 
 class CustomPasswordResetView(PasswordResetView):

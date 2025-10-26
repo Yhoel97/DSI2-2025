@@ -63,6 +63,7 @@ from django.http import HttpResponse
 from .models import Venta
 from django.db.models import Prefetch
 from datetime import datetime
+from .email import send_brevo_email   
 
 
 # Diccionario de géneros con nombres completos
@@ -270,7 +271,7 @@ def asientos(request, pelicula_id=None):
                 precio_por_boleto = {'2D': 3.50, '3D': 4.50, 'IMAX': 6.00}.get(formato, 0)
                 cantidad_boletos = len([a for a in asientos_seleccionados.split(',') if a])
                 
-                #Descuento
+                # Descuento
                 precio_subtotal = float(precio_por_boleto * cantidad_boletos)
                 descuento_porcentaje = float(request.session.get('descuento_porcentaje', 0))
                 codigo_aplicado = request.session.get('codigo_aplicado')
@@ -293,13 +294,9 @@ def asientos(request, pelicula_id=None):
                 )
                 reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-                # Limpia las variables de session del cupon para otras compras
-                if 'descuento_porcentaje' in request.session:
-                    del request.session['descuento_porcentaje']
-                if 'codigo_aplicado' in request.session:
-                    del request.session['codigo_aplicado']
-                
-                reserva.save()
+                # Limpia las variables de session del cupon
+                request.session.pop('descuento_porcentaje', None)
+                request.session.pop('codigo_aplicado', None)
 
                 reserva.save()
 
@@ -315,10 +312,35 @@ def asientos(request, pelicula_id=None):
                 except Exception as e:
                     print(f"⚠️ Error al registrar la venta: {e}")
 
+                # ✅ Generar PDF
                 pdf_buffer = generar_pdf_reserva(reserva)
+
+                # ✅ Enviar correo con PDF adjunto
+                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                body = (
+                    f"Hola {reserva.nombre_cliente},\n\n"
+                    f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.\n"
+                    f"Código de reserva: {reserva.codigo_reserva}\n"
+                    f"Adjunto encontrarás tu ticket en formato PDF.\n\n"
+                    "¡Gracias por elegir CineDot!"
+                )
+
+                send_brevo_email(
+                    to_emails=[reserva.email],
+                    subject=subject,
+                    html_content=body.replace("\n", "<br>"),
+                    attachments=[(
+                        f"ticket_{reserva.codigo_reserva}.pdf",
+                        pdf_buffer.getvalue(),
+                        "application/pdf"
+                    )]
+                )
+
+                # ✅ Preparar descarga en navegador
                 response = HttpResponse(pdf_buffer, content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
 
+                # ✅ Mensaje y recarga
                 request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
                 request.session['limpiar_form'] = True
                 
@@ -375,6 +397,7 @@ def asientos(request, pelicula_id=None):
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
     return render(request, "asientos.html", context)
+
 
 #################################################################
 #################################################################

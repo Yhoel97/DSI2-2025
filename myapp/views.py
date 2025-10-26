@@ -329,27 +329,21 @@ def asientos(request, pelicula_id=None):
 
                 pdf_buffer = generar_pdf_reserva(reserva)
 
-                # ✅ ENVIAR TICKET POR CORREO AL USUARIO
-                try:
-                    enviar_ticket_por_correo(reserva, pdf_buffer, email)
-                    messages.success(request, f'¡Reserva exitosa! Se ha enviado el ticket a {email}')
-                except Exception as e:
-                    # Si falla el envío del correo, aún así mostrar éxito pero con advertencia
-                    messages.warning(request, f'¡Reserva exitosa! Código: {reserva.codigo_reserva}. Pero no se pudo enviar el correo: {str(e)}')
-
-                response = HttpResponse(pdf_buffer, content_type='application/pdf')
-                response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-
-                request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
-                request.session['limpiar_form'] = True
+            # ✅ ENVIAR TICKET POR CORREO AL USUARIO
+        try:
+            # Cerrar el buffer actual y crear uno nuevo
+            pdf_buffer.close()
+            pdf_buffer_nuevo = generar_pdf_reserva(reserva)
+            
+            correo_enviado = enviar_ticket_por_correo(reserva, pdf_buffer_nuevo, email)
+            
+            if correo_enviado:
+                messages.success(request, f'¡Reserva exitosa! Se ha enviado el ticket a {email}')
+            else:
+                messages.warning(request, f'¡Reserva exitosa! Código: {reserva.codigo_reserva}. El ticket se descargará, pero no se pudo enviar por correo.')
                 
-                return response
-
-            except Exception as e:
-                messages.error(request, f'Error al crear la reserva: {str(e)}')
-        else:
-            for error in errores:
-                messages.error(request, error)
+        except Exception as e:
+            messages.warning(request, f'¡Reserva exitosa! Código: {reserva.codigo_reserva}. Pero no se pudo enviar el correo: {str(e)}')
 
     # Mensaje post-reserva
     if 'reserva_message' in request.session:
@@ -401,7 +395,6 @@ def asientos(request, pelicula_id=None):
 #######################################################################
 ####################################################################
 
-
 logger = logging.getLogger(__name__)
 
 def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
@@ -436,7 +429,7 @@ def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
             subject=subject,
             body=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[email_cliente],  # Usar el email que ingresó el usuario
+            to=[email_cliente],
         )
 
         # Adjuntar el PDF
@@ -455,7 +448,6 @@ def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
     except Exception as e:
         logger.error(f"Error al enviar ticket por correo: {str(e)}")
         return False
-
 #################################################################
 #################################################################
 @csrf_exempt

@@ -386,9 +386,6 @@ def asientos(request, pelicula_id=None):
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
 
-    pdf_buffer = generar_pdf_reserva(reserva)
-    enviar_ticket_por_correo(reserva, pdf_buffer, reserva.email)
-
 
     return render(request, "asientos.html", context)
 

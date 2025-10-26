@@ -396,70 +396,87 @@ def asientos(request, pelicula_id=None):
 ##########################################################################################
 ##########################################################################################
 
-from sib_api_v3_sdk import (
-    ApiClient,
-    Configuration,
-    SendSmtpEmail,
-    TransactionalEmailsApi,
-    SendSmtpEmailAttachment
-)
-from sib_api_v3_sdk.rest import ApiException
+import requests
+import json
+from django.conf import settings
+import logging
 
 logger = logging.getLogger(__name__)
 
 def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
     """
-    Envía el ticket PDF por correo usando Brevo (Sendinblue).
+    Envía el ticket PDF por correo usando Brevo API directamente
     """
     try:
-        # Convertir PDF a base64
+        # Convertir PDF a base64 para enviar por API
+        import base64
         pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode()
-
-        # Configuración de Brevo
-        api_key = getattr(settings, "BREVO_API_KEY", None)
-        if not api_key:
-            logger.error("BREVO_API_KEY no está configurada en settings.py")
+        
+        # Configurar el email usando Brevo API
+        brevo_url = "https://api.brevo.com/v3/smtp/email"
+        
+        email_data = {
+            "sender": {
+                "name": "CineDot",
+                "email": settings.DEFAULT_FROM_EMAIL
+            },
+            "to": [{"email": email_cliente}],
+            "subject": f'Tu ticket para {reserva.pelicula.nombre} - CineDot',
+            "htmlContent": f'''
+            <html>
+            <body>
+                <h2>Hola {reserva.nombre_cliente} {reserva.apellido_cliente},</h2>
+                <p>Gracias por tu reserva en CineDot. Aquí tienes los detalles:</p>
+                <ul>
+                    <li><strong>Película:</strong> {reserva.pelicula.nombre}</li>
+                    <li><strong>Fecha y Hora:</strong> {reserva.horario}</li>
+                    <li><strong>Sala:</strong> {reserva.sala}</li>
+                    <li><strong>Formato:</strong> {reserva.formato}</li>
+                    <li><strong>Asientos:</strong> {reserva.asientos}</li>
+                    <li><strong>Cantidad de boletos:</strong> {reserva.cantidad_boletos}</li>
+                    <li><strong>Total pagado:</strong> ${reserva.precio_total:.2f}</li>
+                    <li><strong>Código de reserva:</strong> {reserva.codigo_reserva}</li>
+                </ul>
+                <p>El ticket PDF está adjunto a este correo.</p>
+                <p>¡Disfruta de la película!</p>
+                <p><strong>Saludos,<br>El equipo de CineDot</strong></p>
+            </body>
+            </html>
+            ''',
+            "attachment": [
+                {
+                    "name": f"ticket_{reserva.codigo_reserva}.pdf",
+                    "content": pdf_base64
+                }
+            ]
+        }
+        
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "api-key": settings.BREVO_API_KEY
+        }
+        
+        # Hacer la request con timeout corto
+        response = requests.post(
+            brevo_url, 
+            json=email_data, 
+            headers=headers,
+            timeout=10  # 10 segundos máximo
+        )
+        
+        if response.status_code == 201:
+            logger.info(f"Ticket enviado exitosamente a {email_cliente}")
+            return True
+        else:
+            logger.error(f"Error Brevo API: {response.status_code} - {response.text}")
             return False
-
-        configuration = Configuration()
-        configuration.api_key["api-key"] = api_key
-        api_client = ApiClient(configuration)
-        api_instance = TransactionalEmailsApi(api_client)
-
-        # Crear adjunto
-        attachment = SendSmtpEmailAttachment(
-            name=f"ticket_{reserva.codigo_reserva}.pdf",
-            content=pdf_base64,
-            content_type="application/pdf"
-        )
-
-        # Crear email
-        send_smtp_email = SendSmtpEmail(
-            to=[{"email": email_cliente}],
-            sender={"email": settings.DEFAULT_FROM_EMAIL, "name": "CineDot"},
-            subject=f"Tu ticket para {reserva.pelicula.nombre} - CineDot",
-            html_content="""
-                <html>
-                <body>
-                    <p>Aquí está tu ticket.</p>
-                    <p>Gracias por preferir a CineDot.</p>
-                </body>
-                </html>
-            """,
-            attachment=[attachment]
-        )
-
-        # Enviar correo
-        response = api_instance.send_transac_email(send_smtp_email)
-        logger.info(f"Ticket enviado exitosamente a {email_cliente}. Respuesta: {response}")
-        return True
-
-    except ApiException as e:
-        logger.error(f"Error API Brevo: {e}")
-        logger.error(f"Respuesta completa: {e.body}")
+            
+    except requests.exceptions.Timeout:
+        logger.error("Timeout al enviar email - Brevo API no respondió en 10 segundos")
         return False
     except Exception as e:
-        logger.error(f"Error inesperado al enviar ticket: {str(e)}")
+        logger.error(f"Error al enviar ticket por correo: {str(e)}")
         return False
 #################################################################
 #################################################################

@@ -1,62 +1,36 @@
-import base64
-import logging
 from django.conf import settings
-from sib_api_v3_sdk import ApiClient, Configuration, SendSmtpEmail, TransactionalEmailsApi, SendSmtpEmailAttachment
+from sib_api_v3_sdk import ApiClient, Configuration, SendSmtpEmail, TransactionalEmailsApi
 from sib_api_v3_sdk.rest import ApiException
 
-logger = logging.getLogger(__name__)
+def send_brevo_email(to_emails, subject, html_content, sender_email=None, sender_name=None):
+    """
+    Envía un correo usando la API de Brevo (Sendinblue).
+    """
+    api_key = getattr(settings, "BREVO_API_KEY", None)
+    if not api_key:
+        raise ValueError("La variable BREVO_API_KEY no está configurada en settings.py")
 
-def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
-    """
-    Envía el ticket PDF por correo usando Brevo (Sendinblue).
-    """
+    sender_email = sender_email or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@tu-dominio.com")
+    sender_name = sender_name or "Tu Aplicación"
+
+    configuration = Configuration()
+    configuration.api_key["api-key"] = api_key
+
+    api_client = ApiClient(configuration)
+    api_instance = TransactionalEmailsApi(api_client)
+
+    # Formato de destinatarios
+    to_list = [{"email": email} for email in to_emails]
+
+    send_smtp_email = SendSmtpEmail(
+        to=to_list,
+        sender={"email": sender_email, "name": sender_name},
+        subject=subject,
+        html_content=html_content,
+    )
+
     try:
-        # Convertir PDF a base64
-        pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode()
-
-        # Configuración de Brevo
-        api_key = getattr(settings, "BREVO_API_KEY", None)
-        if not api_key:
-            logger.error("BREVO_API_KEY no está configurada en settings.py")
-            return False
-
-        configuration = Configuration()
-        configuration.api_key["api-key"] = api_key
-        api_client = ApiClient(configuration)
-        api_instance = TransactionalEmailsApi(api_client)
-
-        # Crear adjunto
-        attachment = SendSmtpEmailAttachment(
-            name=f"ticket_{reserva.codigo_reserva}.pdf",
-            content=pdf_base64,
-            content_type="application/pdf"
-        )
-
-        # Crear email
-        send_smtp_email = SendSmtpEmail(
-            to=[{"email": email_cliente}],
-            sender={"email": settings.DEFAULT_FROM_EMAIL, "name": "CineDot"},
-            subject=f"Tu ticket para {reserva.pelicula.nombre} - CineDot",
-            html_content="""
-                <html>
-                <body>
-                    <p>Aquí está tu ticket.</p>
-                    <p>Gracias por preferir a CineDot.</p>
-                </body>
-                </html>
-            """,
-            attachment=[attachment]
-        )
-
-        # Enviar correo
-        response = api_instance.send_transac_email(send_smtp_email)
-        logger.info(f"Ticket enviado exitosamente a {email_cliente}. Respuesta: {response}")
-        return True
-
+        api_instance.send_transac_email(send_smtp_email)
     except ApiException as e:
-        logger.error(f"Error API Brevo: {e}")
-        logger.error(f"Respuesta completa: {e.body}")
-        return False
-    except Exception as e:
-        logger.error(f"Error inesperado al enviar ticket: {str(e)}")
-        return False
+        print(f"Error al enviar email con Brevo: {e}")
+        raise

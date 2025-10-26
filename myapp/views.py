@@ -391,8 +391,6 @@ def asientos(request, pelicula_id=None):
 ##########################################################################################
 ##########################################################################################
 
-
-
 logger = logging.getLogger(__name__)
 
 def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
@@ -400,6 +398,8 @@ def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
     Envía el ticket PDF por correo al cliente usando tu función Brevo
     """
     try:
+        logger.info(f"Intentando enviar correo a: {email_cliente}")
+        
         subject = f'Tu ticket para {reserva.pelicula.nombre} - CineDot'
         
         # Mensaje simple en HTML
@@ -413,7 +413,10 @@ def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
         '''
 
         # Convertir PDF a base64 para adjuntar
-        pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode()
+        pdf_content = pdf_buffer.getvalue()
+        pdf_base64 = base64.b64encode(pdf_content).decode()
+        
+        logger.info(f"PDF generado, tamaño: {len(pdf_content)} bytes")
         
         # Preparar el adjunto
         attachments = [{
@@ -422,20 +425,25 @@ def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
         }]
         
         # Llamar a tu función de Brevo con el adjunto
-        send_brevo_email(
+        from .email import send_brevo_email  # Import aquí para evitar circular imports
+        
+        resultado = send_brevo_email(
             to_emails=[email_cliente],
             subject=subject,
             html_content=html_content,
             attachments=attachments
         )
         
-        logger.info(f"Ticket enviado exitosamente a {email_cliente}")
-        return True
+        if resultado:
+            logger.info(f"Ticket enviado exitosamente a {email_cliente}")
+            return True
+        else:
+            logger.error(f"Fallo al enviar ticket a {email_cliente}")
+            return False
 
     except Exception as e:
-        logger.error(f"Error al enviar ticket por correo: {str(e)}")
+        logger.error(f"Error en enviar_ticket_por_correo: {str(e)}")
         return False
-
 #################################################################
 #################################################################
 @csrf_exempt

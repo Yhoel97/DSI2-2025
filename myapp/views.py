@@ -2,6 +2,7 @@ from io import BytesIO
 from zipfile import ZipFile
 import json
 import random
+from django.shortcuts import redirect
 import string
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -250,7 +251,7 @@ def asientos(request, pelicula_id=None):
         apellido_cliente = request.POST.get('apellido_cliente', '').strip()
         email = request.POST.get('email', '').strip()
         formato = request.POST.get('formato', '').strip()
-        combo = request.POST.get('combo', '').strip()  # Ej: "09:30 AM - Sala 1"
+        combo = request.POST.get('combo', '').strip()
         asientos_seleccionados = request.POST.get('asientos', '').strip()
 
         salas_list = pelicula.get_salas_list()
@@ -274,8 +275,6 @@ def asientos(request, pelicula_id=None):
                 # Descuento
                 precio_subtotal = float(precio_por_boleto * cantidad_boletos)
                 descuento_porcentaje = float(request.session.get('descuento_porcentaje', 0))
-                codigo_aplicado = request.session.get('codigo_aplicado')
-                
                 monto_descuento = precio_subtotal * (descuento_porcentaje / 100)
                 precio_total = precio_subtotal - monto_descuento
                 
@@ -294,28 +293,28 @@ def asientos(request, pelicula_id=None):
                 )
                 reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-                # Limpia las variables de session del cupon
+                # Limpia variables de sesión del cupón
                 request.session.pop('descuento_porcentaje', None)
                 request.session.pop('codigo_aplicado', None)
 
                 reserva.save()
 
-                # ✅ Registrar la venta automáticamente
+                # Registrar la venta
                 try:
-                   Venta.objects.create(
-                       pelicula=reserva.pelicula,
-                       sala=reserva.sala,
-                       fecha=date.today(),
-                       cantidad_boletos=reserva.cantidad_boletos,
-                       total_venta=reserva.precio_total
+                    Venta.objects.create(
+                        pelicula=reserva.pelicula,
+                        sala=reserva.sala,
+                        fecha=date.today(),
+                        cantidad_boletos=reserva.cantidad_boletos,
+                        total_venta=reserva.precio_total
                     )
                 except Exception as e:
                     print(f"⚠️ Error al registrar la venta: {e}")
 
-                # ✅ Generar PDF
+                # Generar PDF
                 pdf_buffer = generar_pdf_reserva(reserva)
 
-                # ✅ Enviar correo con PDF adjunto
+                # Enviar correo con PDF adjunto
                 subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
                 body = (
                     f"Hola {reserva.nombre_cliente},\n\n"
@@ -336,15 +335,13 @@ def asientos(request, pelicula_id=None):
                     )]
                 )
 
-                # ✅ Preparar descarga en navegador
-                response = HttpResponse(pdf_buffer, content_type='application/pdf')
-                response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-
-                # ✅ Mensaje y recarga
+                # Guardar datos en sesión
+                request.session['codigo_reserva'] = reserva.codigo_reserva
                 request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
                 request.session['limpiar_form'] = True
-                
-                return response
+
+                # Redirigir a la vista de descarga
+                return redirect('descargar_ticket', codigo_reserva=reserva.codigo_reserva)
 
             except Exception as e:
                 messages.error(request, f'Error al crear la reserva: {str(e)}')
@@ -377,7 +374,7 @@ def asientos(request, pelicula_id=None):
                 asientos_ocupados.extend(r.get_asientos_list())
         except ValueError:
             pass
- 
+
     if request.method == 'GET':
         request.session.pop('descuento_porcentaje', None)
         request.session.pop('codigo_aplicado', None)
@@ -731,19 +728,17 @@ def generar_pdf_reserva(reserva):
 
 
 
-#########################################################################
+
+
+
 
 def descargar_ticket(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
     pdf_buffer = generar_pdf_reserva(reserva)
 
+    # Devolver el PDF como descarga
     response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
-
-    # Guardar en sesión que debe recargar
-    request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
-    request.session['limpiar_form'] = True
-
     return response
 ##########################################################################
 

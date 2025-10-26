@@ -4,6 +4,7 @@ import json
 import random
 from django.shortcuts import redirect
 import string
+from django.db.models import Sum
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from DSI2025 import settings
@@ -1653,3 +1654,45 @@ class CustomPasswordResetView(PasswordResetView):
             subject=subject,
             html_content=html_content
         )
+
+
+
+def dashboard_admin(request):
+    # Datos agregados para el dashboard
+    resumen_general = Reserva.objects.aggregate(
+        total_boletos=Sum('cantidad_boletos'),
+        total_ventas=Sum('precio_total')
+    )
+
+    popularidad = (
+        Reserva.objects.values('pelicula__nombre')
+        .annotate(total_boletos=Sum('cantidad_boletos'))
+        .order_by('-total_boletos')[:5]
+    )
+
+    formatos_disponibles = ['2D', '3D', 'IMAX']
+    formatos_info = {}
+
+    for pelicula in Pelicula.objects.all():
+        nombre = pelicula.nombre
+        formatos_info[nombre] = []
+
+        for formato in formatos_disponibles:
+            boletos = Reserva.objects.filter(
+                pelicula=pelicula,
+                formato=formato
+            ).aggregate(Sum('cantidad_boletos'))['cantidad_boletos__sum'] or 0
+
+            if boletos > 0:
+                formatos_info[nombre].append({
+                    'formato': formato,
+                    'total_boletos': boletos
+                })
+
+    context = {
+        'resumen_general': resumen_general,
+        'popularidad': popularidad,
+        'formatos_info': formatos_info,
+    }
+
+    return render(request, 'dashboard_admin.html', context)

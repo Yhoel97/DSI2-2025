@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Administrativo - CineDot</title>
+    <link rel="stylesheet" href="{% static 'styles/dashboard.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="dashboard-header">
+        <h1>📊 Dashboard Administrativo</h1>
+    </header>
+
+    <main class="dashboard-container">
+        <section class="cards">
+            <div class="card">
+                <h3>Total Boletos Vendidos</h3>
+                <p>{{ resumen_general.total_boletos|default:0 }}</p>
+            </div>
+            <div class="card">
+                <h3>Total en Ventas</h3>
+                <p>${{ resumen_general.total_ventas|default:"0.00" }}</p>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <h2>Películas Más Populares</h2>
+            <canvas id="popularidadChart"></canvas>
+        </section>
+
+        <section class="chart-section">
+            <h2>Boletos por Formato</h2>
+            <canvas id="formatosChart"></canvas>
+        </section>
+    </main>
+
+    <script>
+        // Gráfico de popularidad
+        const popLabels = [{% for p in popularidad %}"{{ p.pelicula__nombre }}",{% endfor %}];
+        const popData = [{% for p in popularidad %}{{ p.total_boletos }},{% endfor %}];
+
+        new Chart(document.getElementById('popularidadChart'), {
+            type: 'bar',
+            data: {
+                labels: popLabels,
+                datasets: [{
+                    label: 'Boletos Vendidos',
+                    data: popData,
+                    backgroundColor: '#3498db'
+                }]
+            }
+        });
+
+        // Gráfico de formatos
+        const formatLabels = [];
+        const formatData = [];
+
+        {% for pelicula, formatos in formatos_info.items %}
+            {% for f in formatos %}
+                formatLabels.push("{{ pelicula }} - {{ f.formato }}");
+                formatData.push({{ f.total_boletos }});
+            {% endfor %}
+        {% endfor %}
+
+        new Chart(document.getElementById('formatosChart'), {
+            type: 'pie',
+            data: {
+                labels: formatLabels,
+                datasets: [{
+                    data: formatData,
+                    backgroundColor: ['#e67e22','#9b59b6','#2ecc71','#f1c40f','#e74c3c']
+                }]
+            }
+        });
+    </script>
+</body>
+</html>

@@ -12,6 +12,8 @@ urlpatterns = [
     path('peliculas/', views.peliculas, name='peliculas'),
     path('peliculas/filtrar/', views.filtrar_peliculas, name='filtrar_peliculas'),
     path('horarios/', views.horarios_por_pelicula, name='horarios_por_pelicula'),
+    path('admin/dashboard/', views.dashboard_admin, name='dashboard_admin'),
+
 
     path('asientos/<int:pelicula_id>/', views.asientos, name='asientos'),
     path('ticket/<str:codigo_reserva>/', views.descargar_ticket, name='descargar_ticket'),

@@ -71,7 +71,9 @@ from django.utils.html import strip_tags
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from urllib.parse import urlencode
-from myapp.email import send_brevo_email 
+from .email import send_brevo_email
+import base64
+import logging
 
 
 # Diccionario de géneros con nombres completos
@@ -384,6 +386,55 @@ def asientos(request, pelicula_id=None):
         'limpiar_form': request.session.pop('limpiar_form', False),
     }
     return render(request, "asientos.html", context)
+
+
+##########################################################################################
+##########################################################################################
+
+
+
+logger = logging.getLogger(__name__)
+
+def enviar_ticket_por_correo(reserva, pdf_buffer, email_cliente):
+    """
+    Envía el ticket PDF por correo al cliente usando tu función Brevo
+    """
+    try:
+        subject = f'Tu ticket para {reserva.pelicula.nombre} - CineDot'
+        
+        # Mensaje simple en HTML
+        html_content = '''
+        <html>
+            <body>
+                <p>Aquí está tu ticket.</p>
+                <p>Gracias por preferir a CineDot.</p>
+            </body>
+        </html>
+        '''
+
+        # Convertir PDF a base64 para adjuntar
+        pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode()
+        
+        # Preparar el adjunto
+        attachments = [{
+            'name': f'ticket_{reserva.codigo_reserva}.pdf',
+            'content': pdf_base64
+        }]
+        
+        # Llamar a tu función de Brevo con el adjunto
+        send_brevo_email(
+            to_emails=[email_cliente],
+            subject=subject,
+            html_content=html_content,
+            attachments=attachments
+        )
+        
+        logger.info(f"Ticket enviado exitosamente a {email_cliente}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error al enviar ticket por correo: {str(e)}")
+        return False
 
 #################################################################
 #################################################################

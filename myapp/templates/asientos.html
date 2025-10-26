@@ -9,12 +9,22 @@
 </head>
 <body>
     <div class="cine-container">
+   
         {% if messages %}
         <div class="messages-container">
             {% for message in messages %}
-            <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
-                {{ message }}
-            </div>
+                {% if message.tags == "success" %}
+                <div class="success-message">
+                    <div class="success-icon">✔️</div>
+                    <div class="success-text">
+                        <h2>¡Reserva Confirmada!</h2>
+                        <p>{{ message }}</p>
+                        <p class="extra">Tu ticket ha sido enviado a tu correo electrónico 📩</p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="message {{ message.tags }}">{{ message }}</div>
+                {% endif %}
             {% endfor %}
         </div>
         {% endif %}

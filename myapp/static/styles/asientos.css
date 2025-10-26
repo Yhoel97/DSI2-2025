@@ -3,7 +3,7 @@ body {
   font-family: 'Arial', sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #f5f5f5;
+   background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
   color: #333;
   line-height: 1.6;
 }
@@ -332,4 +332,46 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
   filter: grayscale(10%);
+}
+
+
+.success-message {
+  display: flex;
+  align-items: center;
+  background: #e8f9f1;
+  border: 2px solid #2ecc71;
+  border-radius: 10px;
+  padding: 15px 20px;
+  margin: 15px 0;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+.success-icon {
+  font-size: 2rem;
+  margin-right: 15px;
+  color: #27ae60;
+}
+
+.success-text h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #2c3e50;
+}
+
+.success-text p {
+  margin: 5px 0;
+  font-size: 1rem;
+  color: #34495e;
+}
+
+.success-text .extra {
+  font-size: 0.9rem;
+  color: #16a085;
+  font-style: italic;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

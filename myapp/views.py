@@ -237,7 +237,6 @@ def registro_usuario(request):
 
 
 #######################################################################
-
 @csrf_exempt
 def asientos(request, pelicula_id=None):
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
@@ -340,8 +339,8 @@ def asientos(request, pelicula_id=None):
                 request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
                 request.session['limpiar_form'] = True
 
-                # Redirigir a la vista de descarga
-                return redirect('descargar_ticket', codigo_reserva=reserva.codigo_reserva)
+                # Redirigir de vuelta a asientos (no al PDF)
+                return redirect('asientos', pelicula_id=pelicula.id)
 
             except Exception as e:
                 messages.error(request, f'Error al crear la reserva: {str(e)}')
@@ -392,9 +391,9 @@ def asientos(request, pelicula_id=None):
         'descuento_porcentaje': float(descuento_porcentaje), 
         'mensaje_cupon': mensaje_cupon,
         'limpiar_form': request.session.pop('limpiar_form', False),
+        'codigo_reserva': request.session.pop('codigo_reserva', None),  # 👈 importante
     }
     return render(request, "asientos.html", context)
-
 
 #################################################################
 #################################################################

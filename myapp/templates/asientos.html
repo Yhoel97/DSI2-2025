@@ -144,12 +144,12 @@
         </div>
     </div>
 
-        {% if messages and codigo_reserva %}
-        <script>
-            // Abrir la descarga en una nueva pestaña
-            window.open("{% url 'descargar_ticket' codigo_reserva %}", "_blank");
-        </script>
-        {% endif %}
+   {% if messages and codigo_reserva %}
+    <script>
+        // Abrir la descarga en una nueva pestaña
+        window.open("{% url 'descargar_ticket' codigo_reserva %}", "_blank");
+    </script>
+    {% endif %}
 
     <!-- Variables globales para pasar datos de Django al JS -->
     <script>

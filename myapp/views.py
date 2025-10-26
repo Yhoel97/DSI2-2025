@@ -383,15 +383,15 @@ def asientos(request, pelicula_id=None):
     mensaje_cupon = request.session.pop('mensaje_cupon', '') 
 
     context = {
-        'pelicula': pelicula,
-        'formatos': Reserva.FORMATO_CHOICES,
-        'asientos_ocupados': asientos_ocupados,
-        'combinaciones': combinaciones,
-        'combo_actual': combo_actual,
-        'descuento_porcentaje': float(descuento_porcentaje), 
-        'mensaje_cupon': mensaje_cupon,
-        'limpiar_form': request.session.pop('limpiar_form', False),
-        'codigo_reserva': request.session.pop('codigo_reserva', None),  # 👈 importante
+    'pelicula': pelicula,
+    'formatos': Reserva.FORMATO_CHOICES,
+    'asientos_ocupados': asientos_ocupados,
+    'combinaciones': combinaciones,
+    'combo_actual': combo_actual,
+    'descuento_porcentaje': float(descuento_porcentaje), 
+    'mensaje_cupon': mensaje_cupon,
+    'limpiar_form': request.session.pop('limpiar_form', False),
+    'codigo_reserva': request.session.get('codigo_reserva'),  
     }
     return render(request, "asientos.html", context)
 
@@ -730,12 +730,10 @@ def generar_pdf_reserva(reserva):
 
 
 
-
 def descargar_ticket(request, codigo_reserva):
     reserva = get_object_or_404(Reserva, codigo_reserva=codigo_reserva)
     pdf_buffer = generar_pdf_reserva(reserva)
 
-    # Devolver el PDF como descarga
     response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="ticket_{reserva.codigo_reserva}.pdf"'
     return response

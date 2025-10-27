@@ -1,21 +1,39 @@
+// Función para crear degradados lineales (para barras y pastel)
+function createGradient(ctx, color) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, color);
+  gradient.addColorStop(1, "#ffffff");
+  return gradient;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+  // Paleta pastel ajustada: reemplazamos el naranja (#ff9770) por verde (#b5ead7)
   const pastelColors = [
-    "#70d6ff", "#ff70a6", "#ff9770", "#ffd670", "#e9ff70",
-    "#cdb4db", "#b5ead7", "#ffb5a7", "#a0c4ff", "#fdffb6"
+    "#70d6ff", // azul
+    "#ff70a6", // rosa
+    "#b5ead7", // verde pastel (en lugar del naranja)
+    "#ffd670", // amarillo
+    "#e9ff70", // lima
+    "#cdb4db", // lila
+    "#ffb5a7", // coral suave
+    "#a0c4ff", // celeste
+    "#fdffb6"  // amarillo claro
   ];
 
-  // --- Gráfico de Barras ---
-  new Chart(document.getElementById("chartPeliculas"), {
+  // === Gráfico de Barras (Top Películas) ===
+  const ctxPeliculas = document.getElementById("chartPeliculas").getContext("2d");
+  new Chart(ctxPeliculas, {
     type: "bar",
     data: {
       labels: topPeliculas.map(p => p.pelicula__nombre),
       datasets: [{
         label: "Boletos Vendidos",
         data: topPeliculas.map(p => p.total_boletos),
-        backgroundColor: pastelColors,
-        borderColor: "#444",
-        borderWidth: 1,
-        hoverBackgroundColor: pastelColors.map(c => c + "cc") // más intenso al hover
+        backgroundColor: pastelColors.map(c => createGradient(ctxPeliculas, c)),
+        borderColor: pastelColors,
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false
       }]
     },
     options: {
@@ -42,17 +60,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // --- Gráfico de Pastel ---
-  new Chart(document.getElementById("chartFormatos"), {
+  // === Gráfico de Pastel (Formatos) ===
+  const ctxFormatos = document.getElementById("chartFormatos").getContext("2d");
+  new Chart(ctxFormatos, {
     type: "pie",
     data: {
       labels: formatos.map(f => f.formato),
       datasets: [{
         data: formatos.map(f => f.total_boletos),
-        backgroundColor: pastelColors,
-        borderColor: "#fff",
+        backgroundColor: pastelColors.map(c => createGradient(ctxFormatos, c)), // mismo degradado que barras
+        borderColor: pastelColors, // mismo borde que barras
         borderWidth: 2,
-        hoverOffset: 20
+        hoverOffset: 25
       }]
     },
     options: {

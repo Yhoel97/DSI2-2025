@@ -114,22 +114,19 @@ canvas {
     font-size: 1.2rem;
   }
 
+@media (max-width: 768px) {
   .nav-buttons {
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    flex-wrap: nowrap;       
+    overflow-x: auto;        /* scroll horizontal si no caben */
+    justify-content: flex-start;
   }
 
   .btn-nav {
-    width: 90%;
-    justify-content: center;
-    font-size: 0.95rem;
-    padding: 10px;
+    flex: 0 0 auto;          /* ancho fijo, no se encogen */
+    font-size: 0.9rem;
+    padding: 8px 10px;
   }
-
-  .btn-nav i {
-    font-size: 1.1rem;
-  }
+}
 
   canvas {
     height: 300px !important; /* gráficos más compactos en móvil */

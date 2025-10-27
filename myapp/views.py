@@ -1657,42 +1657,41 @@ class CustomPasswordResetView(PasswordResetView):
 
 
 
+import json
+
+
+
 def dashboard_admin(request):
-    # Datos agregados para el dashboard
-    resumen_general = Reserva.objects.aggregate(
+    reservas = Reserva.objects.all()
+
+    top_peliculas = list(
+        reservas.values('pelicula__nombre')
+        .annotate(
+            total_boletos=Sum('cantidad_boletos'),
+            total_venta=Sum('precio_total')
+        )
+        .order_by('-total_boletos')[:10]
+    )
+
+    formatos = list(
+        reservas.values('formato')
+        .annotate(
+            total_boletos=Sum('cantidad_boletos'),
+            total_venta=Sum('precio_total')
+        )
+        .order_by('-total_boletos')
+    )
+
+    resumen_general = reservas.aggregate(
         total_boletos=Sum('cantidad_boletos'),
         total_ventas=Sum('precio_total')
     )
 
-    popularidad = (
-        Reserva.objects.values('pelicula__nombre')
-        .annotate(total_boletos=Sum('cantidad_boletos'))
-        .order_by('-total_boletos')[:5]
-    )
-
-    formatos_disponibles = ['2D', '3D', 'IMAX']
-    formatos_info = {}
-
-    for pelicula in Pelicula.objects.all():
-        nombre = pelicula.nombre
-        formatos_info[nombre] = []
-
-        for formato in formatos_disponibles:
-            boletos = Reserva.objects.filter(
-                pelicula=pelicula,
-                formato=formato
-            ).aggregate(Sum('cantidad_boletos'))['cantidad_boletos__sum'] or 0
-
-            if boletos > 0:
-                formatos_info[nombre].append({
-                    'formato': formato,
-                    'total_boletos': boletos
-                })
-
     context = {
-        'resumen_general': resumen_general,
-        'popularidad': popularidad,
-        'formatos_info': formatos_info,
+        "resumen_general": resumen_general,
+        "top_peliculas": top_peliculas,   # para tablas
+        "formatos": formatos,             # para tablas
+        "top_peliculas_json": json.dumps(top_peliculas, default=str),
+        "formatos_json": json.dumps(formatos, default=str),
     }
-
-    return render(request, 'dashboard_admin.html', context)
+    return render(request, "dashboard_admin.html", context)

@@ -337,3 +337,50 @@ body {
   cursor: not-allowed;
   filter: grayscale(10%);
 }
+
+/* ===== Mensaje de éxito estilizado ===== */
+.success-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: linear-gradient(135deg, #d4f9e2, #b5ead7);
+  border: 2px solid #81d4a3;
+  border-radius: 15px;
+  padding: 20px 30px;
+  margin: 20px auto;
+  max-width: 700px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+/* Icono de éxito */
+.success-icon {
+  font-size: 2.5rem;
+  color: #2e7d32;
+}
+
+/* Texto del mensaje */
+.success-text h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.success-text p {
+  margin: 5px 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.success-text .extra {
+  font-style: italic;
+  color: #00796b;
+}
+
+/* Animación de entrada */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -164,7 +164,8 @@ class Reserva(models.Model):
         ('CONFIRMADO', 'Confirmado'),
         ('CANCELADO', 'Cancelado'),
     ]
-    
+    #Se agrego para que funcione correctamente el modulo de cancelacion de reservas
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     pelicula = models.ForeignKey(Pelicula, on_delete=models.CASCADE)
     nombre_cliente = models.CharField(max_length=100)
     apellido_cliente = models.CharField(max_length=100)

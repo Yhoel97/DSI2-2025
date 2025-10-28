@@ -129,6 +129,7 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
+TIME_ZONE = 'America/El_Salvador'
 
 
 # Static files (CSS, JavaScript, Images)

@@ -66,7 +66,8 @@ from .models import Venta
 from django.db.models import Prefetch
 from datetime import datetime
 from .email import send_brevo_email   
-
+from django.utils import timezone 
+from datetime import timedelta
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -289,7 +290,8 @@ def asientos(request, pelicula_id=None):
                     asientos=asientos_seleccionados,
                     cantidad_boletos=cantidad_boletos,
                     precio_total=precio_total,
-                    estado='RESERVADO'
+                    estado='RESERVADO',
+                    usuario=request.user if request.user.is_authenticated else None
                 )
                 reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
@@ -1695,3 +1697,75 @@ def dashboard_admin(request):
         "formatos_json": json.dumps(formatos, default=str),
     }
     return render(request, "dashboard_admin.html", context)
+
+@login_required
+def mis_reservaciones_cancelables(request):
+    #Define el limite de tiempo 24 horas
+    tiempo_limite = timezone.now() - timedelta(hours=24)
+    
+    # Filtra las reservas solo de usuarios logueados
+    reservas_validas = Reserva.objects.filter(
+        usuario=request.user,                 # Solo las del usuario logueado
+        fecha_reserva__gte=tiempo_limite,     # Filtrar: Hechas en las últimas 24h
+        estado__in=['RESERVADO', 'CONFIRMADO']                      
+    ).order_by('-fecha_reserva') 
+    
+    context = {
+        'reservas': reservas_validas,
+        'tiempo_limite_cancelacion': 24
+    }
+    return render(request, 'reservaciones_cancelables.html', context)
+
+@login_required
+def cancelar_reserva(request, pk):
+    reserva = get_object_or_404(Reserva, pk=pk, usuario=request.user)
+    
+    
+    #tiempo_limite = timezone.now() - timedelta(hours=24)
+    TIEMPO_MAXIMO_CANCELACION = timedelta(hours=24)
+    tiempo_transcurrido = timezone.now() - reserva.fecha_reserva
+
+    
+    if request.method == 'POST':
+        #  Verifica si la reserva ya pasó el límite o ya está cancelada
+        if tiempo_transcurrido > TIEMPO_MAXIMO_CANCELACION:
+            messages.error(request, 'Esta reserva ya no puede ser cancelada.')
+            return redirect('mis_reservaciones_cancelables')
+            
+        #  Cancelar la reserva y invalidar el codigo qr del ticket generado en la reservacion
+        reserva.estado = 'CANCELADO'
+        reserva.usado = True
+        reserva.save()
+
+        try:
+            subject = f"Cancelación Exitosa - Reserva {reserva.codigo_reserva}"
+            body = (
+                f"Hola {reserva.nombre_cliente} {reserva.apellido_cliente},\n\n"
+                f"Confirmamos que tu reserva para la película '{reserva.pelicula.nombre}' ha sido **cancelada exitosamente**.\n"
+                f"Los asientos {reserva.asientos} de la Sala {reserva.sala} para el horario {reserva.horario} han sido liberados.\n\n"
+                f"El proceso de reembolso del monto de ${reserva.precio_total:.2f} se iniciará en las próximas 48 horas (dependiendo de tu banco).\n\n"
+                f"¡Esperamos verte pronto en CineDot!"
+            )
+            
+            
+            send_brevo_email(
+                to_emails=[reserva.email],
+                subject=subject,
+                html_content=body.replace("\n", "<br>"),
+            )
+            
+        except Exception as e:
+            
+            print(f" Error al enviar correo de cancelación: {e}") 
+            messages.warning(request, f'Reserva cancelada, pero hubo un problema al enviar la notificación por correo.')
+
+        messages.success(request, f'La reserva {reserva.codigo_reserva} ha sido cancelada con éxito.')
+        return redirect('mis_reservaciones_cancelables')
+        
+        return redirect('mis_reservaciones_cancelables')
+        
+        #messages.success(request, f'La reserva {reserva.codigo_reserva} ha sido cancelada con éxito.')
+        #return redirect('mis_reservaciones_cancelables')
+        
+    # Si es GET, simplemente se redirige o se pide confirmación
+   # return redirect('mis_reservaciones_cancelables')

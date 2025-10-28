@@ -46,5 +46,7 @@ urlpatterns = [
     path('password_reset/', CustomPasswordResetView.as_view(), name='password_reset'),
    # path('accounts/', include('django.contrib.auth.urls')),  # esto incluye las demás vistas (login, logout, etc.)
 
+    path('mis_reservaciones/', views.mis_reservaciones_cancelables, name='mis_reservaciones_cancelables'),
+    path('reserva/cancelar/<int:pk>/', views.cancelar_reserva, name='cancelar_reserva'),
 ]
 

@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Reservaciones - Cancelación</title>
+    
+    <link rel="stylesheet" href="{% static 'styles/cancelarReserva.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header class="header">
+    </header>
+
+    <main>
+        {% if messages %}
+            <div class="messages container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <section class="section container my-reservations">
+            <h2 class="section-title">Mis Reservaciones Activas (Últimas 24h)</h2>
+            <p class="info-text">Solo se muestran reservas hechas en las últimas 24 horas y que aún no han sido canceladas.</p>
+            
+            {% if reservas %}
+                <div class="table-responsive">
+                    <table class="reservas-table my-styled-table align-middle">
+                        
+                        <thead>
+                            <tr>
+                                <th scope="col">Código</th>
+                                <th scope="col">Película</th>
+                                <th scope="col">Horario / Sala</th>
+                                <th scope="col">Asientos</th>
+                                <th scope="col">Fecha Reserva</th>
+                                <th scope="col">Acción</th>
+                            </tr>
+                        </thead>
+                        
+                        <tbody>
+                            {% for reserva in reservas %}
+                                <tr>
+                                    <td data-label="Código">{{ reserva.codigo_reserva }}</td>
+                                    <td data-label="Película">{{ reserva.pelicula.nombre }}</td>
+                                    <td data-label="Horario / Sala">{{ reserva.horario }} / {{ reserva.sala }}</td>
+                                    <td data-label="Asientos">{{ reserva.asientos }}</td>
+                                    <td data-label="Fecha Reserva">{{ reserva.fecha_reserva|date:"d/m/Y H:i" }}</td>
+                                    <td data-label="Acción">
+                                        <form method="post" action="{% url 'cancelar_reserva' reserva.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-cancel btn-danger btn-sm">Cancelar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="no-reservas">
+                    <p>No tienes reservaciones que cumplan con los criterios de cancelación.</p>
+                </div>
+            {% endif %}
+
+        </section>
+    </main>
+
+    <footer class="footer">
+    </footer>
+    <script>
+        
+    </script>
+</body>
+</html>

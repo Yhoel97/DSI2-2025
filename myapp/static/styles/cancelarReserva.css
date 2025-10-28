@@ -1,26 +1,68 @@
-/* ======================================================= */
-/* === BASE Y CONTENEDORES (TU CÓDIGO ORIGINAL MODIFICADO) === */
-/* ======================================================= */
+
 body {
     font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #ffffff;
+    background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9); 
     color: #333;
     line-height: 1.6;
 }
+
 
 .container {
     max-width: 1200px;
     margin: 30px auto; 
     padding: 20px;
-    /* ESTILO DE FONDO DEGRADADO ORIGINAL */
-    background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9); 
+   background-color: rgba(255, 255, 255, 0.8); /* Fondo blanco semitransparente para el contenido */
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
+.header {
+    width: 100%;
+    padding: 15px 0;
+    background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9); 
+    border-bottom: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
 
-/* 🚨 AGREGADO: Garantiza el fondo degradado en la sección de reservas 🚨 */
+.header-content {
+    /* Centra el contenido del header */
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    background: transparent;
+}
+
+/*  Estilo base del botón de regreso */
+.btn-back-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px; /* Espacio entre el ícono y el texto */
+    padding: 8px 15px;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+/* Estilo Azul Específico (btn-home-blue) */
+.btn-home-blue {
+    background-color: #007bff; 
+    color: white;
+}
+
+.btn-home-blue:hover {
+    background-color: #0056b3; 
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.4);
+}
+
+.btn-home-blue i {
+    font-size: 16px;
+}
+
+
 .my-reservations {
     background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9); 
     border-radius: 12px;
@@ -48,7 +90,7 @@ h1 {
     text-align: center;
 }
 
-/* --- ESTILOS DE ALERTA --- */
+
 .alert-create { background-color: #4CAF50; color: white; border-left: 5px solid #2E7D32; }
 .alert-update { background-color: #2196F3; color: white; border-left: 5px solid #1565C0; }
 .alert-delete { background-color: #F44336; color: white; border-left: 5px solid #C62828; }
@@ -97,11 +139,9 @@ h1 {
 .btn-secondary { background-color: #6c757d; color: white; }
 .btn-secondary:hover { background-color: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3); }
 
-/* ======================================================= */
-/* === 2. ESTILOS DE TABLA (APLICABLE A CUPONES Y RESERVAS) === */
-/* ======================================================= */
 
-.movie-table, .reservas-table { /* Añadida .reservas-table */
+
+.movie-table, .reservas-table { 
     width: 100%;
     border-collapse: collapse;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sombra para resaltar la tabla */
@@ -137,9 +177,7 @@ h1 {
 .badge-active { background-color: #d4edda; color: #155724; } 
 .badge-inactive { background-color: #f8d7da; color: #721c24; } 
 
-/* ======================================================= */
-/* === 3. RESPONSIVE DESIGN (UNIFICADO) === */
-/* ======================================================= */
+
 
 @media (max-width: 768px) {
     .container { padding: 15px; }

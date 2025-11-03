@@ -533,6 +533,12 @@ def registro_usuario(request):
 #######################################################################
 
 
+PRECIOS_FORMATO = {
+    '2D': 4.00,
+    '3D': 6.00,
+    'IMAX': 8.00
+}
+
 @csrf_exempt
 def asientos(request, pelicula_id=None):
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
@@ -540,7 +546,7 @@ def asientos(request, pelicula_id=None):
         messages.error(request, "No se ha seleccionado ninguna película")
         return redirect('index')
 
-    # Obtener fecha
+    # Fecha seleccionada
     fecha_str = request.GET.get('fecha', '') or request.POST.get('fecha', '')
     ahora_naive = datetime.now()
     try:
@@ -548,9 +554,7 @@ def asientos(request, pelicula_id=None):
     except ValueError:
         fecha_seleccionada = ahora_naive.date()
 
-    PRECIOS_FORMATO = {'2D': 4.00, '3D': 6.00, 'IMAX': 8.00}
-
-    # Obtener funciones vigentes
+    # Funciones vigentes
     funciones = Funcion.objects.filter(
         pelicula=pelicula,
         activa=True,
@@ -564,8 +568,7 @@ def asientos(request, pelicula_id=None):
             if fecha_seleccionada == ahora_naive.date():
                 hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
                 datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
-                margen = timedelta(minutes=10)
-                if datetime_funcion > (ahora_naive - margen):
+                if datetime_funcion > (ahora_naive - timedelta(minutes=10)):
                     funciones_vigentes.append(funcion)
             else:
                 funciones_vigentes.append(funcion)
@@ -574,7 +577,7 @@ def asientos(request, pelicula_id=None):
         messages.error(request, f"No hay funciones disponibles para esta película el {fecha_seleccionada.strftime('%d/%m/%Y')}")
         return redirect('index')
 
-    # Determinar función actual (POST o GET)
+    # Función actual
     funcion_actual_id = request.POST.get('funcion_id') or request.GET.get('funcion_id')
     funcion_actual = None
     if funcion_actual_id:
@@ -582,22 +585,7 @@ def asientos(request, pelicula_id=None):
     if not funcion_actual and funciones_vigentes:
         funcion_actual = funciones_vigentes[0]
 
-    # Formato y precio de la función actual
-    formato_actual = funcion_actual.get_formato_sala() if funcion_actual else '2D'
-    precio_funcion_actual = PRECIOS_FORMATO.get(formato_actual, 4.00)
-
-    # Enriquecer funciones con precios
-    funciones_con_precios = []
-    for funcion in funciones_vigentes:
-        formato = funcion.get_formato_sala()
-        precio = PRECIOS_FORMATO.get(formato, 4.00)
-        funciones_con_precios.append({
-            'funcion': funcion, 
-            'formato': formato, 
-            'precio': precio
-        })
-
-    # Asientos ocupados para esta función y fecha
+    # Asientos ocupados
     asientos_ocupados = []
     if funcion_actual:
         reservas_existentes = Reserva.objects.filter(
@@ -610,197 +598,164 @@ def asientos(request, pelicula_id=None):
         for r in reservas_existentes:
             asientos_ocupados.extend(r.get_asientos_list())
 
-    # Obtener asientos seleccionados desde el formulario
-    asientos_seleccionados_list = request.POST.getlist('asientos_list') or []
-    asientos_seleccionados = sorted([a for a in asientos_seleccionados_list if a])
-
-    # Cálculos
+    # Datos de cálculo
+    asientos_seleccionados = request.POST.getlist("asientos_list")
     cantidad_boletos = len(asientos_seleccionados)
-    subtotal = cantidad_boletos * precio_funcion_actual
+
+    formato_actual = funcion_actual.get_formato_sala() if funcion_actual else '2D'
+    precio_funcion_actual = PRECIOS_FORMATO.get(formato_actual, 4.00)
 
     # Cupón
-    codigo_cupon = request.POST.get('codigo_cupon', '').strip()
+    codigo_cupon = request.POST.get("codigo_cupon", "").strip()
     descuento_porcentaje = 0
     mensaje_cupon = ""
-
     if codigo_cupon:
         cupon = Cupon.objects.filter(codigo__iexact=codigo_cupon, activo=True).first()
         if cupon:
             descuento_porcentaje = cupon.porcentaje
-            mensaje_cupon = f"✅ Cupón aplicado: {descuento_porcentaje}% de descuento"
+            mensaje_cupon = f"Cupón aplicado: {descuento_porcentaje}%"
         else:
-            mensaje_cupon = "❌ Código inválido o inactivo"
+            mensaje_cupon = "Código inválido o inactivo"
 
-    descuento_monto = subtotal * (descuento_porcentaje / 100.0)
+    subtotal = cantidad_boletos * precio_funcion_actual
+    descuento_monto = subtotal * (descuento_porcentaje / 100)
     total = subtotal - descuento_monto
 
-    # Datos del formulario
-    nombre_cliente = request.POST.get('nombre_cliente', '').strip()
-    apellido_cliente = request.POST.get('apellido_cliente', '').strip()
-    email = request.POST.get('email', '').strip()
+    # --- AJAX: devolver JSON dinámico ---
+    if request.method == "POST" and request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "asientos": asientos_seleccionados,
+            "cantidad_boletos": cantidad_boletos,
+            "formato": formato_actual,
+            "precio_boleto": precio_funcion_actual,
+            "subtotal": subtotal,
+            "descuento": descuento_porcentaje,
+            "descuento_monto": descuento_monto,
+            "total": total,
+        })
 
-    # ✅ MANEJO DE POST
-    if request.method == 'POST':
-        accion = request.POST.get('accion', '')
-        
-        print(f"📥 POST recibido - Acción: '{accion}'")
-        print(f"   Función: {funcion_actual_id}")
-        print(f"   Asientos: {asientos_seleccionados}")
-        print(f"   Formato: {formato_actual}")
-        print(f"   Precio: ${precio_funcion_actual}")
-        print(f"   Total: ${total:.2f}")
+    # --- Confirmar reserva ---
+    if request.method == "POST" and request.POST.get("accion") == "reservar":
+        nombre_cliente = request.POST.get("nombre_cliente", "").strip()
+        apellido_cliente = request.POST.get("apellido_cliente", "").strip()
+        email = request.POST.get("email", "").strip()
+        funcion_id = request.POST.get("funcion_id")
 
-        # Si es solo recalcular, renderizar con los nuevos valores
-        if accion == 'recalcular':
-            context = {
-                'pelicula': pelicula,
-                'asientos_ocupados': asientos_ocupados,
-                'funciones_vigentes': funciones_vigentes,
-                'funciones_con_precios': funciones_con_precios,
-                'funcion_actual': funcion_actual,
-                'fecha_seleccionada': fecha_seleccionada,
-                'precio_funcion_actual': precio_funcion_actual,
-                'formato_actual': formato_actual,
-                'asientos_seleccionados': asientos_seleccionados,
-                'cantidad_boletos': cantidad_boletos,
-                'subtotal': subtotal,
-                'descuento_porcentaje': descuento_porcentaje,
-                'descuento_monto': descuento_monto,
-                'total': total,
-                'mensaje_cupon': mensaje_cupon,
-                'nombre_cliente': nombre_cliente,
-                'apellido_cliente': apellido_cliente,
-                'email': email,
-                'codigo_cupon': codigo_cupon,
-            }
-            return render(request, "asientos.html", context)
+        errores = []
+        if not nombre_cliente: errores.append("El nombre es obligatorio")
+        if not apellido_cliente: errores.append("El apellido es obligatorio")
+        if not email or "@" not in email: errores.append("Ingrese un email válido")
+        if not funcion_id: errores.append("Seleccione una función")
+        if cantidad_boletos == 0: errores.append("Seleccione al menos un asiento")
 
-        # Si es reservar, validar y crear la reserva
-        if accion == 'reservar':
-            errores = []
-            if not nombre_cliente: errores.append('El nombre es obligatorio')
-            if not apellido_cliente: errores.append('El apellido es obligatorio')
-            if not email or '@' not in email: errores.append('Ingrese un email válido')
-            if not funcion_actual_id: errores.append('Seleccione una función')
-            if cantidad_boletos == 0: errores.append('Seleccione al menos un asiento')
+        if not errores:
+            try:
+                funcion = get_object_or_404(Funcion, id=funcion_id)
+                formato_funcion = funcion.get_formato_sala()
+                precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
-            if not errores:
-                try:
-                    funcion = get_object_or_404(Funcion, id=funcion_actual_id)
-                    formato_funcion = funcion.get_formato_sala()
-                    precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
+                subtotal = cantidad_boletos * precio_por_boleto
+                descuento_monto = subtotal * (descuento_porcentaje / 100)
+                precio_total = subtotal - descuento_monto
 
-                    # Recalcular por seguridad
-                    cantidad_boletos = len(asientos_seleccionados)
-                    subtotal = float(precio_por_boleto * cantidad_boletos)
-                    descuento_monto = subtotal * (descuento_porcentaje / 100.0)
-                    precio_total = subtotal - descuento_monto
+                reserva = Reserva(
+                    pelicula=pelicula,
+                    nombre_cliente=nombre_cliente,
+                    apellido_cliente=apellido_cliente,
+                    email=email,
+                    formato=formato_funcion,
+                    sala=str(funcion.sala),
+                    horario=funcion.horario,
+                    fecha_funcion=fecha_seleccionada,
+                    asientos=",".join(asientos_seleccionados),
+                    cantidad_boletos=cantidad_boletos,
+                    precio_total=precio_total,
+                    estado="RESERVADO",
+                    usuario=request.user if request.user.is_authenticated else None
+                )
+                reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                reserva.save()
 
-                    reserva = Reserva(
-                        pelicula=pelicula,
-                        nombre_cliente=nombre_cliente,
-                        apellido_cliente=apellido_cliente,
-                        email=email,
-                        formato=formato_funcion,
-                        sala=str(funcion.sala),
-                        horario=funcion.horario,
-                        fecha_funcion=fecha_seleccionada,
-                        asientos=",".join(asientos_seleccionados),
-                        cantidad_boletos=cantidad_boletos,
-                        precio_total=precio_total,
-                        estado='RESERVADO',
-                        usuario=request.user if request.user.is_authenticated else None
-                    )
-                    reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                    reserva.save()
+                # Registrar venta
+                Venta.objects.create(
+                    pelicula=reserva.pelicula,
+                    sala=reserva.sala,
+                    fecha=fecha_seleccionada,
+                    cantidad_boletos=reserva.cantidad_boletos,
+                    total_venta=reserva.precio_total
+                )
 
-                    # Registrar venta
-                    try:
-                        Venta.objects.create(
-                            pelicula=reserva.pelicula,
-                            sala=reserva.sala,
-                            fecha=fecha_seleccionada,
-                            cantidad_boletos=reserva.cantidad_boletos,
-                            total_venta=reserva.precio_total
-                        )
-                    except Exception as e:
-                        print(f"⚠️ Error al registrar la venta: {e}")
+                # PDF y correo
+                pdf_buffer = generar_pdf_reserva(reserva)
+                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                body = (
+                    f"Hola {reserva.nombre_cliente},<br><br>"
+                    f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
+                    f"Código de reserva: {reserva.codigo_reserva}<br>"
+                    f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
+                    f"Horario: {funcion.get_horario_display()}<br>"
+                    f"Sala: {funcion.sala}<br>"
+                    f"Formato: {formato_funcion}<br>"
+                    f"Asientos: {','.join(asientos_seleccionados)}<br>"
+                    f"Subtotal: ${subtotal:.2f}<br>"
+                    f"Descuento: -${descuento_monto:.2f}<br>"
+                    f"Total: ${precio_total:.2f}<br><br>"
+                    "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
+                    "¡Gracias por elegir CineDot!"
+                )
+                send_brevo_email(
+                    to_emails=[reserva.email],
+                    subject=subject,
+                    html_content=body,
+                    attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
+                )
 
-                    # Generar PDF
-                    pdf_buffer = generar_pdf_reserva(reserva)
+                request.session["codigo_reserva"] = reserva.codigo_reserva
+                messages.success(request, f"¡Reserva exitosa! Código: {reserva.codigo_reserva}")
+                return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+            except Exception as e:
+                messages.error(request, f"Error al crear la reserva: {str(e)}")
+            except Exception as e:
+                messages.error(request, f"Error al crear la reserva: {str(e)}")
+        else:
+            for error in errores:
+                messages.error(request, error)
 
-                    # Enviar correo
-                    subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
-                    body = (
-                        f"Hola {reserva.nombre_cliente},\n\n"
-                        f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.\n"
-                        f"Código de reserva: {reserva.codigo_reserva}\n"
-                        f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}\n"
-                        f"Horario: {funcion.get_horario_display()}\n"
-                        f"Sala: {funcion.sala}\n"
-                        f"Formato: {formato_funcion}\n"
-                        f"Asientos: {','.join(asientos_seleccionados)}\n"
-                        f"Subtotal: ${subtotal:.2f}\n"
-                        f"Descuento: -${descuento_monto:.2f}\n"
-                        f"Total: ${precio_total:.2f}\n\n"
-                        f"Adjunto encontrarás tu ticket en formato PDF.\n\n"
-                        "¡Gracias por elegir CineDot!"
-                    )
+    # --- Render normal (GET inicial o POST sin reservar) ---
+    funciones_con_precios = []
+    for funcion in funciones_vigentes:
+        formato = funcion.get_formato_sala()
+        precio = PRECIOS_FORMATO.get(formato, 4.00)
+        funciones_con_precios.append({
+            "funcion": funcion,
+            "formato": formato,
+            "precio": precio
+        })
 
-                    send_brevo_email(
-                        to_emails=[reserva.email],
-                        subject=subject,
-                        html_content=body.replace("\n", "<br>"),
-                        attachments=[(
-                            f"ticket_{reserva.codigo_reserva}.pdf",
-                            pdf_buffer.getvalue(),
-                            "application/pdf"
-                        )]
-                    )
-
-                    # Guardar en sesión
-                    request.session['codigo_reserva'] = reserva.codigo_reserva
-                    request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
-                    request.session['limpiar_form'] = True
-
-                    return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
-
-                except Exception as e:
-                    messages.error(request, f'Error al crear la reserva: {str(e)}')
-            else:
-                for error in errores:
-                    messages.error(request, error)
-
-    # ✅ Mensaje post-reserva
-    if 'reserva_message' in request.session:
-        messages.success(request, request.session['reserva_message'])
-        del request.session['reserva_message']
-
-    # ✅ Renderizar vista (GET o POST sin acción específica)
     context = {
-        'pelicula': pelicula,
-        'asientos_ocupados': asientos_ocupados,
-        'funciones_vigentes': funciones_vigentes,
-        'funciones_con_precios': funciones_con_precios,
-        'funcion_actual': funcion_actual,
-        'fecha_seleccionada': fecha_seleccionada,
-        'limpiar_form': request.session.pop('limpiar_form', False),
-        'codigo_reserva': request.session.get('codigo_reserva'),
-        'precio_funcion_actual': precio_funcion_actual,
-        'formato_actual': formato_actual,
-        'asientos_seleccionados': asientos_seleccionados,
-        'cantidad_boletos': cantidad_boletos,
-        'subtotal': subtotal,
-        'descuento_porcentaje': descuento_porcentaje,
-        'descuento_monto': descuento_monto,
-        'total': total,
-        'mensaje_cupon': mensaje_cupon,
-        'nombre_cliente': nombre_cliente,
-        'apellido_cliente': apellido_cliente,
-        'email': email,
-        'codigo_cupon': codigo_cupon,
+        "pelicula": pelicula,
+        "asientos_ocupados": asientos_ocupados,
+        "funciones_vigentes": funciones_vigentes,
+        "funciones_con_precios": funciones_con_precios,
+        "funcion_actual": funcion_actual,
+        "fecha_seleccionada": fecha_seleccionada,
+        "codigo_reserva": request.session.get("codigo_reserva"),
+        "precio_funcion_actual": precio_funcion_actual,
+        "formato_actual": formato_actual,
+        "asientos_seleccionados": asientos_seleccionados,
+        "cantidad_boletos": cantidad_boletos,
+        "subtotal": subtotal,
+        "descuento_porcentaje": descuento_porcentaje,
+        "descuento_monto": descuento_monto,
+        "total": total,
+        "mensaje_cupon": mensaje_cupon,
+        "nombre_cliente": request.POST.get("nombre_cliente", ""),
+        "apellido_cliente": request.POST.get("apellido_cliente", ""),
+        "email": request.POST.get("email", ""),
+        "codigo_cupon": codigo_cupon,
     }
     return render(request, "asientos.html", context)
+       
 
 
 #################################################################

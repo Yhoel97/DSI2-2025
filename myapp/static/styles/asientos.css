@@ -1,179 +1,116 @@
-/* ===== Estilos generales ===== */
+{% load static %}
+/* ===== Fondo general con degradado pastel ===== */
 body {
   font-family: 'Arial', sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #f5f5f5;
+  background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
   color: #333;
   line-height: 1.6;
+  min-height: 100vh;
+  animation: fadeIn 0.8s ease-in-out;
 }
 
 /* ===== Contenedor principal ===== */
 .cine-container {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 2rem auto;
-  padding: 0 1.5rem;
-  box-sizing: border-box;
-}
-
-/* ===== Encabezado pastel con estructura vertical ===== */
-.cine-header {
+  padding: 20px;
   background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border-radius: 12px;
-  padding: 2rem 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  backdrop-filter: blur(6px);
+  animation: slideUp 0.6s ease;
+}
+
+/* ===== Encabezado ===== */
+.cine-header {
   text-align: center;
+  margin-bottom: 2rem;
 }
-
-/* CineDot arriba */
 .cine-header h1 {
-  font-size: 3.2rem;
+  font-size: 3rem;
   font-weight: 900;
-  color: #c8a2ff;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5rem;
-  text-shadow:
-    -1px -1px 0 #000,
-     1px -1px 0 #000,
-    -1px  1px 0 #000,
-     1px  1px 0 #000;
+  color: #7b68ee;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
-
-/* Nombre de la película: negro con contorno blanco */
 .movie-info h2 {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: bold;
   color: #000;
-  letter-spacing: 0.3px;
-  margin: 0.3rem 0;
-  text-shadow:
-    -1px -1px 0 #fff,
-     1px -1px 0 #fff,
-    -1px  1px 0 #fff,
-     1px  1px 0 #fff;
+  text-shadow: -1px -1px 0 #fff, 1px 1px 0 #fff;
 }
-
-/* Director */
 .movie-info p {
-  font-size: 1.1rem;
   font-style: italic;
   color: #444;
-  margin: 0.2rem 0 1rem 0;
-  letter-spacing: 0.2px;
 }
-
-/* Imagen */
 .movie-poster-small {
-  max-width: 240px;
+  max-width: 220px;
   border-radius: 10px;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.3);
   margin-top: 1rem;
 }
 
 /* ===== Botón de regreso ===== */
 .btn-back {
   display: inline-block;
-  background: linear-gradient(135deg, #ff5fa2, #d94fff, #a86cfb);
+  background: linear-gradient(135deg, #ff5fa2, #7b68ee);
   color: white;
   padding: 0.6rem 1.2rem;
   border-radius: 8px;
   font-weight: bold;
   text-decoration: none;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  margin-bottom: 1rem;
-  border: none;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
-
 .btn-back:hover {
-  background: linear-gradient(135deg, #ff7fb8, #e06fff, #b88dfc);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.3);
 }
 
 /* ===== Formulario ===== */
 .customer-form {
-  background-color: #fff;
-  padding: 2rem 1.5rem;
-  margin-bottom: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-
 .customer-form h3 {
-  margin-top: 0;
-  color: #333;
   border-bottom: 1px solid #ddd;
   padding-bottom: 0.5rem;
+  margin-top: 0;
 }
 
+/* ===== Campos ===== */
 .form-group {
   margin-bottom: 1rem;
 }
-
 .form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #555;
+  margin-bottom: 0.3rem;
+  display: block;
 }
-
-/* Campos de texto */
 .form-group input[type="text"],
-.form-group input[type="email"],
-.form-group select {
+.form-group input[type="email"] {
   width: 100%;
   padding: 10px;
   border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  transition: border-color 0.3s;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
-
-.form-group input:focus,
-.form-group select:focus {
+.form-group input:focus {
   border-color: #7b68ee;
+  box-shadow: 0 0 0 3px rgba(123,104,238,0.2);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(123,104,238,0.2);
-}
-
-/* Opciones de formato */
-.format-options {
-  display: flex;
-  gap: 1rem;
-  margin-top: 0.5rem;
-}
-
-.format-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.format-option:hover {
-  border-color: #7b68ee;
-}
-
-.format-option input[type="radio"] {
-  margin: 0;
 }
 
 /* ===== Pantalla ===== */
 .screen-container {
   margin: 2rem 0;
-  padding: 0 1.5rem;
   display: flex;
   justify-content: center;
 }
-
 .screen {
   width: 80%;
   height: 30px;
@@ -185,71 +122,95 @@ body {
   color: white;
   font-weight: bold;
   line-height: 30px;
-  letter-spacing: 1px;
 }
 
-/* ===== Asientos ===== */
-.seats-container {
-  margin: 2rem 0;
-  padding: 0 1.5rem;
-  box-sizing: border-box;
-}
-
+/* ===== Asientos estilo checkbox horizontal ===== */
 .seats-grid {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .seat-row {
   display: flex;
-  gap: 0.8rem;
+  gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .row-letter {
-  width: 20px;
-  text-align: center;
   font-weight: bold;
   color: #555;
+  margin-right: 8px;
 }
 
-.seat {
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
+/* Label que envuelve input + div seat */
+.seat-label {
   display: flex;
-  justify-content: center;
   align-items: center;
-  font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid #ddd;
+  position: relative;
 }
 
-.seat.available {
-  background-color: #fff;
+/* Ocultamos el checkbox nativo */
+.seat-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
+}
+
+/* Estilo visual del asiento - similar a los checkboxes de géneros */
+.seat {
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #ddd;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
   color: #333;
-  border: 1px solid #333;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
 }
 
-.seat.available:hover {
-  background-color: #7b68ee;
-  color: white;
-  transform: scale(1.1);
+/* Hover */
+.seat-label:hover .seat {
+  background: linear-gradient(135deg, #fce3ec, #d8e8f8);
+  border-color: #7b68ee;
+  box-shadow: 0 6px 12px rgba(123, 104, 238, 0.2);
+  transform: scale(1.05);
 }
 
+/* Seleccionado (morado permanente) */
+.seat-label input[type="checkbox"]:checked + .seat,
 .seat.selected {
   background-color: #7b68ee;
-  color: white;
   border-color: #7b68ee;
+  color: white;
+  box-shadow: 0 6px 14px rgba(123, 104, 238, 0.3);
+  animation: pop 0.3s ease;
 }
 
+/* Ocupado */
 .seat.reserved {
   background-color: #333;
   color: #ddd;
+  border-color: #333;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.seat-label:hover .seat.reserved {
+  transform: none;
+  background-color: #333;
+  border-color: #333;
 }
 
 /* ===== Leyenda ===== */
@@ -258,48 +219,82 @@ body {
   justify-content: center;
   gap: 1.5rem;
   margin: 2rem 0;
-  padding: 1rem 1.5rem;
-  background-color: #f9f9f9;
-  border-radius: 5px;
-  box-sizing: border-box;
+  padding: 1rem;
+  background: rgba(255,255,255,0.8);
+  border-radius: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-item .seat {
+  transform: none;
+  min-width: 20px;
+  padding: 6px 10px;
 }
 
 /* ===== Resumen ===== */
 .selection-summary {
-  background-color: #f9f9f9;
+  background: rgba(255,255,255,0.9);
   padding: 1.5rem;
-  border-radius: 5px;
+  border-radius: 8px;
   margin-top: 2rem;
-  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-
 .selection-summary h3 {
-  margin-top: 0;
-  color: #333;
   border-bottom: 1px solid #ddd;
   padding-bottom: 0.5rem;
 }
-
 .selected-seats {
   margin: 1rem 0;
-  background: linear-gradient(to right, rgba(0,198,255,0.1), rgba(123,104,238,0.1));
   padding: 0.8rem;
+  border-left: 4px solid #7b68ee;
+  background: linear-gradient(to right, rgba(123,104,238,0.1), rgba(0,198,255,0.1));
   border-radius: 5px;
-  border-left: 3px solid #7b68ee;
+}
+
+.ticket-counter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1rem 0;
+  padding: 0.8rem;
+  background: rgba(123,104,238,0.05);
+  border-radius: 8px;
+}
+
+.price-details {
+  margin: 1rem 0;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.5rem 0;
+}
+
+.discount-row {
+  color: #28a745;
+  font-weight: bold;
 }
 
 .total-price {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: bold;
-  margin: 1rem 0;
+  margin-top: 1rem;
   background: linear-gradient(to right, #00c6ff, #7b68ee);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  padding: 0.2rem 0;
+  text-align: center;
+  padding: 1rem;
+  border-top: 2px solid #eee;
 }
 
-/* Botón confirmar */
+/* ===== Botón confirmar ===== */
 .btn-confirm {
   display: inline-block;
   width: 100%;
@@ -310,18 +305,15 @@ body {
   font-size: 1rem;
   color: #fff;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.3s ease;
   background: linear-gradient(135deg, #8fd3ff, #7b68ee);
-  box-shadow: 0 6px 14px rgba(123, 104, 238, 0.25);
-  letter-spacing: 0.3px;
+  box-shadow: 0 6px 14px rgba(123,104,238,0.25);
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  margin-top: 1rem;
 }
-
 .btn-confirm:hover {
   transform: translateY(-2px);
-  background: linear-gradient(135deg, #79c8ff, #6a5acd);
-  box-shadow: 0 10px 18px rgba(106, 90, 205, 0.3);
+  box-shadow: 0 10px 18px rgba(106,90,205,0.3);
 }
-
 .btn-confirm:active {
   transform: translateY(0);
   box-shadow: 0 4px 10px rgba(106, 90, 205, 0.25);
@@ -332,55 +324,222 @@ body {
   box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.25), 0 6px 14px rgba(123, 104, 238, 0.25);
 }
 
-.btn-confirm:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  filter: grayscale(10%);
+/* ===== Funciones disponibles (estilo checkbox) ===== */
+.funciones-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 0.5rem;
 }
 
-/* ===== Mensaje de éxito estilizado ===== */
-.success-message {
+.funcion-option {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 20px;
-  background: linear-gradient(135deg, #d4f9e2, #b5ead7);
-  border: 2px solid #81d4a3;
-  border-radius: 15px;
-  padding: 20px 30px;
-  margin: 20px auto;
-  max-width: 700px;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-  animation: fadeIn 0.6s ease-in-out;
+  cursor: pointer;
 }
 
-/* Icono de éxito */
-.success-icon {
-  font-size: 2.5rem;
-  color: #2e7d32;
+.funcion-option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
 }
 
-/* Texto del mensaje */
-.success-text h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: #2e7d32;
+.funcion-content {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #ddd;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  min-width: 180px;
+}
+
+.funcion-option:hover .funcion-content {
+  background: linear-gradient(135deg, #fce3ec, #d8e8f8);
+  border-color: #7b68ee;
+  box-shadow: 0 4px 8px rgba(123, 104, 238, 0.2);
+}
+
+.funcion-option input[type="radio"]:checked + .funcion-content {
+  background-color: #7b68ee;
+  border-color: #7b68ee;
+  color: white;
+  box-shadow: 0 6px 14px rgba(123, 104, 238, 0.3);
+}
+
+.funcion-horario,
+.funcion-sala,
+.funcion-formato {
+  margin: 2px 0;
+}
+
+.funcion-formato {
   font-weight: bold;
 }
 
-.success-text p {
-  margin: 5px 0;
+/* ===== Cupón section ===== */
+.cupon-section {
+  margin: 1.5rem 0;
+}
+
+.cupon-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.cupon-input-group input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
   font-size: 1rem;
-  color: #333;
+}
+
+.btn-apply {
+  padding: 10px 16px;
+  background: #7b68ee;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.btn-apply:hover {
+  background: #5f4ec4;
+}
+
+/* ===== Mensajes ===== */
+.messages-container {
+  margin-bottom: 2rem;
+}
+
+.success-message {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border: 1px solid #c3e6cb;
+  border-radius: 10px;
+  padding: 1.5rem;
+  color: #155724;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.success-icon {
+  font-size: 2rem;
+  margin-right: 1rem;
+}
+
+.success-text h2 {
+  margin: 0 0 0.5rem 0;
+  color: #155724;
 }
 
 .success-text .extra {
+  margin: 0.5rem 0 0 0;
   font-style: italic;
-  color: #00796b;
 }
 
-/* Animación de entrada */
+.no-funciones-message {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 1rem;
+}
+
+/* ===== Animaciones ===== */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+/* ===== Responsive ajustes ===== */
+@media (max-width: 768px) {
+  .cine-container {
+    padding: 1rem;
+  }
+
+  .movie-poster-small {
+    max-width: 180px;
+  }
+
+  .seat {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    min-width: 32px;
+  }
+
+  .seat-row {
+    gap: 8px;
+  }
+
+  .btn-confirm {
+    font-size: 0.95rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .funciones-container {
+    flex-direction: column;
+  }
+
+  .funcion-content {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .legend {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .cine-header h1 {
+    font-size: 2.2rem;
+  }
+
+  .movie-info h2 {
+    font-size: 1.5rem;
+  }
+
+  .screen {
+    width: 100%;
+  }
+
+  .seat {
+    font-size: 0.8rem;
+    padding: 5px 10px;
+  }
+
+  .btn-back {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .cupon-input-group {
+    flex-direction: column;
+  }
+
+  .cupon-input-group input,
+  .btn-apply {
+    width: 100%;
+  }
 }

@@ -2,14 +2,41 @@
    🏠 INDEX.CSS — Estilos para la página principal (Cartelera)
    ============================================================ */
 
-/* ===== Estilos generales ===== */
+/* ===== VARIABLES CSS ===== */
+:root {
+  --primary-color: #00c6ff;
+  --secondary-color: #7b68ee;
+  --accent-color: #ffd700;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --gradient-bg: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
+  --gradient-header: linear-gradient(to right, #00c6ff, #7b68ee);
+  --gradient-header-hover: linear-gradient(to right, #00a8e1, #6a5acd);
+  --shadow-soft: 0 4px 15px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 8px 25px rgba(0, 0, 0, 0.15);
+  --shadow-strong: 0 12px 35px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== ESTILOS GENERALES CON ANIMACIONES ===== */
 body {
   font-family: 'Arial', sans-serif;
-  margin-top: 160px; /* Igual a la altura del header */
+  margin-top: 160px;
   padding: 0;
-  background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
+  background: var(--gradient-bg);
   color: #333;
   line-height: 1.6;
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .cine-container {
@@ -17,11 +44,23 @@ body {
   margin: 4rem auto 2rem auto;
   padding: 1rem;
   background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 15px;
+  box-shadow: var(--shadow-soft);
+  animation: slideUp 0.6s ease-out;
 }
 
-/* ===== ENCABEZADO ===== */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== ENCABEZADO CON ANIMACIÓN ===== */
 header {
   position: fixed;
   top: 0;
@@ -33,10 +72,22 @@ header {
   align-items: center;
   justify-content: space-between;
   padding: 15px 20px;
-  background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
+  background: var(--gradient-bg);
   color: #4b2e83;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  transition: background 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: headerSlideDown 0.7s ease-out;
+}
+
+@keyframes headerSlideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .header-top {
@@ -47,10 +98,29 @@ header {
   flex: 1;
 }
 
-/* Logo */
+/* Logo con animación */
 .logo-container {
   display: flex;
   align-items: center;
+  animation: bounceIn 1s ease-out;
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .logo-img {
@@ -58,20 +128,33 @@ header {
   width: auto;
   object-fit: contain;
   display: block;
-  transition: transform 0.4s ease;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 .logo-img:hover {
-  transform: scale(1.05);
+  transform: scale(1.1) rotate(2deg);
+  filter: brightness(1.1);
 }
 
-/* ===== NAVEGACIÓN ===== */
+/* ===== NAVEGACIÓN CON ANIMACIONES ===== */
 .nav-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
   gap: 0.3rem;
+  animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 nav ul {
@@ -87,7 +170,25 @@ nav ul {
 nav ul li {
   display: flex;
   align-items: stretch;
+  animation: fadeInLeft 0.6s ease-out both;
 }
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+nav ul li:nth-child(1) { animation-delay: 0.1s; }
+nav ul li:nth-child(2) { animation-delay: 0.2s; }
+nav ul li:nth-child(3) { animation-delay: 0.3s; }
+nav ul li:nth-child(4) { animation-delay: 0.4s; }
+nav ul li:nth-child(5) { animation-delay: 0.5s; }
 
 nav ul li a {
   text-decoration: none;
@@ -95,11 +196,11 @@ nav ul li a {
   padding: 0.7rem 1.1rem;
   font-size: 0.95rem;
   border-radius: 5px;
-  background: linear-gradient(to right, #00c6ff, #7b68ee);
+  background: var(--gradient-header);
   color: white;
   border: 2px solid #000;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,16 +208,33 @@ nav ul li a {
   min-width: 120px;
   box-sizing: border-box;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+nav ul li a::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+nav ul li a:hover::before {
+  left: 100%;
 }
 
 nav ul li a:hover {
-  background: linear-gradient(to right, #00a8e1, #6a5acd);
+  background: var(--gradient-header-hover);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   border-color: #000;
   transform: translateY(-2px);
 }
 
-/* ===== Botón Filtrar (verde) ===== */
+/* ===== BOTÓN FILTRAR ===== */
 #filtrar-personalizado a,
 #filtrar-personalizado a:link,
 #filtrar-personalizado a:visited {
@@ -135,6 +253,19 @@ nav ul li a:hover {
   align-items: center !important;
   justify-content: center !important;
   font-size: 0.95rem !important;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+  }
 }
 
 #filtrar-personalizado a:hover {
@@ -142,9 +273,10 @@ nav ul li a:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
   border-color: #000 !important;
   transform: translateY(-2px) !important;
+  animation: none;
 }
 
-/* ===== Bienvenida del usuario ===== */
+/* ===== BIENVENIDA DEL USUARIO ===== */
 .user-welcome-wrapper {
   text-align: center;
   margin: 0.3rem 0 0 0;
@@ -156,11 +288,12 @@ nav ul li a:hover {
   font-size: 1rem;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
   border: 2px solid #4b2e83;
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp 0.6s ease-out 0.4s both;
   position: relative;
   overflow: hidden;
   max-width: 400px;
   align-self: center;
+  transition: all 0.3s ease;
 }
 
 .user-welcome-wrapper::before {
@@ -183,125 +316,343 @@ nav ul li a:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
 }
 
-/* ===== Título de secciones ===== */
-.section-title {
-  font-size: 1.6rem;
-  margin-top: 3rem;
-  margin-bottom: 1.5rem;
-  color: #4b2e83;
+/* ============================================================
+   🗓️ SELECTOR DE FECHA - MISMOS ESTILOS QUE HEADER
+   ============================================================ */
+
+.date-selector-new {
+  background: var(--gradient-header);
+  padding: 8px 15px; /* Reducido de 12px a 8px */
+  border-radius: 10px;
+  margin: 0 auto 18px auto; /* Reducido margen inferior */
   text-align: center;
-  font-weight: bold;
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border: 2px solid #000;
+  position: relative;
+  overflow: hidden;
+  max-width: 400px;
+  animation: scaleIn 0.6s ease-out;
+  transition: all 0.3s ease;
+  min-height: auto;
 }
 
-@keyframes fadeInUp {
+.date-selector-new:hover {
+  background: var(--gradient-header-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes scaleIn {
   from {
     opacity: 0;
-    transform: translateY(5px);
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 
+.date-selector-title-new {
+  margin-bottom: 6px; /* Reducido de 8px a 6px */
+  font-size: 1.1rem; /* Reducido de 1.2rem a 1.1rem */
+  font-weight: bold;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  position: relative;
+  z-index: 1;
+  line-height: 1.2; /* Añadido para control de altura */
+}
+
+.date-form-new {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+}
+
+.date-dropdown-new {
+  padding: 4px 12px; /* Reducido de 6px a 4px */
+  border: 2px solid #000;
+  border-radius: 5px;
+  font-size: 0.95rem; /* Reducido de 1rem a 0.95rem */
+  background: white;
+  color: #333;
+  cursor: pointer;
+  min-width: 180px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
+  line-height: 1.3; /* Añadido para mejor control de altura */
+}
+
+.date-dropdown-new:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+  border-color: #000;
+}
+
+.date-dropdown-new:focus {
+  outline: none;
+  border-color: #000;
+  box-shadow: 0 0 0 3px rgba(0, 198, 255, 0.3);
+}
+
+/* Estilos para las opciones del dropdown con gradiente */
+.date-dropdown-new {
+  background: white; /* Fondo blanco para el selector */
+}
+
+.date-dropdown-new option {
+  padding: 8px 12px; /* Padding ajustado */
+  font-size: 0.95rem;
+  background: white; /* Fondo blanco por defecto */
+  color: #333;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.date-dropdown-new option:hover {
+  background: var(--gradient-header) !important; /* Gradiente al hacer hover */
+  color: white !important;
+  font-weight: bold;
+}
+
+.date-dropdown-new option:checked {
+  background: var(--gradient-header) !important; /* Gradiente para opción seleccionada */
+  color: white !important;
+  font-weight: bold;
+}
+
+/* Para navegadores WebKit (Chrome, Safari, Edge) */
+.date-dropdown-new option:active,
+.date-dropdown-new option:focus {
+  background: var(--gradient-header) !important;
+  color: white !important;
+}
+
 /* ============================================================
-   🎬 TARJETAS DE PELÍCULAS
+   🎬 TARJETAS DE PELÍCULAS CON ANIMACIONES
    ============================================================ */
 
 .peliculas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
   padding: 1rem 2rem;
   justify-items: center;
   max-width: 1200px;
   margin: 0 auto;
+  animation: fadeIn 0.8s ease-out 0.3s both;
 }
 
 .pelicula-card {
   width: 100%;
-  max-width: 280px;
+  max-width: 300px;
   display: flex;
   flex-direction: column;
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(145deg, #ffffff, #f8f9fa);
+  border-radius: 15px;
+  box-shadow: var(--shadow-soft);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: cardSlideUp 0.6s ease-out both;
+  position: relative;
+  border: 1px solid rgba(0,0,0,0.1);
 }
 
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pelicula-card:nth-child(1) { animation-delay: 0.1s; }
+.pelicula-card:nth-child(2) { animation-delay: 0.2s; }
+.pelicula-card:nth-child(3) { animation-delay: 0.3s; }
+.pelicula-card:nth-child(4) { animation-delay: 0.4s; }
+
 .pelicula-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-strong);
+  transform: translateY(-8px) scale(1.02);
+  border-color: var(--primary-color);
 }
 
 .poster-container {
   width: 100%;
-  height: 350px;
+  height: 380px;
   overflow: hidden;
-  background-color: #000;
+  background: linear-gradient(45deg, #2c3e50, #4a69bd);
+  position: relative;
+}
+
+.poster-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.1));
 }
 
 .poster-container img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.pelicula-card:hover .poster-container img {
+  transform: scale(1.08);
+  filter: brightness(1.1) contrast(1.05);
 }
 
 .pelicula-info {
-  padding: 1rem;
+  padding: 1.5rem;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  background: white;
 }
 
 .movie-title {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   text-align: left;
-  color: #4b2e83;
-  font-weight: bold;
-  margin-bottom: 0.6rem;
+  color: #2c3e50;
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+  line-height: 1.3;
+  background: linear-gradient(135deg, #2c3e50, #4a69bd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .movie-details p {
-  font-size: 1.05rem;
+  font-size: 1rem;
   text-align: left;
-  margin: 0.4rem 0;
+  margin: 0.5rem 0;
   line-height: 1.5;
+  color: #555;
 }
 
 .detail-label {
-  font-weight: bold;
-  color: #4b2e83;
-  margin-right: 0.3rem;
-  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-right: 0.4rem;
+  font-size: 1rem;
 }
 
-/* ===== Rating visual ===== */
+/* ============================================================
+   ⏰ HORARIOS EN LISTA CON ANIMACIONES
+   ============================================================ */
+
+.horarios-container {
+  margin-top: 12px;
+  animation: fadeIn 0.6s ease-out 0.5s both;
+}
+
+.horarios-list {
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.horarios-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.horarios-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.horarios-list::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 10px;
+}
+
+.horario-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: rgba(0, 198, 255, 0.05);
+}
+
+.horario-item:hover {
+  background: rgba(0, 198, 255, 0.1);
+  transform: translateX(5px);
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 198, 255, 0.2);
+}
+
+.horario-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.horario-item i {
+  color: var(--primary-color);
+  margin-right: 10px;
+  font-size: 0.85rem;
+  transition: transform 0.3s ease;
+}
+
+.horario-item:hover i {
+  transform: scale(1.2) rotate(10deg);
+}
+
+/* ============================================================
+   ⭐ RATING VISUAL MEJORADO
+   ============================================================ */
+
 .movie-rating {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 1rem 0;
-  padding: 0.8rem;
+  margin: 1.2rem 0;
+  padding: 1rem;
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-  border-radius: 8px;
-  border-left: 4px solid #ffd700;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent-color);
+  transition: all 0.3s ease;
+  animation: fadeIn 0.6s ease-out 0.4s both;
+}
+
+.movie-rating:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-soft);
 }
 
 .rating-stars {
   display: flex;
-  gap: 0.2rem;
+  gap: 0.3rem;
 }
 
 .rating-stars .star-filled {
-  color: #ffd700;
-  font-size: 1.2rem;
+  color: var(--accent-color);
+  font-size: 1.3rem;
+  transition: transform 0.3s ease;
+}
+
+.rating-stars .star-filled:hover {
+  transform: scale(1.2) rotate(15deg);
 }
 
 .rating-stars .star-empty {
-  color: #ddd;
-  font-size: 1.2rem;
+  color: #dee2e6;
+  font-size: 1.3rem;
 }
 
 .rating-info {
@@ -312,37 +663,70 @@ nav ul li a:hover {
 }
 
 .rating-score {
-  font-weight: bold;
+  font-weight: 700;
   color: #2c3e50;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
 .rating-count {
-  color: #7f8c8d;
-  font-size: 0.8rem;
+  color: #6c757d;
+  font-size: 0.85rem;
 }
 
-/* ===== Botones ===== */
+/* ============================================================
+   🎬 BOTONES DE ACCIÓN MEJORADOS
+   ============================================================ */
+
 .movie-actions {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.6rem;
   justify-content: center;
   margin-top: auto;
+  animation: fadeInUp 0.6s ease-out 0.6s both;
 }
 
 .trailer-btn,
 .buy-btn,
 .review-btn {
-  font-size: 1rem;
-  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.2rem;
   border-radius: 5px;
-  font-weight: bold;
+  font-weight: 600;
   text-decoration: none;
-  transition: all 0.3s ease;
-  display: inline-block;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
+  min-width: 120px;
+  gap: 0.5rem;
+}
+
+.trailer-btn::before,
+.buy-btn::before,
+.review-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  transition: all 0.6s ease;
+  transform: translate(-50%, -50%);
+}
+
+.trailer-btn:hover::before,
+.buy-btn:hover::before,
+.review-btn:hover::before {
+  width: 300px;
+  height: 300px;
 }
 
 /* 🎥 Botón Ver Tráiler */
@@ -354,6 +738,8 @@ nav ul li a:hover {
 .trailer-btn:hover {
   background-color: #d32f2f;
   border-color: #d32f2f;
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(244, 67, 54, 0.4);
 }
 
 /* 🎟️ Botón Comprar Boleto */
@@ -365,151 +751,523 @@ nav ul li a:hover {
 .buy-btn:hover {
   background-color: #1565c0;
   border-color: #1565c0;
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(41, 121, 255, 0.4);
 }
 
-/* 📝 Botón Ver Reseñas */
+/* 📝 Botón Ver Reseñas - TONO AMARILLO ANTERIOR */
 .review-btn {
-  background: linear-gradient(135deg, #9b59b6, #8e44ad);
-  color: white;
-  border: none;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #2c3e50;
+  border: 2px solid #ffd700;
+  font-weight: bold;
 }
 .review-btn:hover {
-  background: linear-gradient(135deg, #8e44ad, #7d3c98);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(142, 68, 173, 0.3);
+  background: linear-gradient(135deg, #ffed4e, #ffd700);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+  color: #2c3e50;
 }
 
-/* ================================
-   📞 SECCIÓN DE CONTACTO CENTRADA
-   ================================ */
+/* ============================================================
+   ❌ SIN FUNCIONES DISPONIBLES
+   ============================================================ */
+
+.no-funciones {
+  text-align: center;
+  padding: 50px 30px;
+  color: #6c757d;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 20px;
+  margin: 30px auto;
+  max-width: 500px;
+  box-shadow: var(--shadow-soft);
+  animation: bounceIn 1s ease-out;
+  border: 2px dashed #dee2e6;
+}
+
+.no-funciones i {
+  margin-bottom: 20px;
+  color: #adb5bd;
+  font-size: 4rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.no-funciones p {
+  margin-bottom: 25px;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.no-funciones .btn {
+  animation: pulse 2s infinite;
+}
+
+/* ============================================================
+   📞 SECCIÓN DE CONTACTO MEJORADA
+   ============================================================ */
+
 .contacto-info {
-  text-align: center;              /* centra el texto */
-  margin-top: 1rem;
-  margin-bottom: 2rem;
+  text-align: center;
+  margin-top: 2rem;
+  margin-bottom: 3rem;
   line-height: 1.8;
+  animation: fadeInUp 0.8s ease-out 0.7s both;
 }
 
 .contacto-info p {
-  margin: 0.4rem 0;
-  font-size: 1rem;
-  color: #333;
+  margin: 0.8rem 0;
+  font-size: 1.1rem;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.contacto-info p:hover {
+  transform: translateX(10px);
+  color: var(--primary-color);
 }
 
 .contacto-info .icono {
-  color: #4b2e83;                  /* color morado como el resto del tema */
-  margin-right: 8px;
+  color: var(--primary-color);
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
 }
 
-/* Footer centrado */
+.contacto-info p:hover .icono {
+  transform: scale(1.2) rotate(10deg);
+}
+
+/* ============================================================
+   👣 FOOTER MEJORADO
+   ============================================================ */
+
 .footer {
   text-align: center;
   background: transparent;
-  color: #333;
-  font-size: 0.95rem;
-  padding-bottom: 1.5rem;
+  color: #6c757d;
+  font-size: 1rem;
+  padding: 2rem 0 3rem 0;
+  animation: fadeIn 0.8s ease-out 0.8s both;
+  position: relative;
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: var(--gradient-header);
+  border-radius: 10px;
 }
 
 /* ============================================================
-   📱 RESPONSIVE
+   🎯 TÍTULO DE SECCIONES MEJORADO
    ============================================================ */
+
+.section-title {
+  font-size: 2rem;
+  margin-top: 4rem;
+  margin-bottom: 2rem;
+  color: #2c3e50;
+  text-align: center;
+  font-weight: 700;
+  position: relative;
+  padding-bottom: 1rem;
+  animation: fadeInDown 0.8s ease-out both;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: var(--gradient-header);
+  border-radius: 10px;
+  animation: expandWidth 1s ease-out 0.5s both;
+}
+
+@keyframes expandWidth {
+  from { width: 0; }
+  to { width: 80px; }
+}
+
+
+
+/* ============================================================
+   📱 RESPONSIVE DESIGN MEJORADO - 4 BOTONES POR LÍNEA
+   ============================================================ */
+
 @media (max-width: 768px) {
+  body {
+    margin-top: 130px; /* Reducido pero con espacio suficiente */
+    animation: none;
+  }
+
   header {
-    flex-direction: column;
-    align-items: center;
-    padding: 10px 15px;
     height: auto;
-    min-height: 160px;
+    min-height: 95px; /* Altura optimizada para 2 líneas de 4 botones */
+    padding: 4px 8px;
+    flex-direction: column;
+    animation: headerSlideDownMobile 0.7s ease-out;
+  }
+
+  @keyframes headerSlideDownMobile {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 
   .header-top {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    width: 100%;
+    justify-content: space-between;
+    min-height: 35px;
   }
 
   .logo-img {
-    height: 60px;
+    height: 32px;
   }
 
+  .nav-container {
+    gap: 0.1rem;
+    width: 100%;
+    margin-top: 3px;
+  }
+
+  /* NAVEGACIÓN EN DOS LÍNEAS DE 4 BOTONES CADA UNA */
   nav ul {
-    gap: 0.5rem;
+    gap: 0.12rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    display: flex;
+    width: 100%;
+    margin: 1px 0 0 0;
+    padding: 0;
+  }
+
+  nav ul li {
+    flex: 0 0 calc(25% - 0.12rem); /* 4 BOTONES POR LÍNEA */
+    min-width: 0;
+    margin-bottom: 0.12rem;
   }
 
   nav ul li a {
-    min-width: 100px;
-    font-size: 0.7rem;
-    padding: 0.5rem 0.6rem;
-  }
-
-  .user-welcome-wrapper {
-    font-size: 0.85rem;
-    margin-top: 10px;
-  }
-
-  body {
-    margin-top: 280px;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .peliculas-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.2rem;
-  }
-
-  .pelicula-card {
-    max-width: 220px;
-  }
-
-  .poster-container {
-    height: 300px;
-  }
-} 
-
-/* ================================
-   💻 RESPONSIVE PARA TABLET
-   ================================ */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .peliculas-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.2rem;
-  }
-
-  .pelicula-card {
-    max-width: 220px;
-  }
-
-  .poster-container {
-    height: 300px;
-  }
-}
-
-/* ======================================
-   🎯 MEJORAS DE USABILIDAD MÓVIL
-   ====================================== */
-
-@media (max-width: 768px) {
-  /* Mejora el área de toque manteniendo filas */
-  nav ul li a,
-  .trailer-btn,
-  .buy-btn,
-  .review-btn {
-    min-height: 40px;
+    min-width: 0;
+    width: 100%;
+    min-height: 26px; /* Altura compacta */
+    font-size: 0.6rem; /* Texto pequeño pero legible */
+    padding: 0.15rem 0.08rem;
+    border-radius: 3px;
+    text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  /* Asegura que los botones no se partan */
-  nav ul li a {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1;
+  }
+
+  /* Botón filtrar específico en móvil */
+  #filtrar-personalizado a,
+  #filtrar-personalizado a:link,
+  #filtrar-personalizado a:visited {
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: 26px !important;
+    font-size: 0.6rem !important;
+    padding: 0.15rem 0.08rem !important;
+    line-height: 1 !important;
+  }
+
+  .user-welcome-wrapper {
+    font-size: 0.65rem;
+    margin-top: 3px;
+    padding: 0.2rem 0.4rem;
+    max-width: 100%;
+    text-align: center;
+    order: 3;
+    min-height: 22px;
+    line-height: 1.1;
+  }
+
+  /* MÁS ESPACIO PARA EL CONTENEDOR PRINCIPAL */
+  .cine-container {
+    margin-top: 3rem !important; /* Aumentado significativamente */
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  /* Selector de fecha con más espacio */
+  .date-selector-new {
+    padding: 8px 12px;
+    margin: 15px auto 20px auto; /* Más margen superior e inferior */
+    max-width: 95%;
+    position: relative;
+    z-index: 10;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    margin-top: 120px;
+  }
+
+  header {
+    min-height: 90px; /* Compacto pero funcional */
+    padding: 3px 6px;
+  }
+
+  .logo-img {
+    height: 28px;
+  }
+
+  .nav-container {
+    gap: 0.08rem;
+    margin-top: 2px;
+  }
+
+  /* MANTENER 4 BOTONES POR LÍNEA EN MÓVILES PEQUEÑOS */
+  nav ul li {
+    flex: 0 0 calc(25% - 0.08rem); /* SIEMPRE 4 POR LÍNEA */
+    margin-bottom: 0.08rem;
+  }
+
+  nav ul li a {
+    min-height: 24px; /* Un poco más compacto */
+    font-size: 0.55rem; /* Texto más pequeño pero legible */
+    padding: 0.12rem 0.06rem;
+  }
+
+  #filtrar-personalizado a,
+  #filtrar-personalizado a:link,
+  #filtrar-personalizado a:visited {
+    min-height: 24px !important;
+    font-size: 0.55rem !important;
+    padding: 0.12rem 0.06rem !important;
+  }
+
+  .user-welcome-wrapper {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.3rem;
+    margin-top: 2px;
+    min-height: 20px;
+  }
+
+  /* AÚN MÁS ESPACIO EN MÓVILES PEQUEÑOS */
+  .cine-container {
+    margin-top: 2.5rem !important;
+    padding-top: 1.2rem;
+  }
+
+  .date-selector-new {
+    margin: 12px auto 18px auto;
+    padding: 6px 10px;
+  }
+}
+
+/* Ajuste para pantallas muy estrechas (iPhone SE, etc) */
+@media (max-width: 360px) {
+  body {
+    margin-top: 115px;
+  }
+
+  header {
+    min-height: 85px; /* Mínimo posible con 2 líneas de 4 botones */
+    padding: 2px 4px;
+  }
+
+  .logo-img {
+    height: 24px;
+  }
+
+  nav ul li a {
+    font-size: 0.5rem; /* Texto mínimo pero legible */
+    padding: 0.1rem 0.04rem;
+    min-height: 22px; /* Altura mínima funcional */
+  }
+
+  #filtrar-personalizado a,
+  #filtrar-personalizado a:link,
+  #filtrar-personalizado a:visited {
+    font-size: 0.5rem !important;
+    padding: 0.1rem 0.04rem !important;
+    min-height: 22px !important;
+  }
+
+  .user-welcome-wrapper {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.25rem;
+    min-height: 18px;
+  }
+
+  /* ESPACIO ADECUADO INCLUSO EN PANTALLAS MUY PEQUEÑAS */
+  .cine-container {
+    margin-top: 2rem !important;
+    padding-top: 1rem;
+  }
+
+  .date-selector-new {
+    margin: 10px auto 15px auto;
+    padding: 5px 8px;
+  }
+}
+
+/* Ajuste para tablets - también 4 botones por línea */
+@media (min-width: 481px) and (max-width: 768px) {
+  nav ul li {
+    flex: 0 0 calc(25% - 0.1rem); /* 4 botones por línea en tablets también */
+  }
+  
+  nav ul li a {
+    font-size: 0.65rem;
+    padding: 0.18rem 0.1rem;
+    min-height: 28px;
+  }
+  
+  #filtrar-personalizado a {
+    font-size: 0.65rem !important;
+    padding: 0.18rem 0.1rem !important;
+    min-height: 28px !important;
+  }
+}
+
+/* Asegurar que el selector de fecha sea completamente visible */
+@media (max-width: 768px) {
+  .date-selector-new {
+    background: var(--gradient-header);
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 15px auto 20px auto; /* Espacio generoso */
+    text-align: center;
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    border: 2px solid #000;
+    position: relative;
+    overflow: visible;
+    max-width: 95%;
+    animation: scaleIn 0.6s ease-out;
+    transition: all 0.3s ease;
+    min-height: auto;
+    z-index: 5;
+  }
+
+  .date-selector-title-new {
+    margin-bottom: 5px;
+    font-size: 0.95rem;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 1;
+    line-height: 1.2;
+  }
+
+  .date-dropdown-new {
+    padding: 5px 10px;
+    border: 2px solid #000;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    min-width: 130px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+}
+
+/* Espacio adicional para todo el contenido principal */
+@media (max-width: 768px) {
+  main {
+    padding-top: 10px;
+  }
+  
+  .peliculas-grid {
+    margin-top: 10px;
+    padding-top: 0;
+  }
+  
+  .section-title {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
   }
 }
 
 
 /* ============================================================
-   ✅ FIN DEL INDEX.CSS
+   💻 RESPONSIVE PARA TABLET
    ============================================================ */
 
+@media (min-width: 769px) and (max-width: 1024px) {
+  .peliculas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.8rem;
+    padding: 1rem 1.5rem;
+  }
 
+  .pelicula-card {
+    max-width: 100%;
+  }
+
+  .poster-container {
+    height: 340px;
+  }
+
+  .date-selector-new {
+    max-width: 350px;
+  }
+}
+
+/* ============================================================
+   🖥️ RESPONSIVE PARA ESCRITORIO GRANDE
+   ============================================================ */
+
+@media (min-width: 1200px) {
+  .peliculas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2.5rem;
+    padding: 2rem;
+  }
+
+  .pelicula-card:hover {
+    transform: translateY(-12px) scale(1.03);
+  }
+}
+
+/* ============================================================
+   ✅ FIN DEL INDEX.CSS MEJORADO
+   ============================================================ */

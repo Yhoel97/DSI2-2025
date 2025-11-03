@@ -11,16 +11,13 @@
 
 <body>
 
-<!-- Encabezado alineado como en horarios -->
+<!-- Encabezado -->
 <header class="container py-3">
   <div class="d-flex justify-content-center align-items-center flex-wrap">
-    <!-- Título -->
     <h2 class="mb-0 me-5" style="color: #1a237e; font-weight: bold;">
       <i class="fas fa-clapperboard me-2"></i>
       Filtros avanzados de películas
     </h2>
-
-    <!-- Botón Inicio (idéntico al de horarios) -->
     <a href="{% url 'index' %}" class="btn header-btn ms-5">
       <i class="fas fa-home me-2"></i> Inicio
     </a>
@@ -32,7 +29,7 @@
 
     <!-- Formulario de filtros -->
     <form method="GET" class="row g-3 mb-4">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <label for="genero" class="form-label">Género</label>
             <select name="genero" id="genero" class="form-select">
                 <option value="">Todos</option>
@@ -42,7 +39,7 @@
             </select>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <label for="clasificacion" class="form-label">Clasificación</label>
             <select name="clasificacion" id="clasificacion" class="form-select">
                 <option value="">Todas</option>
@@ -52,23 +49,13 @@
             </select>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <label for="idioma" class="form-label">Idioma</label>
             <select name="idioma" id="idioma" class="form-select">
                 <option value="">Todos</option>
                 <option value="ESP" {% if request.GET.idioma == "ESP" %}selected{% endif %}>Español</option>
                 <option value="ING" {% if request.GET.idioma == "ING" %}selected{% endif %}>Inglés</option>
                 <option value="SUB" {% if request.GET.idioma == "SUB" %}selected{% endif %}>Subtitulada</option>
-            </select>
-        </div>
-
-        <div class="col-md-3">
-            <label for="horario" class="form-label">Horario</label>
-            <select name="horario" id="horario" class="form-select">
-                <option value="">Todos</option>
-                {% for hora in HORARIOS_DISPONIBLES %}
-                    <option value="{{ hora }}" {% if request.GET.horario == hora %}selected{% endif %}>{{ hora }}</option>
-                {% endfor %}
             </select>
         </div>
 
@@ -86,34 +73,32 @@
               <div class="card h-100 shadow-sm">
                 <div class="poster-container">
                   <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster img-fluid rounded-top">
-            </div>
+                </div>
 
-            <div class="card-body">
-              <h5 class="card-title text-primary fw-bold">{{ pelicula.nombre }}</h5>
-                <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.generos }}</p>
-                <p class="card-text mb-1"><strong>Año:</strong> {{ pelicula.anio }}</p>
-                <p class="card-text mb-1"><strong>Director:</strong> {{ pelicula.director }}</p>
+                <div class="card-body">
+                  <h5 class="card-title text-primary fw-bold">{{ pelicula.nombre }}</h5>
+                  <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.get_generos_list|join:", " }}</p>
+                  <p class="card-text mb-1"><strong>Año:</strong> {{ pelicula.anio }}</p>
+                  <p class="card-text mb-1"><strong>Director:</strong> {{ pelicula.director }}</p>
 
-                {% if pelicula.pares %}
-                  <p class="card-text mb-1"><strong>Horario y Sala:</strong>
-                    {% for horario, sala in pelicula.pares %}
-                      {{ horario }} - {{ sala }}{% if not forloop.last %}, {% endif %}
+                  <p class="card-text mb-1"><strong>Salas y Formato:</strong>
+                    {% for sala, formato in pelicula.get_salas_con_formato %}
+                      {{ sala }} ({{ formato }}){% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                      <span class="text-muted">No disponibles</span>
                     {% endfor %}
                   </p>
-                {% else %}
-                  <p class="card-text mb-1"><strong>Horario y Sala:</strong> No disponibles</p>
-                {% endif %}
 
-                <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.clasificacion }}</p>
-                <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.idioma }}</p>
+                  <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.get_clasificacion_display }}</p>
+                  <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.get_idioma_display }}</p>
+                </div>
+              </div>
             </div>
-        </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-center text-muted">No se encontraron películas con esos filtros.</p>
+        {% endif %}
     </div>
-    {% endfor %}
-    {% else %}
-    <p class="text-center text-muted">No se encontraron películas con esos filtros.</p>
-  {% endif %}
-</div>
 
 </div>
 

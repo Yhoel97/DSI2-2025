@@ -16,54 +16,85 @@
         <img src="{% static 'imagenes/cine.png' %}" alt="CineDot Logo" class="logo-img">
       </a>
     </div>
-
     <div class="nav-container">
-      <nav class="nav">
-        <ul class="nav-list flex">
-          <li><a href="#cartelera">Cartelera</a></li>
-          <li><a href="#contacto">Contacto</a></li>
-           
+  <nav class="nav">
+    <ul class="nav-list flex">
+      <li><a href="#cartelera"><i class="fas fa-film"></i> Cartelera</a></li>
+      <li><a href="#contacto"><i class="fas fa-envelope"></i> Contacto</a></li>
+      
+      <!-- 🎬 Botón de Horarios - SIEMPRE VISIBLE -->
+      <li>
+        <a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info">
+          <i class="fas fa-clock"></i> Ver Horarios
+        </a>
+      </li>
 
-          {% if user.is_authenticated %}
-            {% if user.is_staff %}
-              <li><a href="{% url 'peliculas' %}" class="btn admin-btn">Panel Admin</a></li>
-              <li><a href="{% url 'registrar_cupon' %}" class="btn logout-btn">Cupones</a></li>
-              <li><a href="{% url 'administrar_funciones' %}">Administrar Funciones</a></li>
-            {% endif %}
-            <li><a href="{% url 'mis_reservaciones_cancelables' %}" class="btn logout-btn">Cancelar Reservas</a></li>
-            <li><a href="{% url 'my_logout' %}" class="btn logout-btn">Cerrar Sesión</a></li>
-            <li><a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info ms-2">Ver Horarios</a></li>
-          {% else %}
-            <li><a href="{% url 'login' %}" class="btn login-btn">Iniciar Sesión</a></li>
-            <li><a href="{% url 'registro' %}" class="btn register-btn">Registrarse</a></li>
-          {% endif %}
-
-          <li id="filtrar-personalizado">
-            <a href="{% url 'filtrar_peliculas' %}" class="btn filter-btn">
-              <i class="fas fa-search"></i> Filtrar Películas
-            </a>
-          </li>
-        </ul>
-      </nav>
+      <!-- 🔍 Botón de Filtrar - SIEMPRE VISIBLE -->
+      <li>
+        <a href="{% url 'filtrar_peliculas' %}" class="btn filter-btn">
+          <i class="fas fa-search"></i> Filtrar Películas
+        </a>
+      </li>
 
       {% if user.is_authenticated %}
-        <div class="user-welcome-wrapper">
-          <span class="user-welcome">¡Hola, {{ user.username }}!</span>
-        </div>
+        {% if user.is_staff %}
+          <li><a href="{% url 'peliculas' %}" class="btn admin-btn"><i class="fas fa-cog"></i> Panel Admin</a></li>
+          <li><a href="{% url 'registrar_cupon' %}" class="btn logout-btn"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
+        {% endif %}
+        <li><a href="{% url 'mis_reservaciones_cancelables' %}" class="btn logout-btn"><i class="fas fa-times-circle"></i> Cancelar Reservas</a></li>
+        <li><a href="{% url 'my_logout' %}" class="btn logout-btn"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+      {% else %}
+        <li><a href="{% url 'login' %}" class="btn login-btn"><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a></li>
+        <li><a href="{% url 'registro' %}" class="btn register-btn"><i class="fas fa-user-plus"></i> Registrarse</a></li>
       {% endif %}
+    </ul>
+  </nav>
+
+  {% if user.is_authenticated %}
+    <div class="user-welcome-wrapper">
+      <span class="user-welcome">¡Hola, {{ user.username }}!</span>
     </div>
-  </div>
+  {% endif %}
+</div>
+
 </header>
 
-
 <main>
+<!-- 🗓️ Selector de Fecha MEJORADO -->
+<section class="section container">
+    <div class="date-selector-new">
+        <h3 class="date-selector-title-new" id="date-title">
+            <i class="fas fa-calendar-week"></i> 
+            Cartelera {% if fecha_seleccionada == hoy %}Hoy{% else %}del{% endif %} {{ fecha_formateada }}
+        </h3>
+        
+        <form method="GET" action="{% url 'index' %}" class="date-form-new" id="date-form">
+            <select name="fecha" class="date-dropdown-new" id="date-selector">
+                {% for dia in dias_disponibles %}
+                    <option value="{{ dia.fecha|date:'Y-m-d' }}" 
+                            {% if dia.fecha == fecha_seleccionada %}selected{% endif %}>
+                        {% if dia.fecha == hoy %}
+                            🎬 Hoy - {{ dia.nombre_es }} {{ dia.fecha|date:"d/m" }}
+                        {% else %}
+                            {{ dia.nombre_es }} {{ dia.fecha|date:"d/m" }}
+                        {% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</section>
 
     {% if es_admin %}
-    <!-- 🎥 Sección solo para administradores -->
+    <!-- 🎥 Sección solo para administradores - TODAS LAS PELÍCULAS -->
     <section id="base-datos" class="section container">
         <h2 class="section-title">🎥 Películas en Base de Datos</h2>
+        <p class="text-muted text-center mb-3">
+            <i class="fas fa-info-circle"></i> 
+            Vista completa de todas las películas registradas en el sistema
+        </p>
         <div class="peliculas-grid grid">
-            {% for pelicula in peliculas %}
+            {% for pelicula in peliculas_base_datos %}
             <div class="pelicula-card">
                 <div class="poster-container">
                     <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="movie-poster responsive-img">
@@ -79,21 +110,15 @@
                         <p><span class="detail-label">Idioma:</span> {{ pelicula.get_idioma_display }}</p>
                         <p><span class="detail-label">Año:</span> {{ pelicula.anio }}</p>
 
-                        <p><span class="detail-label">Horarios:</span>
-                            {% for h in pelicula.get_horarios_list %}
-                                {{ h }}{% if not forloop.last %}, {% endif %}
-                            {% empty %}
-                                <span class="text-muted">No especificado</span>
-                            {% endfor %}
-                        </p>
-
-                        <p><span class="detail-label">Salas:</span>
-                            {% for s in pelicula.get_salas_list %}
-                                {{ s }}{% if not forloop.last %}, {% endif %}
-                            {% empty %}
-                                <span class="text-muted">No especificado</span>
-                            {% endfor %}
-                        </p>
+                        <!-- ✅ Estado de funciones - Solo mostrar si NO tiene funciones -->
+                        {% if not pelicula.tiene_funciones %}
+                        <div class="horarios-container">
+                            <span class="detail-label text-warning">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Esta película no tiene funciones asignadas
+                            </span>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <!-- ⭐ Rating -->
@@ -124,11 +149,17 @@
                         <a href="{% url 'pelicula_detalle' pelicula.id %}" class="btn review-btn">
                             <i class="fas fa-star"></i> Ver Reseñas
                         </a>
+                        <a href="{% url 'administrar_funciones' %}" class="btn buy-btn">
+                            <i class="fas fa-plus-circle"></i> Agregar Función
+                        </a>
                     </div>
                 </div>
             </div>
             {% empty %}
-            <p style="text-align:center; color:#555;">No hay películas registradas en la base de datos.</p>
+            <p style="text-align:center; color:#555;">
+                <i class="fas fa-inbox"></i> 
+                No hay películas registradas en la base de datos.
+            </p>
             {% endfor %}
         </div>
     </section>
@@ -137,7 +168,9 @@
 
     <!-- 🎞️ Películas en Cartelera -->
     <section id="cartelera" class="section container">
-        <h2 class="section-title">🎞️ Películas en Cartelera</h2>
+        <h2 class="section-title">
+            🎞️ Películas en Cartelera {% if fecha_seleccionada == hoy %}Hoy{% else %}del{% endif %} {{ fecha_formateada }}
+        </h2>
 
         <div class="peliculas-grid grid">
             {% for pelicula in peliculas_cartelera %}
@@ -156,13 +189,22 @@
                         <p><span class="detail-label">Idioma:</span> {{ pelicula.get_idioma_display }}</p>
                         <p><span class="detail-label">Año:</span> {{ pelicula.anio }}</p>
 
-                        <p><span class="detail-label">Horarios disponibles:</span>
-                            {% for funcion in pelicula.funciones %}
-                                {{ funcion.horario }} ({{ funcion.sala }}) - {{ funcion.formato }}{% if not forloop.last %}, {% endif %}
-                            {% empty %}
-                                <span class="text-muted">No hay horarios disponibles</span>
-                            {% endfor %}
-                        </p>
+                        <!-- ✅ Horarios en formato de renglón uno abajo del otro -->
+                        <div class="horarios-container">
+                            <span class="detail-label">Horarios disponibles:</span>
+                            <div class="horarios-list">
+                                {% for funcion in pelicula.funciones_del_dia %}
+                                    <div class="horario-item">
+                                        <i class="fas fa-clock"></i> 
+                                        {{ funcion.get_horario_display }} - 
+                                        {{ funcion.sala }} - 
+                                        {{ funcion.get_formato_sala }}
+                                    </div>
+                                {% empty %}
+                                    <span class="text-muted">No hay horarios disponibles</span>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
 
                     <!-- ⭐ Rating -->
@@ -194,14 +236,21 @@
                         <a href="{% url 'pelicula_detalle' pelicula.id %}" class="btn review-btn">
                             <i class="fas fa-star"></i> Ver Reseñas
                         </a>
-                        <a href="{% url 'asientos' pelicula.id %}" class="btn buy-btn">
+                        <a href="{% url 'asientos' pelicula.id %}?fecha={{ fecha_seleccionada|date:'Y-m-d' }}" 
+                           class="btn buy-btn">
                             <i class="fas fa-ticket-alt"></i> Comprar Boletos
                         </a>
                     </div>
                 </div>
             </div>
             {% empty %}
-            <p style="text-align:center; color:#555;">No hay funciones programadas por el momento.</p>
+            <div class="no-funciones">
+                <i class="fas fa-film fa-3x"></i>
+                <p>No hay funciones programadas para esta fecha.</p>
+                {% if fecha_seleccionada != hoy %}
+                    <a href="{% url 'index' %}" class="btn btn-primary">Ver Cartelera de Hoy</a>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
     </section>
@@ -250,16 +299,6 @@
     <p>© 2025 CineDot. Todos los derechos reservados.</p>
 </footer>
 
-<script>
-  window.addEventListener('scroll', function() {
-    const header = document.querySelector('header');
-    if (window.scrollY > 50) {
-      header.style.background = 'linear-gradient(to right, #e0f3ff, #d0e0ff, #e6d6ff)';
-    } else {
-      header.style.background = 'linear-gradient(to right, #ffffff, #e0f3ff, #f0e6ff)';
-    }
-  });
-</script>
-
+<script src="{% static 'js/index.js' %}"></script>
 </body>
 </html>

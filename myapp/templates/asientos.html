@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="cine-container">
-   
+
         {% if messages %}
         <div class="messages-container">
             {% for message in messages %}
@@ -38,133 +38,163 @@
             </div>
         </header>
 
-        <!-- Formulario -->
         <div class="customer-form">
-            <!-- Botón de regreso -->
             <a href="{% url 'index' %}" class="btn-back">← Volver al inicio</a>
 
+            <div class="fecha-info">
+                <h3>📅 Función del {{ fecha_seleccionada|date:"l, d \\d\\e F \\d\\e Y" }}</h3>
+            </div>
+
             <h3>Datos del Cliente</h3>
-            <form id="reserva-form" method="POST">
+
+            <form id="reserva-form" method="POST" action="{% url 'asientos' pelicula.id %}?fecha={{ fecha_seleccionada|date:'Y-m-d' }}">
                 {% csrf_token %}
+
                 <div class="form-group">
                     <label for="nombre_cliente">Nombre:</label>
-                    <input type="text" id="nombre_cliente" name="nombre_cliente" required>
+                    <input type="text" id="nombre_cliente" name="nombre_cliente" value="{{ nombre_cliente|default:'' }}" required>
                 </div>
                 <div class="form-group">
                     <label for="apellido_cliente">Apellido:</label>
-                    <input type="text" id="apellido_cliente" name="apellido_cliente" required>
+                    <input type="text" id="apellido_cliente" name="apellido_cliente" value="{{ apellido_cliente|default:'' }}" required>
                 </div>
                 <div class="form-group">
                     <label for="email">Email:</label>
-                    <input type="email" id="email" name="email" required>
+                    <input type="email" id="email" name="email" value="{{ email|default:'' }}" required>
                 </div>
-                <div class="form-group cupon-section" style="margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
-                    <label for="codigo_cupon" style="font-weight: bold;">Código de Descuento:</label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="text" id="codigo_cupon" placeholder="Ingresa tu código" style="flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 3px;">
-                        <button type="button" id="btn-aplicar-cupon" class="btn-apply" style="padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            Aplicar
+
+                <!-- Cupón -->
+                <div class="form-group cupon-section">
+                    <label for="codigo_cupon">Código de Descuento:</label>
+                    <div class="cupon-input-group">
+                        <input type="text" id="codigo_cupon" name="codigo_cupon" value="{{ codigo_cupon|default:'' }}" placeholder="Ingresa tu código">
+                        <button type="submit" name="accion" value="recalcular" class="btn-apply">
+                            Aplicar Cupón
                         </button>
                     </div>
-                    
-                    <p id="cupon-message" style="margin-top: 5px; font-weight: bold; font-size: 0.9em;">
-                        {% if mensaje_cupon %}
-                            <script>document.getElementById('cupon-message').style.color = 'green';</script>
-                        {% endif %}
-                        {{ mensaje_cupon }}
-                    </p>
-                    
-                    <input type="hidden" id="descuento_porcentaje_actual" value="{{ descuento_porcentaje|default:0 }}">
+                    {% if mensaje_cupon %}
+                        <p id="cupon-message" style="color: {% if 'válido' in mensaje_cupon or '✅' in mensaje_cupon %}green{% else %}red{% endif %};">
+                            {{ mensaje_cupon }}
+                        </p>
+                    {% endif %}
                 </div>
 
-                <!-- Formato -->
+                <!-- Funciones disponibles -->
                 <div class="form-group">
-                    <label>Formato:</label>
-                    <div class="format-options">
-                        {% for value, label in formatos %}
-                        <label class="format-option">
-                            <input type="radio" name="formato" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
-                            {{ label }}
+                    <label>Selecciona Horario y Sala:</label>
+                    <div class="funciones-container">
+                        {% for item in funciones_con_precios %}
+                        <label class="funcion-option">
+                            <input type="radio"
+                                   name="funcion_id"
+                                   value="{{ item.funcion.id }}"
+                                   data-formato="{{ item.formato }}"
+                                   data-precio="{{ item.precio }}"
+                                   {% if item.funcion == funcion_actual %}checked{% endif %}
+                                   required
+                                   class="auto-submit">
+                            <div class="funcion-content">
+                                <div class="funcion-horario">🕐 {{ item.funcion.get_horario_display }}</div>
+                                <div class="funcion-sala">🎬 Sala {{ item.funcion.sala }}</div>
+                                <div class="funcion-formato"><strong>{{ item.formato }}</strong> - ${{ item.precio }}</div>
+                            </div>
                         </label>
+                        {% empty %}
+                        <p class="no-funciones-message">No hay funciones disponibles para esta fecha</p>
                         {% endfor %}
                     </div>
                 </div>
 
-                <!-- Combo único -->
-                <div class="form-group">
-                    <label for="combo">Horario y Sala:</label>
-                    <select id="combo" name="combo" required>
-                        {% for c in combinaciones %}
-                        <option value="{{ c }}" {% if c == combo_actual %}selected{% endif %}>{{ c }}</option>
+                <!-- Grilla de asientos -->
+                <div class="screen-container"><div class="screen">Pantalla</div></div>
+                <div class="seats-grid">
+                    {% for fila in "ABCDE" %}
+                    <div class="seat-row">
+                        <span class="row-letter">{{ fila }}</span>
+                        {% for numero in "12345678" %}
+                        {% with asiento=fila|add:numero %}
+                        <label class="seat-label">
+                            <input type="checkbox"
+                                   name="asientos_list"
+                                   value="{{ asiento }}"
+                                   {% if asiento in asientos_ocupados %}disabled{% endif %}
+                                   {% if asiento in asientos_seleccionados %}checked{% endif %}
+                                   class="auto-submit"
+                                   style="display: none;">
+                            <div class="seat {% if asiento in asientos_ocupados %}reserved{% elif asiento in asientos_seleccionados %}selected{% else %}available{% endif %}">
+                                {{ numero }}
+                            </div>
+                        </label>
+                        {% endwith %}
                         {% endfor %}
-                    </select>
+                    </div>
+                    {% endfor %}
                 </div>
 
-                <input type="hidden" id="asientos" name="asientos" value="">
+                <div class="legend">
+                    <div class="legend-item"><div class="seat available"></div><span>Disponible</span></div>
+                    <div class="legend-item"><div class="seat selected"></div><span>Seleccionado</span></div>
+                    <div class="legend-item"><div class="seat reserved"></div><span>Ocupado</span></div>
+                </div>
+
+                <!-- Resumen -->
+                <div class="selection-summary">
+                    <h3>Tu selección:</h3>
+                    <div class="selected-seats" id="selected-seats">
+                        {% if asientos_seleccionados and asientos_seleccionados|length > 0 %}
+                            {{ asientos_seleccionados|join:", " }}
+                        {% else %}
+                            Ningún asiento seleccionado
+                        {% endif %}
+                    </div>
+                    <div class="ticket-counter" id="ticket-counter">
+                        <span>Boletos:</span>
+                        <span id="ticket-count">{{ cantidad_boletos|default:0 }}</span>
+                    </div>
+
+                    <hr>
+                    <div class="price-details">
+                        <p class="price-row">
+                            <span>Formato:</span>
+                            <span id="formato-display">{{ formato_actual }}</span>
+                        </p>
+                        <p class="price-row">
+                            <span>Precio por boleto:</span>
+                            <span id="precio-boleto-display">${{ precio_funcion_actual|floatformat:2 }}</span>
+                        </p>
+                        <p class="price-row">
+                            <span>Subtotal:</span>
+                            <span id="subtotal-display">${{ subtotal|floatformat:2 }}</span>
+                        </p>
+                        {% if descuento_porcentaje and descuento_porcentaje > 0 %}
+                        <p id="discount-row" class="price-row discount-row" style="color: #28a745;">
+                            <span>Descuento ({{ descuento_porcentaje }}%):</span>
+                            <span>-${{ descuento_monto|floatformat:2 }}</span>
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="total-price" id="total-price">
+                        Total: ${{ total|floatformat:2 }}
+                    </div>
+
+                    <!-- Botón de confirmación -->
+                    <button type="submit" name="accion" value="reservar" class="btn-confirm">
+                        Confirmar Reserva
+                    </button>
+                </div>
+
+                <!-- Hidden fields -->
+                <input type="hidden" name="fecha" value="{{ fecha_seleccionada|date:'Y-m-d' }}">
             </form>
         </div>
 
-
-        <div class="screen-container"><div class="screen">Pantalla</div></div>
-            <div class="seats-grid">
-                {% for fila in "ABCDE" %}
-                <div class="seat-row">
-                    <span class="row-letter">{{ fila }}</span>
-                    {% for numero in "12345678" %}
-                    {% with asiento=fila|add:numero %}
-                    <div class="seat {% if asiento in asientos_ocupados %}reserved{% else %}available{% endif %}" 
-                         data-seat="{{ asiento }}">
-                         {{ numero }}
-                    </div>
-                    {% endwith %}
-                    {% endfor %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <div class="legend">
-            <div class="legend-item"><div class="seat available"></div><span>Disponible</span></div>
-            <div class="legend-item"><div class="seat selected"></div><span>Seleccionado</span></div>
-            <div class="legend-item"><div class="seat reserved"></div><span>Ocupado</span></div>
-        </div>
-
-        <div class="selection-summary">
-            <h3>Tu selección:</h3>
-            <div class="selected-seats" id="selected-seats">Ningún asiento seleccionado</div>
-            <div class="ticket-counter" id="ticket-counter">
-                <span>Boletos:</span>
-                <span id="ticket-count">0</span>
-            </div>
-
-            <hr style="margin: 10px 0;">
-            <div class="price-details" style="font-size: 1em;">
-                <p style="display: flex; justify-content: space-between;">Subtotal: <span id="subtotal-display">$0.00</span></p>
-                <p id="discount-row" style="color: green; display: flex; justify-content: space-between;">
-                    Descuento (<span id="discount-percent-display">0</span>%): <span id="discount-amount-display">-$0.00</span>
-                </p>
-            </div>
-            <div class="total-price" id="total-price" style="font-size: 1.5em; font-weight: bold; margin-top: 10px; border-top: 2px solid #333; padding-top: 5px;">
-                Total: $0.00
-            </div>
-            <button type="submit" form="reserva-form" class="btn-confirm">Confirmar Reserva</button>
-        </div>
+        {% if messages and codigo_reserva %}
+        <a id="auto-download" href="{% url 'descargar_ticket' codigo_reserva %}" download style="display:none;"></a>
+        <script>
+            document.getElementById("auto-download").click();
+        </script>
+        {% endif %}
     </div>
-
-{% if messages and codigo_reserva %}
-<a id="auto-download" href="{% url 'descargar_ticket' codigo_reserva %}" download style="display:none;"></a>
-<script>
-    document.getElementById("auto-download").click();
-</script>
-{% endif %}
-
-    <!-- Variables globales para pasar datos de Django al JS -->
-    <script>
-        const PELICULA_ID = {{ pelicula.id }};
-        const LIMPIAR_FORM = {{ limpiar_form|yesno:"true,false" }};
-        const APLICAR_DESCUENTO_URL = "{% url 'aplicar_descuento_ajax' %}";
-        const ASIENTOS_URL = "{% url 'asientos' pelicula.id %}";
-    </script>
 
     <script src="{% static 'js/asientos.js' %}"></script>
 </body>

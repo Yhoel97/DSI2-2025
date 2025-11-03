@@ -67,7 +67,11 @@ from django.db.models import Prefetch
 from datetime import datetime
 from .email import send_brevo_email   
 from django.utils import timezone 
-from datetime import timedelta
+from datetime import date, datetime, timedelta
+from itertools import groupby
+import pytz
+
+from .models import Pelicula, Funcion
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -78,8 +82,154 @@ GENERO_CHOICES_DICT = {
     "CF": "Ciencia Ficción",
     "RO": "Romance",
     "DO": "Documental",
-    "AN": "Animacion"
+    "AN": "Animacion",
+    "FA": "Fantasía",  
 }
+
+@admin_required
+@csrf_exempt
+def peliculas(request):
+    from datetime import date
+    hoy = date.today()
+
+    # 🔹 Filtrar películas según fecha de estreno
+    peliculas_en_cartelera = Pelicula.objects.filter(
+        Q(fecha_estreno__lte=hoy) | Q(fecha_estreno__isnull=True)
+    ).order_by('-id')
+
+    peliculas_proximas = Pelicula.objects.filter(
+        fecha_estreno__gt=hoy
+    ).order_by('fecha_estreno')
+
+    # 🔹 Procesar búsqueda si existe
+    busqueda = request.GET.get('busqueda', '').strip()
+    if busqueda:
+        peliculas_en_cartelera = peliculas_en_cartelera.filter(
+            Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
+        )
+        peliculas_proximas = peliculas_proximas.filter(
+            Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
+        )
+
+    # 🔹 Procesar formulario (crear / editar / eliminar)
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+
+        # --- CREAR ---
+        if accion == 'crear':
+            nombre = request.POST.get('nombre', '').strip()
+            anio = request.POST.get('anio', '').strip()
+            director = request.POST.get('director', '').strip()
+            imagen_url = request.POST.get('imagen_url', '').strip()
+            trailer_url = request.POST.get('trailer_url', '').strip()
+            generos = request.POST.getlist('generos')
+            salas = request.POST.getlist('salas')
+            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
+            clasificacion = request.POST.get('clasificacion', 'APT')
+            idioma = request.POST.get('idioma', 'ESP')
+
+            errores = []
+            if not nombre:
+                errores.append('El nombre es obligatorio.')
+            if Pelicula.objects.filter(nombre=nombre).exists():
+                errores.append('Ya existe una película con ese nombre.')
+            if not anio.isdigit() or int(anio) < 1900 or int(anio) > 2099:
+                errores.append('El año debe estar entre 1900 y 2099.')
+            if not director:
+                errores.append('El director es obligatorio.')
+            if not generos:
+                errores.append('Debe seleccionar al menos un género.')
+            if len(generos) > 3:
+                errores.append('No puede seleccionar más de 3 géneros.')
+
+            if errores:
+                for e in errores:
+                    messages.error(request, e)
+            else:
+                pelicula = Pelicula(
+                    nombre=nombre,
+                    anio=anio,
+                    director=director,
+                    imagen_url=imagen_url,
+                    trailer_url=trailer_url,
+                    generos=",".join(generos),
+                    salas=",".join(salas),
+                    fecha_estreno=fecha_estreno if fecha_estreno else None,
+                    clasificacion=clasificacion,
+                    idioma=idioma
+                )
+                pelicula.save()
+                messages.success(request, f'Película "{nombre}" creada exitosamente.')
+                return redirect('peliculas')
+
+        # --- EDITAR ---
+        elif accion == 'editar':
+            nombre_original = request.POST.get('nombre_original', '').strip()
+            try:
+                pelicula = Pelicula.objects.get(nombre=nombre_original)
+            except Pelicula.DoesNotExist:
+                messages.error(request, 'No se encontró la película a editar.')
+                return redirect('peliculas')
+
+            pelicula.nombre = request.POST.get('nombre', '').strip()
+            pelicula.anio = request.POST.get('anio', '').strip()
+            pelicula.director = request.POST.get('director', '').strip()
+            pelicula.imagen_url = request.POST.get('imagen_url', '').strip()
+            pelicula.trailer_url = request.POST.get('trailer_url', '').strip()
+            pelicula.generos = ",".join(request.POST.getlist('generos'))
+            pelicula.salas = ",".join(request.POST.getlist('salas'))
+            pelicula.fecha_estreno = request.POST.get('fecha_estreno') or None
+            pelicula.clasificacion = request.POST.get('clasificacion', 'APT')
+            pelicula.idioma = request.POST.get('idioma', 'ESP')
+            pelicula.save()
+            messages.success(request, f'Película "{pelicula.nombre}" actualizada correctamente.')
+            return redirect('peliculas')
+
+        # --- ELIMINAR ---
+        elif accion == 'eliminar':
+            nombre = request.POST.get('nombre', '').strip()
+            try:
+                Pelicula.objects.get(nombre=nombre).delete()
+                messages.success(request, f'Película "{nombre}" eliminada correctamente.')
+            except Pelicula.DoesNotExist:
+                messages.error(request, 'No se encontró la película para eliminar.')
+            return redirect('peliculas')
+
+    # 🔹 Datos para el formulario y la tabla
+    generos_choices = dict(Pelicula.GENERO_CHOICES)
+    salas_disponibles = Pelicula.SALAS_DISPONIBLES  # ✅ ahora solo salas con formato
+
+    pelicula_editar = None
+    if 'editar' in request.GET:
+        nombre = request.GET.get('editar')
+        pelicula_editar = Pelicula.objects.filter(nombre=nombre).first()
+
+    # 🔹 Convertir películas de cartelera con sus salas y formatos
+    peliculas_con_pares = []
+    for p in peliculas_en_cartelera:
+        pares = p.get_salas_con_formato()  # ✅ devuelve (sala, formato)
+        generos_nombres = [generos_choices.get(g, g) for g in p.get_generos_list()]
+        peliculas_con_pares.append({
+            'obj': p,
+            'pares': pares,
+            'generos_nombres': ", ".join(generos_nombres),
+            'clasificacion': p.clasificacion,
+            'idioma': p.idioma
+        })
+
+    # 🔹 Contexto para renderizar
+    context = {
+        'peliculas': peliculas_con_pares,          # En cartelera
+        'peliculas_proximas': peliculas_proximas,  # Próximamente
+        'GENERO_CHOICES_DICT': generos_choices,
+        'SALAS_DISPONIBLES': salas_disponibles,
+        'pelicula_editar': pelicula_editar,
+        'busqueda': busqueda,
+    }
+
+    return render(request, 'peliculas.html', context)
+
+#####################################################################
 
 # Decorador personalizado para verificar si el usuario es admin
 def admin_required(view_func):
@@ -94,6 +244,7 @@ def admin_required(view_func):
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
+#####################################################################################
 def convertir_generos(codigos_generos):
     """Convierte códigos de género a nombres completos"""
     if not codigos_generos:
@@ -101,55 +252,196 @@ def convertir_generos(codigos_generos):
     return [GENERO_CHOICES_DICT.get(codigo.strip(), "Desconocido") 
             for codigo in codigos_generos.split(",")]
 
-def index(request):
-    hoy = date.today()
+###############################################################################3
 
-    # ✅ Traer las funciones del día actual
+def index(request):
+    from itertools import groupby
+    from django.http import JsonResponse
+    from django.db import models
+    
+    # ✅ Usar datetime.now() sin zona horaria
+    ahora_naive = datetime.now()
+    hoy = ahora_naive.date()
+    
+    # ✅ Obtener fecha seleccionada (si existe)
+    fecha_seleccionada_str = request.GET.get('fecha')
+    if fecha_seleccionada_str:
+        try:
+            fecha_seleccionada = datetime.strptime(fecha_seleccionada_str, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_seleccionada = hoy
+    else:
+        fecha_seleccionada = hoy
+
+    # ✅ Nombres de meses en español
+    nombres_meses_es = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    
+    nombres_dias_es = {
+        'Monday': 'Lunes',
+        'Tuesday': 'Martes', 
+        'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves',
+        'Friday': 'Viernes',
+        'Saturday': 'Sábado',
+        'Sunday': 'Domingo'
+    }
+    
+    # ✅ Generar lista de 5 días (hoy + 4 días siguientes)
+    dias_disponibles = []
+    for i in range(5):
+        dia = hoy + timedelta(days=i)
+        dia_info = {
+            'fecha': dia,
+            'nombre_es': nombres_dias_es[dia.strftime('%A')],
+            'formato_corto': dia.strftime('%d/%m')
+        }
+        dias_disponibles.append(dia_info)
+
+    # ✅ Información de fecha seleccionada en español (FORMATO COMPLETO)
+    nombre_dia_seleccionado = nombres_dias_es[fecha_seleccionada.strftime('%A')]
+    nombre_mes_seleccionado = nombres_meses_es[fecha_seleccionada.month]
+    
+    # Formato: "Lunes 03 de Noviembre"
+    fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
+
+    # ✅ CARTELERA: Películas CON funciones activas en la fecha seleccionada
+    # Ordenar por -pelicula__id para que las más recientes aparezcan primero
     funciones = (
-        Funcion.objects.filter(fecha=hoy)
+        Funcion.objects.filter(
+            activa=True,
+            fecha_inicio__lte=fecha_seleccionada,
+        )
         .select_related('pelicula')
-        .order_by('pelicula__nombre', 'horario')
+        .order_by('-pelicula__id', 'horario')  # Orden descendente por ID de película
     )
 
-    # ✅ Agrupar funciones por película
+    funciones_filtradas = []
+    for funcion in funciones:
+        fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        
+        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
+            if fecha_seleccionada == hoy:
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                
+                margen = timedelta(minutes=10)
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_filtradas.append(funcion)
+            else:
+                funciones_filtradas.append(funcion)
+
+    # ✅ Agrupar funciones por película (ordenadas por ID descendente)
     peliculas_cartelera = []
-    for pelicula, grupo_funciones in groupby(funciones, key=lambda f: f.pelicula):
-        pelicula.funciones = list(grupo_funciones)
-        peliculas_cartelera.append(pelicula)
+    peliculas_vistas = set()
+    
+    for funcion in funciones_filtradas:
+        if funcion.pelicula.id not in peliculas_vistas:
+            # Primera vez que vemos esta película
+            pelicula = funcion.pelicula
+            pelicula.funciones_del_dia = [f for f in funciones_filtradas if f.pelicula.id == pelicula.id]
+            peliculas_cartelera.append(pelicula)
+            peliculas_vistas.add(pelicula.id)
 
-    # ✅ Películas base de datos y próximas (sin tocar)
-    peliculas = Pelicula.objects.filter(
-        models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
-    ).order_by('-id')
-
-    peliculas_proximas = Pelicula.objects.filter(
-        fecha_estreno__gt=hoy
-    ).order_by('fecha_estreno')
-
-    for pelicula in peliculas:
-        pelicula.get_generos_list = convertir_generos(pelicula.generos)
-        horarios = pelicula.get_horarios_list()
-        salas = pelicula.get_salas_list()
-        pelicula.horario_sala_pares = list(zip(horarios, salas))
+    # ✅ Enriquecer películas de cartelera
+    for pelicula in peliculas_cartelera:
+        pelicula.generos_list = pelicula.get_generos_list()
+        pelicula.salas_con_formato = pelicula.get_salas_con_formato()
         pelicula.estrellas = (
             pelicula.get_rating_estrellas()
             if hasattr(pelicula, 'get_rating_estrellas')
             else {'llenas': 0, 'media': False}
         )
 
+    # ✅ Si es request AJAX, devolver JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        peliculas_data = []
+        for pelicula in peliculas_cartelera:
+            # Obtener imagen URL
+            imagen_url = ''
+            if hasattr(pelicula, 'poster') and pelicula.poster:
+                imagen_url = pelicula.poster.url
+            elif hasattr(pelicula, 'imagen_url'):
+                imagen_url = pelicula.imagen_url
+            
+            peliculas_data.append({
+                'id': pelicula.id,
+                'nombre': pelicula.nombre,
+                'imagen_url': imagen_url,
+                'generos': pelicula.generos_list if hasattr(pelicula, 'generos_list') else [],
+                'director': pelicula.director if hasattr(pelicula, 'director') else 'Desconocido',
+                'clasificacion': pelicula.get_clasificacion_display() if hasattr(pelicula, 'get_clasificacion_display') else 'N/A',
+                'idioma': pelicula.get_idioma_display() if hasattr(pelicula, 'get_idioma_display') else 'N/A',
+                'anio': pelicula.anio if hasattr(pelicula, 'anio') else '',
+                'trailer_url': pelicula.trailer_url if hasattr(pelicula, 'trailer_url') else '#',
+                'rating': pelicula.estrellas if hasattr(pelicula, 'estrellas') else {'llenas': 0, 'media': False},
+                'rating_promedio': str(pelicula.get_rating_promedio()) if hasattr(pelicula, 'get_rating_promedio') else '0.0',
+                'total_valoraciones': pelicula.get_total_valoraciones() if hasattr(pelicula, 'get_total_valoraciones') else 0,
+                'funciones': [{
+                    'horario': funcion.get_horario_display() if hasattr(funcion, 'get_horario_display') else funcion.horario,
+                    'sala': str(funcion.sala),
+                    'formato': funcion.get_formato_sala() if hasattr(funcion, 'get_formato_sala') else ''
+                } for funcion in pelicula.funciones_del_dia]
+            })
+        
+        return JsonResponse({
+            'fecha_formateada': fecha_formateada,
+            'es_hoy': fecha_seleccionada == hoy,
+            'peliculas': peliculas_data,
+            'total_peliculas': len(peliculas_cartelera)
+        })
+
+    # ✅ BASE DE DATOS (Solo Admin): TODAS las películas en cartelera
+    peliculas_base_datos = []
+    if request.user.is_authenticated and request.user.is_staff:
+        peliculas_base_datos = Pelicula.objects.filter(
+            models.Q(fecha_estreno__lte=hoy) | models.Q(fecha_estreno__isnull=True)
+        ).order_by('-id')  # Más recientes primero
+        
+        # Enriquecer todas las películas de base de datos
+        for pelicula in peliculas_base_datos:
+            pelicula.generos_list = pelicula.get_generos_list()
+            pelicula.salas_con_formato = pelicula.get_salas_con_formato()
+            pelicula.estrellas = (
+                pelicula.get_rating_estrellas()
+                if hasattr(pelicula, 'get_rating_estrellas')
+                else {'llenas': 0, 'media': False}
+            )
+            # Verificar si tiene funciones activas para la fecha seleccionada
+            pelicula.tiene_funciones = Funcion.objects.filter(
+                pelicula=pelicula,
+                activa=True,
+                fecha_inicio__lte=fecha_seleccionada
+            ).exists()
+
+    # ✅ PRÓXIMAMENTE: Películas con fecha de estreno futura
+    peliculas_proximas = Pelicula.objects.filter(
+        fecha_estreno__gt=hoy
+    ).order_by('fecha_estreno')
+
+    # Enriquecer películas próximas
     for pelicula in peliculas_proximas:
-        pelicula.get_generos_list = convertir_generos(pelicula.generos)
+        pelicula.generos_list = pelicula.get_generos_list()
 
     es_admin = request.user.is_authenticated and request.user.is_staff
 
     return render(request, 'index.html', {
-        'peliculas': peliculas,
-        'peliculas_proximas': peliculas_proximas,
-        'peliculas_cartelera': peliculas_cartelera,  # 👈 agrupadas
+        'peliculas_base_datos': peliculas_base_datos,        # Admin: TODAS las películas
+        'peliculas_proximas': peliculas_proximas,            # Próximamente
+        'peliculas_cartelera': peliculas_cartelera,          # Cartelera activa
         'es_admin': es_admin,
+        'dias_disponibles': dias_disponibles,
+        'fecha_seleccionada': fecha_seleccionada,
+        'fecha_formateada': fecha_formateada,
+        'hoy': hoy,
+        'nombres_dias_es': nombres_dias_es,
+        'nombres_meses_es': nombres_meses_es,
     })
 
-
+################################################################################
 
 def my_login(request):
     if request.method == 'POST':
@@ -239,164 +531,277 @@ def registro_usuario(request):
 
 
 #######################################################################
+
+
 @csrf_exempt
 def asientos(request, pelicula_id=None):
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
-    
     if not pelicula:
         messages.error(request, "No se ha seleccionado ninguna película")
         return redirect('index')
-    
-    if request.method == 'POST':
-        nombre_cliente = request.POST.get('nombre_cliente', '').strip()
-        apellido_cliente = request.POST.get('apellido_cliente', '').strip()
-        email = request.POST.get('email', '').strip()
-        formato = request.POST.get('formato', '').strip()
-        combo = request.POST.get('combo', '').strip()
-        asientos_seleccionados = request.POST.get('asientos', '').strip()
 
-        salas_list = pelicula.get_salas_list()
-        horarios_list = pelicula.get_horarios_list()
-        combinaciones = [f"{h} - {s}" for h, s in zip(horarios_list, salas_list)]
+    # Obtener fecha
+    fecha_str = request.GET.get('fecha', '') or request.POST.get('fecha', '')
+    ahora_naive = datetime.now()
+    try:
+        fecha_seleccionada = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else ahora_naive.date()
+    except ValueError:
+        fecha_seleccionada = ahora_naive.date()
 
-        errores = []
-        if not nombre_cliente: errores.append('El nombre es obligatorio')
-        if not apellido_cliente: errores.append('El apellido es obligatorio')
-        if not email or '@' not in email: errores.append('Ingrese un email válido')
-        if not formato or formato not in dict(Reserva.FORMATO_CHOICES).keys(): errores.append('Seleccione un formato válido')
-        if not combo or combo not in combinaciones: errores.append('Seleccione una combinación válida')
-        if not asientos_seleccionados: errores.append('Seleccione al menos un asiento')
+    PRECIOS_FORMATO = {'2D': 4.00, '3D': 6.00, 'IMAX': 8.00}
 
-        if not errores:
-            try:
-                horario, sala = combo.split(" - ", 1)
-                precio_por_boleto = {'2D': 3.50, '3D': 4.50, 'IMAX': 6.00}.get(formato, 0)
-                cantidad_boletos = len([a for a in asientos_seleccionados.split(',') if a])
-                
-                # Descuento
-                precio_subtotal = float(precio_por_boleto * cantidad_boletos)
-                descuento_porcentaje = float(request.session.get('descuento_porcentaje', 0))
-                monto_descuento = precio_subtotal * (descuento_porcentaje / 100)
-                precio_total = precio_subtotal - monto_descuento
-                
-                reserva = Reserva(
-                    pelicula=pelicula,
-                    nombre_cliente=nombre_cliente,
-                    apellido_cliente=apellido_cliente,
-                    email=email,
-                    formato=formato,
-                    sala=sala.strip(),
-                    horario=horario.strip(),
-                    asientos=asientos_seleccionados,
-                    cantidad_boletos=cantidad_boletos,
-                    precio_total=precio_total,
-                    estado='RESERVADO',
-                    usuario=request.user if request.user.is_authenticated else None
-                )
-                reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    # Obtener funciones vigentes
+    funciones = Funcion.objects.filter(
+        pelicula=pelicula,
+        activa=True,
+        fecha_inicio__lte=fecha_seleccionada
+    ).order_by('horario')
 
-                # Limpia variables de sesión del cupón
-                request.session.pop('descuento_porcentaje', None)
-                request.session.pop('codigo_aplicado', None)
+    funciones_vigentes = []
+    for funcion in funciones:
+        fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
+            if fecha_seleccionada == ahora_naive.date():
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                margen = timedelta(minutes=10)
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_vigentes.append(funcion)
+            else:
+                funciones_vigentes.append(funcion)
 
-                reserva.save()
+    if not funciones_vigentes:
+        messages.error(request, f"No hay funciones disponibles para esta película el {fecha_seleccionada.strftime('%d/%m/%Y')}")
+        return redirect('index')
 
-                # Registrar la venta
-                try:
-                    Venta.objects.create(
-                        pelicula=reserva.pelicula,
-                        sala=reserva.sala,
-                        fecha=date.today(),
-                        cantidad_boletos=reserva.cantidad_boletos,
-                        total_venta=reserva.precio_total
-                    )
-                except Exception as e:
-                    print(f"⚠️ Error al registrar la venta: {e}")
+    # Determinar función actual (POST o GET)
+    funcion_actual_id = request.POST.get('funcion_id') or request.GET.get('funcion_id')
+    funcion_actual = None
+    if funcion_actual_id:
+        funcion_actual = next((f for f in funciones_vigentes if str(f.id) == str(funcion_actual_id)), None)
+    if not funcion_actual and funciones_vigentes:
+        funcion_actual = funciones_vigentes[0]
 
-                # Generar PDF
-                pdf_buffer = generar_pdf_reserva(reserva)
+    # Formato y precio de la función actual
+    formato_actual = funcion_actual.get_formato_sala() if funcion_actual else '2D'
+    precio_funcion_actual = PRECIOS_FORMATO.get(formato_actual, 4.00)
 
-                # Enviar correo con PDF adjunto
-                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
-                body = (
-                    f"Hola {reserva.nombre_cliente},\n\n"
-                    f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.\n"
-                    f"Código de reserva: {reserva.codigo_reserva}\n"
-                    f"Adjunto encontrarás tu ticket en formato PDF.\n\n"
-                    "¡Gracias por elegir CineDot!"
-                )
+    # Enriquecer funciones con precios
+    funciones_con_precios = []
+    for funcion in funciones_vigentes:
+        formato = funcion.get_formato_sala()
+        precio = PRECIOS_FORMATO.get(formato, 4.00)
+        funciones_con_precios.append({
+            'funcion': funcion, 
+            'formato': formato, 
+            'precio': precio
+        })
 
-                send_brevo_email(
-                    to_emails=[reserva.email],
-                    subject=subject,
-                    html_content=body.replace("\n", "<br>"),
-                    attachments=[(
-                        f"ticket_{reserva.codigo_reserva}.pdf",
-                        pdf_buffer.getvalue(),
-                        "application/pdf"
-                    )]
-                )
+    # Asientos ocupados para esta función y fecha
+    asientos_ocupados = []
+    if funcion_actual:
+        reservas_existentes = Reserva.objects.filter(
+            pelicula=pelicula,
+            sala=str(funcion_actual.sala),
+            horario=funcion_actual.horario,
+            fecha_funcion=fecha_seleccionada,
+            estado__in=['RESERVADO', 'CONFIRMADO']
+        )
+        for r in reservas_existentes:
+            asientos_ocupados.extend(r.get_asientos_list())
 
-                # Guardar datos en sesión
-                request.session['codigo_reserva'] = reserva.codigo_reserva
-                request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
-                request.session['limpiar_form'] = True
+    # Obtener asientos seleccionados desde el formulario
+    asientos_seleccionados_list = request.POST.getlist('asientos_list') or []
+    asientos_seleccionados = sorted([a for a in asientos_seleccionados_list if a])
 
-                # Redirigir de vuelta a asientos (no al PDF)
-                return redirect('asientos', pelicula_id=pelicula.id)
+    # Cálculos
+    cantidad_boletos = len(asientos_seleccionados)
+    subtotal = cantidad_boletos * precio_funcion_actual
 
-            except Exception as e:
-                messages.error(request, f'Error al crear la reserva: {str(e)}')
+    # Cupón
+    codigo_cupon = request.POST.get('codigo_cupon', '').strip()
+    descuento_porcentaje = 0
+    mensaje_cupon = ""
+
+    if codigo_cupon:
+        cupon = Cupon.objects.filter(codigo__iexact=codigo_cupon, activo=True).first()
+        if cupon:
+            descuento_porcentaje = cupon.porcentaje
+            mensaje_cupon = f"✅ Cupón aplicado: {descuento_porcentaje}% de descuento"
         else:
-            for error in errores:
-                messages.error(request, error)
+            mensaje_cupon = "❌ Código inválido o inactivo"
 
-    # Mensaje post-reserva
+    descuento_monto = subtotal * (descuento_porcentaje / 100.0)
+    total = subtotal - descuento_monto
+
+    # Datos del formulario
+    nombre_cliente = request.POST.get('nombre_cliente', '').strip()
+    apellido_cliente = request.POST.get('apellido_cliente', '').strip()
+    email = request.POST.get('email', '').strip()
+
+    # ✅ MANEJO DE POST
+    if request.method == 'POST':
+        accion = request.POST.get('accion', '')
+        
+        print(f"📥 POST recibido - Acción: '{accion}'")
+        print(f"   Función: {funcion_actual_id}")
+        print(f"   Asientos: {asientos_seleccionados}")
+        print(f"   Formato: {formato_actual}")
+        print(f"   Precio: ${precio_funcion_actual}")
+        print(f"   Total: ${total:.2f}")
+
+        # Si es solo recalcular, renderizar con los nuevos valores
+        if accion == 'recalcular':
+            context = {
+                'pelicula': pelicula,
+                'asientos_ocupados': asientos_ocupados,
+                'funciones_vigentes': funciones_vigentes,
+                'funciones_con_precios': funciones_con_precios,
+                'funcion_actual': funcion_actual,
+                'fecha_seleccionada': fecha_seleccionada,
+                'precio_funcion_actual': precio_funcion_actual,
+                'formato_actual': formato_actual,
+                'asientos_seleccionados': asientos_seleccionados,
+                'cantidad_boletos': cantidad_boletos,
+                'subtotal': subtotal,
+                'descuento_porcentaje': descuento_porcentaje,
+                'descuento_monto': descuento_monto,
+                'total': total,
+                'mensaje_cupon': mensaje_cupon,
+                'nombre_cliente': nombre_cliente,
+                'apellido_cliente': apellido_cliente,
+                'email': email,
+                'codigo_cupon': codigo_cupon,
+            }
+            return render(request, "asientos.html", context)
+
+        # Si es reservar, validar y crear la reserva
+        if accion == 'reservar':
+            errores = []
+            if not nombre_cliente: errores.append('El nombre es obligatorio')
+            if not apellido_cliente: errores.append('El apellido es obligatorio')
+            if not email or '@' not in email: errores.append('Ingrese un email válido')
+            if not funcion_actual_id: errores.append('Seleccione una función')
+            if cantidad_boletos == 0: errores.append('Seleccione al menos un asiento')
+
+            if not errores:
+                try:
+                    funcion = get_object_or_404(Funcion, id=funcion_actual_id)
+                    formato_funcion = funcion.get_formato_sala()
+                    precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
+
+                    # Recalcular por seguridad
+                    cantidad_boletos = len(asientos_seleccionados)
+                    subtotal = float(precio_por_boleto * cantidad_boletos)
+                    descuento_monto = subtotal * (descuento_porcentaje / 100.0)
+                    precio_total = subtotal - descuento_monto
+
+                    reserva = Reserva(
+                        pelicula=pelicula,
+                        nombre_cliente=nombre_cliente,
+                        apellido_cliente=apellido_cliente,
+                        email=email,
+                        formato=formato_funcion,
+                        sala=str(funcion.sala),
+                        horario=funcion.horario,
+                        fecha_funcion=fecha_seleccionada,
+                        asientos=",".join(asientos_seleccionados),
+                        cantidad_boletos=cantidad_boletos,
+                        precio_total=precio_total,
+                        estado='RESERVADO',
+                        usuario=request.user if request.user.is_authenticated else None
+                    )
+                    reserva.codigo_reserva = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    reserva.save()
+
+                    # Registrar venta
+                    try:
+                        Venta.objects.create(
+                            pelicula=reserva.pelicula,
+                            sala=reserva.sala,
+                            fecha=fecha_seleccionada,
+                            cantidad_boletos=reserva.cantidad_boletos,
+                            total_venta=reserva.precio_total
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Error al registrar la venta: {e}")
+
+                    # Generar PDF
+                    pdf_buffer = generar_pdf_reserva(reserva)
+
+                    # Enviar correo
+                    subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                    body = (
+                        f"Hola {reserva.nombre_cliente},\n\n"
+                        f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.\n"
+                        f"Código de reserva: {reserva.codigo_reserva}\n"
+                        f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}\n"
+                        f"Horario: {funcion.get_horario_display()}\n"
+                        f"Sala: {funcion.sala}\n"
+                        f"Formato: {formato_funcion}\n"
+                        f"Asientos: {','.join(asientos_seleccionados)}\n"
+                        f"Subtotal: ${subtotal:.2f}\n"
+                        f"Descuento: -${descuento_monto:.2f}\n"
+                        f"Total: ${precio_total:.2f}\n\n"
+                        f"Adjunto encontrarás tu ticket en formato PDF.\n\n"
+                        "¡Gracias por elegir CineDot!"
+                    )
+
+                    send_brevo_email(
+                        to_emails=[reserva.email],
+                        subject=subject,
+                        html_content=body.replace("\n", "<br>"),
+                        attachments=[(
+                            f"ticket_{reserva.codigo_reserva}.pdf",
+                            pdf_buffer.getvalue(),
+                            "application/pdf"
+                        )]
+                    )
+
+                    # Guardar en sesión
+                    request.session['codigo_reserva'] = reserva.codigo_reserva
+                    request.session['reserva_message'] = f'¡Reserva exitosa! Código: {reserva.codigo_reserva}'
+                    request.session['limpiar_form'] = True
+
+                    return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+
+                except Exception as e:
+                    messages.error(request, f'Error al crear la reserva: {str(e)}')
+            else:
+                for error in errores:
+                    messages.error(request, error)
+
+    # ✅ Mensaje post-reserva
     if 'reserva_message' in request.session:
         messages.success(request, request.session['reserva_message'])
         del request.session['reserva_message']
 
-    salas_list = pelicula.get_salas_list()
-    horarios_list = pelicula.get_horarios_list()
-    combinaciones = [f"{h} - {s}" for h, s in zip(horarios_list, salas_list)]
-
-    combo_actual = request.POST.get('combo') or request.GET.get('combo') or (combinaciones[0] if combinaciones else '')
-
-    asientos_ocupados = []
-    if combo_actual:
-        try:
-            horario_sel, sala_sel = combo_actual.split(" - ", 1)
-            reservas_existentes = Reserva.objects.filter(
-                pelicula=pelicula,
-                sala=sala_sel.strip(),
-                horario=horario_sel.strip(),
-                estado__in=['RESERVADO', 'CONFIRMADO']
-            )
-            for r in reservas_existentes:
-                asientos_ocupados.extend(r.get_asientos_list())
-        except ValueError:
-            pass
-
-    if request.method == 'GET':
-        request.session.pop('descuento_porcentaje', None)
-        request.session.pop('codigo_aplicado', None)
-        request.session.pop('mensaje_cupon', None)
-
-    descuento_porcentaje = request.session.get('descuento_porcentaje', 0)
-    mensaje_cupon = request.session.pop('mensaje_cupon', '') 
-
+    # ✅ Renderizar vista (GET o POST sin acción específica)
     context = {
-    'pelicula': pelicula,
-    'formatos': Reserva.FORMATO_CHOICES,
-    'asientos_ocupados': asientos_ocupados,
-    'combinaciones': combinaciones,
-    'combo_actual': combo_actual,
-    'descuento_porcentaje': float(descuento_porcentaje), 
-    'mensaje_cupon': mensaje_cupon,
-    'limpiar_form': request.session.pop('limpiar_form', False),
-    'codigo_reserva': request.session.get('codigo_reserva'),  
+        'pelicula': pelicula,
+        'asientos_ocupados': asientos_ocupados,
+        'funciones_vigentes': funciones_vigentes,
+        'funciones_con_precios': funciones_con_precios,
+        'funcion_actual': funcion_actual,
+        'fecha_seleccionada': fecha_seleccionada,
+        'limpiar_form': request.session.pop('limpiar_form', False),
+        'codigo_reserva': request.session.get('codigo_reserva'),
+        'precio_funcion_actual': precio_funcion_actual,
+        'formato_actual': formato_actual,
+        'asientos_seleccionados': asientos_seleccionados,
+        'cantidad_boletos': cantidad_boletos,
+        'subtotal': subtotal,
+        'descuento_porcentaje': descuento_porcentaje,
+        'descuento_monto': descuento_monto,
+        'total': total,
+        'mensaje_cupon': mensaje_cupon,
+        'nombre_cliente': nombre_cliente,
+        'apellido_cliente': apellido_cliente,
+        'email': email,
+        'codigo_cupon': codigo_cupon,
     }
     return render(request, "asientos.html", context)
+
 
 #################################################################
 #################################################################
@@ -770,164 +1175,6 @@ def validaQR(request, codigo_reserva):
         "reserva": reserva,
         "pelicula": reserva.pelicula
     })
-###############################################################################################
-
-@admin_required
-@csrf_exempt
-def peliculas(request):
-    from datetime import date
-    hoy = date.today()
-
-    # 🔹 Filtrar películas según fecha de estreno
-    peliculas_en_cartelera = Pelicula.objects.filter(
-        Q(fecha_estreno__lte=hoy) | Q(fecha_estreno__isnull=True)
-    ).order_by('-id')
-
-    peliculas_proximas = Pelicula.objects.filter(
-        fecha_estreno__gt=hoy
-    ).order_by('fecha_estreno')
-
-    # 🔹 Procesar búsqueda si existe
-    busqueda = request.GET.get('busqueda', '').strip()
-    if busqueda:
-        peliculas_en_cartelera = peliculas_en_cartelera.filter(
-            Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
-        )
-        peliculas_proximas = peliculas_proximas.filter(
-            Q(nombre__icontains=busqueda) | Q(director__icontains=busqueda)
-        )
-
-    # 🔹 Procesar formulario (crear / editar / eliminar)
-    if request.method == 'POST':
-        accion = request.POST.get('accion')
-
-        # --- CREAR ---
-        if accion == 'crear':
-            nombre = request.POST.get('nombre', '').strip()
-            anio = request.POST.get('anio', '').strip()
-            director = request.POST.get('director', '').strip()
-            imagen_url = request.POST.get('imagen_url', '').strip()
-            trailer_url = request.POST.get('trailer_url', '').strip()
-            generos = request.POST.getlist('generos')
-            horarios = request.POST.getlist('horarios')
-            salas = request.POST.getlist('salas')
-            fecha_estreno = request.POST.get('fecha_estreno', '').strip()
-            clasificacion = request.POST.get('clasificacion', 'APT')
-            idioma = request.POST.get('idioma', 'Español')
-
-            errores = []
-            if not nombre:
-                errores.append('El nombre es obligatorio.')
-            if Pelicula.objects.filter(nombre=nombre).exists():
-                errores.append('Ya existe una película con ese nombre.')
-            if not anio.isdigit() or int(anio) < 1900 or int(anio) > 2099:
-                errores.append('El año debe estar entre 1900 y 2099.')
-            if not director:
-                errores.append('El director es obligatorio.')
-            if not generos:
-                errores.append('Debe seleccionar al menos un género.')
-            if len(generos) > 3:
-                errores.append('No puede seleccionar más de 3 géneros.')
-
-            if errores:
-                for e in errores:
-                    messages.error(request, e)
-            else:
-                pelicula = Pelicula(
-                    nombre=nombre,
-                    anio=anio,
-                    director=director,
-                    imagen_url=imagen_url,
-                    trailer_url=trailer_url,
-                    generos=",".join(generos),
-                    horarios=",".join(horarios),
-                    salas=",".join(salas),
-                    fecha_estreno=fecha_estreno if fecha_estreno else None,
-                    clasificacion=clasificacion,
-                    idioma=idioma
-                )
-                pelicula.save()
-                messages.success(request, f'Película "{nombre}" creada exitosamente.')
-                return redirect('peliculas')
-
-        # --- EDITAR ---
-        elif accion == 'editar':
-            nombre_original = request.POST.get('nombre_original', '').strip()
-            try:
-                pelicula = Pelicula.objects.get(nombre=nombre_original)
-            except Pelicula.DoesNotExist:
-                messages.error(request, 'No se encontró la película a editar.')
-                return redirect('peliculas')
-
-            pelicula.nombre = request.POST.get('nombre', '').strip()
-            pelicula.anio = request.POST.get('anio', '').strip()
-            pelicula.director = request.POST.get('director', '').strip()
-            pelicula.imagen_url = request.POST.get('imagen_url', '').strip()
-            pelicula.trailer_url = request.POST.get('trailer_url', '').strip()
-            pelicula.generos = ",".join(request.POST.getlist('generos'))
-            pelicula.horarios = ",".join(request.POST.getlist('horarios'))
-            pelicula.salas = ",".join(request.POST.getlist('salas'))
-            pelicula.fecha_estreno = request.POST.get('fecha_estreno') or None
-            pelicula.clasificacion = request.POST.get('clasificacion', 'APT')
-            pelicula.idioma = request.POST.get('idioma', 'Español')
-            pelicula.save()
-            messages.success(request, f'Película "{pelicula.nombre}" actualizada correctamente.')
-            return redirect('peliculas')
-
-        # --- ELIMINAR ---
-        elif accion == 'eliminar':
-            nombre = request.POST.get('nombre', '').strip()
-            try:
-                Pelicula.objects.get(nombre=nombre).delete()
-                messages.success(request, f'Película "{nombre}" eliminada correctamente.')
-            except Pelicula.DoesNotExist:
-                messages.error(request, 'No se encontró la película para eliminar.')
-            return redirect('peliculas')
-
-    # 🔹 Datos para el formulario y la tabla
-    generos_choices = dict(Pelicula.GENERO_CHOICES)
-    horarios_disponibles = Pelicula.HORARIOS_DISPONIBLES
-    salas_disponibles = Pelicula.SALAS_DISPONIBLES
-
-    pelicula_editar = None
-    if 'editar' in request.GET:
-        nombre = request.GET.get('editar')
-        pelicula_editar = Pelicula.objects.filter(nombre=nombre).first()
-                # ✅ Asegurar que los géneros carguen correctamente al editar
-        if pelicula_editar:
-            pelicula_editar.get_generos_list = pelicula_editar.get_generos_list()
-            pelicula_editar.get_horarios_list = pelicula_editar.get_horarios_list()
-            pelicula_editar.get_salas_list = pelicula_editar.get_salas_list()
-
-
-    # 🔹 Convertir películas de cartelera con sus pares horarios/salas
-    peliculas_con_pares = []
-    for p in peliculas_en_cartelera:
-        pares = list(zip(p.get_horarios_list(), p.get_salas_list()))
-        generos_nombres = [generos_choices.get(g, g) for g in p.get_generos_list()]
-        peliculas_con_pares.append({
-            'obj': p,
-            'pares': pares,
-            'generos_nombres': ", ".join(generos_nombres),
-            'clasificacion': p.clasificacion,
-            'idioma': p.idioma
-        })
-
-    # 🔹 Contexto para renderizar
-    context = {
-        'peliculas': peliculas_con_pares,          # En cartelera
-        'peliculas_proximas': peliculas_proximas,  # Próximamente
-        'GENERO_CHOICES_DICT': generos_choices,
-        'HORARIOS_DISPONIBLES': horarios_disponibles,
-        'SALAS_DISPONIBLES': salas_disponibles,
-        'pelicula_editar': pelicula_editar,
-        'busqueda': busqueda,
-    }
-
-    return render(request, 'peliculas.html', context)
-
-
-
 
 ################################################################################
 # VALORACIONES Y RESEÑAS - PBI-24
@@ -1025,277 +1272,487 @@ def eliminar_valoracion(request, pelicula_id):
     
     return redirect('pelicula_detalle', pelicula_id=pelicula.id)
 
-######
+###############################################################################
+
 
 def filtrar_peliculas(request):
+    """
+    Muestra SOLO películas con funciones activas vigentes HOY
+    (misma lógica que index para cartelera)
+    """
+    from django.db.models import Q
+    
     genero = request.GET.get('genero', '').strip()
     clasificacion = request.GET.get('clasificacion', '').strip()
     idioma = request.GET.get('idioma', '').strip()
-    horario = request.GET.get('horario', '').strip()
 
-    hoy = date.today()
+    # ✅ Usar datetime.now() sin zona horaria
+    ahora_naive = datetime.now()
+    hoy = ahora_naive.date()
 
-    # 🔹 Películas con funciones activas hoy
-    peliculas = Pelicula.objects.filter(funcion__fecha=hoy).distinct()
+    # ✅ CARTELERA: Películas CON funciones activas vigentes HOY
+    funciones = (
+        Funcion.objects.filter(
+            activa=True,
+            fecha_inicio__lte=hoy,
+        )
+        .select_related('pelicula')
+        .order_by('-pelicula__id', 'horario')
+    )
 
-    # 🔹 Aplicar filtros si el usuario los usa
-    if genero:
-        peliculas = peliculas.filter(generos__icontains=genero)
-    if clasificacion:
-        peliculas = peliculas.filter(clasificacion__icontains=clasificacion)
-    if idioma:
-        peliculas = peliculas.filter(idioma__icontains=idioma)
-    if horario:
-        peliculas = peliculas.filter(funcion__horario__icontains=horario)
+    funciones_filtradas = []
+    for funcion in funciones:
+        fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        
+        # Verificar que la función esté en el rango de fechas
+        if funcion.fecha_inicio <= hoy <= fecha_fin_funcion:
+            # Verificar que no haya pasado (margen de 10 minutos)
+            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+            datetime_funcion = datetime.combine(hoy, hora_funcion)
+            
+            margen = timedelta(minutes=10)
+            if datetime_funcion > (ahora_naive - margen):
+                funciones_filtradas.append(funcion)
 
-    peliculas = peliculas.order_by('-fecha_estreno', '-id')
+    # ✅ Agrupar funciones por película
+    peliculas_dict = {}
+    for funcion in funciones_filtradas:
+        pelicula_id = funcion.pelicula.id
+        if pelicula_id not in peliculas_dict:
+            peliculas_dict[pelicula_id] = {
+                'pelicula': funcion.pelicula,
+                'funciones': []
+            }
+        peliculas_dict[pelicula_id]['funciones'].append(funcion)
 
-    # 🔹 Construir los datos combinando Pelicula + Funcion
-    peliculas_data = []
-    for p in peliculas:
-        funciones_hoy = Funcion.objects.filter(pelicula=p, fecha=hoy)
-        horarios = [f.horario for f in funciones_hoy]
-        salas = [f.sala for f in funciones_hoy]
-        pares = list(zip(horarios, salas))
+    # ✅ Convertir a lista de películas
+    peliculas_base = [item['pelicula'] for item in peliculas_dict.values()]
 
-        peliculas_data.append({
-            'id': p.id,
-            'nombre': p.nombre,
-            'imagen_url': p.imagen_url,
-            'anio': p.anio,
-            'director': p.director or "No especificado",
-            'generos': ", ".join(p.get_generos_list()) if hasattr(p, 'get_generos_list') else p.generos,
-            'clasificacion': p.clasificacion or "No definida",
-            'idioma': p.idioma or "No especificado",
-            'fecha_estreno': p.fecha_estreno,
-            'pares': pares,  # 🔹 horarios y salas reales de hoy
-        })
+    # 🔹 Aplicar filtros del formulario
+    peliculas_filtradas = []
+    for pelicula in peliculas_base:
+        cumple_filtros = True
+        
+        if genero and genero not in pelicula.generos:
+            cumple_filtros = False
+        if clasificacion and pelicula.clasificacion != clasificacion:
+            cumple_filtros = False
+        if idioma and pelicula.idioma != idioma:
+            cumple_filtros = False
+            
+        if cumple_filtros:
+            # Agregar funciones del día a la película
+            pelicula.funciones_del_dia = peliculas_dict[pelicula.id]['funciones']
+            peliculas_filtradas.append(pelicula)
+
+    # 🔹 Enriquecer películas con información adicional
+    for pelicula in peliculas_filtradas:
+        pelicula.generos_list = pelicula.get_generos_list()
+        pelicula.salas_con_formato = pelicula.get_salas_con_formato()
 
     context = {
-        'peliculas': peliculas_data,
+        'peliculas': peliculas_filtradas,
         'genero': genero,
         'clasificacion': clasificacion,
         'idioma': idioma,
-        'horario': horario,
         'GENERO_CHOICES': Pelicula.GENERO_CHOICES,
-        'CLASIFICACION_CHOICES': Pelicula._meta.get_field('clasificacion').choices,
-        'IDIOMA_CHOICES': Pelicula._meta.get_field('idioma').choices,
-        'HORARIOS_DISPONIBLES': Pelicula.HORARIOS_DISPONIBLES,
     }
 
     return render(request, 'filtrar.html', context)
-#######
+
+
+###################################################################################
 
 def horarios_por_pelicula(request):
     """
-    Muestra solo películas con funciones activas HOY,
-    agrupando todos sus horarios y salas.
+    Muestra SOLO películas con funciones activas vigentes HOY
+    con todos sus horarios y salas disponibles
+    (misma lógica que index para cartelera)
     """
-    hoy = date.today()
+    # ✅ Usar datetime.now() sin zona horaria
+    ahora_naive = datetime.now()
+    hoy = ahora_naive.date()
 
-    # Filtros opcionales del formulario
-    genero = request.GET.get('genero', '').strip()
-    clasificacion = request.GET.get('clasificacion', '').strip()
-    idioma = request.GET.get('idioma', '').strip()
+    # ✅ CARTELERA: Películas CON funciones activas vigentes HOY
+    funciones = (
+        Funcion.objects.filter(
+            activa=True,
+            fecha_inicio__lte=hoy,
+        )
+        .select_related('pelicula')
+        .order_by('-pelicula__id', 'horario')
+    )
 
-    # 🎬 Solo películas que tienen funciones hoy (agrupadas por película)
-    peliculas = Pelicula.objects.filter(
-        funcion__fecha=hoy
-    ).prefetch_related(
-        Prefetch('funcion_set', queryset=Funcion.objects.filter(fecha=hoy))
-    ).distinct()
+    funciones_filtradas = []
+    for funcion in funciones:
+        fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        
+        # Verificar que la función esté en el rango de fechas
+        if funcion.fecha_inicio <= hoy <= fecha_fin_funcion:
+            # Verificar que no haya pasado (margen de 10 minutos)
+            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+            datetime_funcion = datetime.combine(hoy, hora_funcion)
+            
+            margen = timedelta(minutes=10)
+            if datetime_funcion > (ahora_naive - margen):
+                funciones_filtradas.append(funcion)
 
-    # 🔍 Aplicar filtros si el usuario selecciona alguno
-    if genero:
-        peliculas = peliculas.filter(generos__icontains=genero)
-    if clasificacion:
-        peliculas = peliculas.filter(clasificacion__icontains=clasificacion)
-    if idioma:
-        peliculas = peliculas.filter(idioma__icontains=idioma)
+    # ✅ Agrupar funciones por película (ordenadas por ID descendente)
+    peliculas_cartelera = []
+    peliculas_vistas = set()
+    
+    for funcion in funciones_filtradas:
+        if funcion.pelicula.id not in peliculas_vistas:
+            # Primera vez que vemos esta película
+            pelicula = funcion.pelicula
+            pelicula.funciones_del_dia = [f for f in funciones_filtradas if f.pelicula.id == pelicula.id]
+            peliculas_cartelera.append(pelicula)
+            peliculas_vistas.add(pelicula.id)
 
-    peliculas = peliculas.order_by('-fecha_estreno', '-id')
-
-    # 🔹 Construir lista de películas con horarios y salas del día
-    peliculas_data = []
-    for p in peliculas:
-        funciones_hoy = p.funcion_set.all()  # gracias al prefetch_related, no hace más queries
-        pares = [(f.horario, f.sala) for f in funciones_hoy]
-
-        peliculas_data.append({
-            'id': p.id,
-            'nombre': p.nombre,
-            'imagen_url': p.imagen_url,
-            'generos': ", ".join(p.get_generos_list()),
-            'clasificacion': p.clasificacion,
-            'idioma': p.idioma,
-            'anio': p.anio,
-            'fecha_estreno': p.fecha_estreno,
-            'pares': pares,
-        })
+    # ✅ Enriquecer películas
+    for pelicula in peliculas_cartelera:
+        pelicula.generos_list = pelicula.get_generos_list()
+        pelicula.salas_con_formato = pelicula.get_salas_con_formato()
 
     context = {
-        'peliculas': peliculas_data,
+        'peliculas': peliculas_cartelera,
         'fecha': hoy,
-        'genero': genero,
-        'clasificacion': clasificacion,
-        'idioma': idioma,
-        'GENERO_CHOICES': Pelicula.GENERO_CHOICES,
-        'CLASIFICACION_CHOICES': Pelicula._meta.get_field('clasificacion').choices,
-        'IDIOMA_CHOICES': Pelicula._meta.get_field('idioma').choices,
     }
 
     return render(request, 'horarios.html', context)
 
-@admin_required
-def administrar_funciones(request):
-    hoy = date.today()
-    peliculas = Pelicula.objects.all().order_by("nombre")
-    funciones = Funcion.objects.select_related('pelicula').order_by('fecha', 'horario')
 
-    # Listas de opciones desde el modelo
-    HORARIOS_DISPONIBLES = Pelicula.HORARIOS_DISPONIBLES
-    SALAS_DISPONIBLES = Pelicula.SALAS_DISPONIBLES
+##################################################################
+##################################################################
+# Zona horaria de El Salvador
+TZ_ES = pytz.timezone("America/El_Salvador")
+
+# Distancia mínima entre funciones en minutos (2h30m)
+DISTANCIA_MINIMA_MIN = 150
+
+def _ahora_es():
+    return datetime.now(TZ_ES)
+
+def parse_hora(hhmm: str):
+    """Convierte 'HH:MM' a objeto datetime.time"""
+    h, m = hhmm.split(":")
+    return datetime(2000, 1, 1, int(h), int(m)).time()
+
+def _minutos_entre(hora_a, hora_b):
+    a = datetime(2000, 1, 1, hora_a.hour, hora_a.minute)
+    b = datetime(2000, 1, 1, hora_b.hour, hora_b.minute)
+    return abs(int((b - a).total_seconds() // 60))
+
+def hay_conflicto_distancia(hora, existentes):
+    """Valida si 'hora' incumple la distancia mínima con 'existentes'"""
+    for h in existentes:
+        if _minutos_entre(h, hora) < DISTANCIA_MINIMA_MIN:
+            return True
+    return False
+
+@csrf_exempt
+def administrar_funciones(request):
+    hoy_es = _ahora_es().date()
+
+    # ✅ Extraer TODAS las películas de la BD (ordenadas: última agregada primero)
+    peliculas = Pelicula.objects.all().order_by('-id')
+
+    # ✅ Enriquecer cada película con sus datos asociados
+    generos_choices = dict(Pelicula.GENERO_CHOICES)
+    peliculas_con_pares = []
+    
+    for p in peliculas:
+        pares = p.get_salas_con_formato()
+        generos_nombres = [generos_choices.get(g, g) for g in p.get_generos_list()]
+        peliculas_con_pares.append({
+            'obj': p,
+            'pares': pares,
+            'generos_nombres': ", ".join(generos_nombres),
+            'clasificacion': p.clasificacion,
+            'idioma': p.idioma
+        })
+
+    # ✅ Para el dropdown de películas
+    for pelicula in peliculas:
+        pelicula.generos_list = pelicula.get_generos_list()
+        pelicula.salas_con_formato = pelicula.get_salas_con_formato()
+        pelicula.estrellas = (
+            pelicula.get_rating_estrellas()
+            if hasattr(pelicula, 'get_rating_estrellas')
+            else {'llenas': 0, 'media': False}
+        )
+
+    # ✅ CORRECCIÓN CRÍTICA: Ordenar por pelicula__id para que regroup funcione
+    # Funciones actuales: activas Y fecha_inicio >= hoy
+    funciones_actuales = Funcion.objects.filter(
+        activa=True,
+        fecha_inicio__gte=hoy_es
+    ).select_related('pelicula').order_by('pelicula__id', 'horario')
+
+    # Funciones pasadas: inactivas O fecha_inicio < hoy
+    funciones_pasadas = Funcion.objects.filter(
+        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
+    ).select_related('pelicula').order_by('pelicula__id', 'horario')
 
     funcion_editar = None
 
-    # --- CREAR, EDITAR o ELIMINAR FUNCIÓN ---
     if request.method == "POST":
         accion = request.POST.get("accion")
 
-        # --- ELIMINAR ---
-        if accion == "eliminar":
+        # --- AGREGAR NUEVA FUNCIÓN CON MÚLTIPLES HORARIOS ---
+        if accion == "agregar":
+            pelicula_id = request.POST.get("pelicula")
+            fecha_inicio_str = request.POST.get("fecha_inicio")
+            semanas = request.POST.get("semanas", 1)
+            
+            # Obtener arrays de horarios y salas
+            horarios = request.POST.getlist('horario[]')
+            salas = request.POST.getlist('sala[]')
+
+            try:
+                # Validar datos requeridos
+                if not all([pelicula_id, fecha_inicio_str]):
+                    messages.error(request, "❌ Película y fecha son obligatorios.")
+                    return redirect("administrar_funciones")
+
+                if not horarios or not salas:
+                    messages.error(request, "❌ Debes agregar al menos un horario y sala.")
+                    return redirect("administrar_funciones")
+
+                # Obtener objetos relacionados
+                pelicula = Pelicula.objects.get(id=pelicula_id)
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+
+                # Validar que la fecha no sea pasada
+                if fecha_inicio < hoy_es:
+                    messages.error(request, "❌ No puedes crear funciones con fecha pasada.")
+                    return redirect("administrar_funciones")
+
+                funciones_creadas = 0
+                errores = []
+
+                # Procesar cada par horario-sala
+                for i, (horario, sala_nombre) in enumerate(zip(horarios, salas)):
+                    if not horario or not sala_nombre:
+                        continue  # Saltar campos vacíos
+
+                    try:
+                        # Validar que la sala exista en las salas disponibles de la película
+                        salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
+                        if sala_nombre not in salas_pelicula:
+                            errores.append(f"La sala '{sala_nombre}' no está disponible para esta película")
+                            continue
+
+                        # Validar conflicto de horarios en la misma sala y fecha
+                        funciones_existentes = Funcion.objects.filter(
+                            sala__icontains=sala_nombre,  # Buscar por nombre de sala en string
+                            fecha_inicio=fecha_inicio,
+                            activa=True
+                        )
+                        
+                        horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
+                        nuevo_horario = parse_hora(horario)
+
+                        if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
+                            errores.append(f"Horario {horario} en {sala_nombre}: conflicto con funciones existentes")
+                            continue
+
+                        # Crear la nueva función - usar sala como string
+                        nueva_funcion = Funcion(
+                            pelicula=pelicula,
+                            sala=sala_nombre,  # Guardar como string
+                            horario=horario,
+                            fecha_inicio=fecha_inicio,
+                            semanas=int(semanas),
+                            activa=True
+                        )
+                        nueva_funcion.save()
+                        funciones_creadas += 1
+
+                    except Exception as e:
+                        errores.append(f"Error en horario {horario}: {str(e)}")
+
+                # Mostrar resultados
+                if funciones_creadas > 0:
+                    messages.success(request, f"✅ {funciones_creadas} función(es) agregada(s) para {pelicula.nombre}")
+                
+                if errores:
+                    for error in errores:
+                        messages.warning(request, f"⚠️ {error}")
+                
+                # Recargar los QuerySets después de agregar
+                funciones_actuales = Funcion.objects.filter(
+                    activa=True,
+                    fecha_inicio__gte=hoy_es
+                ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                
+                funciones_pasadas = Funcion.objects.filter(
+                    models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
+                ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                
+            except Pelicula.DoesNotExist:
+                messages.error(request, "❌ La película seleccionada no existe.")
+            except ValueError as e:
+                messages.error(request, f"❌ Error en el formato de fecha: {str(e)}")
+            except Exception as e:
+                messages.error(request, f"❌ Error al agregar funciones: {str(e)}")
+
+        # --- REACTIVAR FUNCIÓN ---
+        elif accion == "reactivar":
             funcion_id = request.POST.get("funcion_id")
-            if not funcion_id:
-                messages.error(request, "No se especificó la función a eliminar.")
-                return redirect("administrar_funciones")
-
-            funcion = get_object_or_404(Funcion, id=funcion_id)
-            funcion.delete()
-            messages.success(request, "🗑️ Función eliminada correctamente.")
-            return redirect("administrar_funciones")
-
-        # --- CREAR o EDITAR ---
-        pelicula_id = request.POST.get("pelicula")
-        fecha = request.POST.get("fecha")
-
-        # 🔹 En el nuevo template, los horarios, salas y formatos vienen como listas
-        horarios = request.POST.getlist("horario[]")
-        salas = request.POST.getlist("sala[]")
-        formatos = request.POST.getlist("formato[]")
-
-        if not (pelicula_id and fecha and horarios and salas):
-            messages.error(request, "Todos los campos son obligatorios.")
-            return redirect("administrar_funciones")
-
-        pelicula = get_object_or_404(Pelicula, id=pelicula_id)
-
-        # --- Validaciones generales ---
-        if pelicula.fecha_estreno and pelicula.fecha_estreno > hoy:
-            messages.warning(
-                request,
-                f"⚠️ '{pelicula.nombre}' es un próximo estreno (se estrena el {pelicula.fecha_estreno.strftime('%d/%m/%Y')}). "
-                "No se puede crear una función antes de esa fecha."
-            )
-            return redirect("administrar_funciones")
-
-        # --- EDITAR (solo una función, como antes) ---
-        if accion == "editar":
-            funcion_id_editar = request.POST.get("funcion_id")
-            funcion = get_object_or_404(Funcion, id=funcion_id_editar)
-            horario = horarios[0] if horarios else None
-            sala = salas[0] if salas else None
-            formato = formatos[0] if formatos else "2D"
-
-            # Reutilizamos las mismas validaciones que tenías
-            funciones_en_sala_qs = Funcion.objects.filter(fecha=fecha, sala=sala).exclude(id=funcion_id_editar)
-            if funciones_en_sala_qs.count() >= 3:
-                messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
-                return redirect("administrar_funciones")
-
-            duplicada_qs = Funcion.objects.filter(
-                pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
-            ).exclude(id=funcion_id_editar)
-            if duplicada_qs.exists():
-                messages.error(request, "❌ Ya existe una función para esta película en ese horario y sala.")
-                return redirect("administrar_funciones")
-
-            conflicto_qs = Funcion.objects.filter(
-                fecha=fecha, horario=horario, sala=sala
-            ).exclude(id=funcion_id_editar).exclude(pelicula=pelicula)
-            if conflicto_qs.exists():
-                messages.error(request, f"❌ En {sala} ya hay otra película programada a las {horario}.")
-                return redirect("administrar_funciones")
-
-            # Guardamos cambios
-            funcion.pelicula = pelicula
-            funcion.fecha = fecha
-            funcion.horario = horario
-            funcion.sala = sala
-            funcion.formato = formato
-            funcion.save()
-            messages.success(request, "✏️ Función actualizada correctamente.")
-            return redirect("administrar_funciones")
-
-        # --- CREAR (puede crear múltiples funciones a la vez) ---
-        elif accion == "crear":
-            creadas = 0
-            for i in range(len(horarios)):
-                horario = horarios[i]
-                sala = salas[i] if i < len(salas) else ""
-                formato = formatos[i] if i < len(formatos) else "2D"
-
-                # Validaciones individuales (reusando las tuyas)
-                if Funcion.objects.filter(fecha=fecha, sala=sala).count() >= 3:
-                    messages.warning(request, f"⚠️ Solo se permiten 3 funciones por día en {sala}.")
-                    continue
-
-                if Funcion.objects.filter(
-                    pelicula=pelicula, fecha=fecha, horario=horario, sala=sala
-                ).exists():
-                    messages.warning(request, f"⏰ '{pelicula.nombre}' ya tiene una función en {sala} a las {horario}.")
-                    continue
-
-                if Funcion.objects.filter(
-                    fecha=fecha, horario=horario, sala=sala
-                ).exclude(pelicula=pelicula).exists():
-                    messages.warning(request, f"⚠️ En {sala} ya hay otra película a las {horario}.")
-                    continue
-
-                Funcion.objects.create(
-                    pelicula=pelicula,
-                    fecha=fecha,
-                    horario=horario,
-                    sala=sala,
-                    formato=formato
-                )
-                creadas += 1
-
-            if creadas:
-                messages.success(request, f"✅ {creadas} función(es) agregada(s) correctamente.")
+            if funcion_id:
+                try:
+                    funcion = Funcion.objects.get(id=funcion_id)
+                    # CORRECCIÓN: Al reactivar, también actualizar fecha_inicio si es pasada
+                    if funcion.fecha_inicio < hoy_es:
+                        funcion.fecha_inicio = hoy_es
+                    
+                    # Reactivar la función
+                    funcion.activa = True
+                    funcion.fecha_eliminacion = None
+                    funcion.save()
+                    
+                    messages.success(request, f"✅ Función de '{funcion.pelicula.nombre}' reactivada correctamente.")
+                    
+                    # CORRECCIÓN: Recargar los QuerySets después de la reactivación
+                    funciones_actuales = Funcion.objects.filter(
+                        activa=True,
+                        fecha_inicio__gte=hoy_es
+                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                    
+                    funciones_pasadas = Funcion.objects.filter(
+                        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
+                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                    
+                except Funcion.DoesNotExist:
+                    messages.error(request, "La función que intentas reactivar no existe.")
+                except Exception as e:
+                    messages.error(request, f"Error al reactivar la función: {str(e)}")
             else:
-                messages.warning(request, "⚠️ No se agregaron funciones por conflictos o duplicados.")
+                messages.error(request, "No se proporcionó ID de función para reactivar.")
             return redirect("administrar_funciones")
 
-        else:
-            messages.error(request, "Acción no reconocida.")
+        # --- ELIMINAR ---
+        elif accion == "eliminar":
+            funcion_id = request.POST.get("funcion_id")
+            if funcion_id:
+                try:
+                    funcion = Funcion.objects.get(id=funcion_id)
+                    nombre_pelicula = funcion.pelicula.nombre
+                    
+                    # En lugar de eliminar, marcar como inactiva
+                    funcion.activa = False
+                    funcion.fecha_eliminacion = hoy_es
+                    funcion.save()
+                    
+                    messages.success(request, f"🗑️ Función de '{nombre_pelicula}' desactivada correctamente.")
+                    
+                    # CORRECCIÓN: Recargar los QuerySets después de la eliminación
+                    funciones_actuales = Funcion.objects.filter(
+                        activa=True,
+                        fecha_inicio__gte=hoy_es
+                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                    
+                    funciones_pasadas = Funcion.objects.filter(
+                        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
+                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                    
+                except Funcion.DoesNotExist:
+                    messages.error(request, "La función que intentas eliminar no existe.")
+                except Exception as e:
+                    messages.error(request, f"Error al eliminar la función: {str(e)}")
+            else:
+                messages.error(request, "No se proporcionó ID de función para eliminar.")
             return redirect("administrar_funciones")
 
-    # --- MODO EDICIÓN ---
+        # --- EDITAR FUNCIÓN ---
+        elif accion == "editar":
+            funcion_id = request.POST.get("funcion_id")
+            pelicula_id = request.POST.get("pelicula")
+            sala_nombre = request.POST.get("sala")
+            horario = request.POST.get("horario")
+            fecha_inicio_str = request.POST.get("fecha_inicio")
+            semanas = request.POST.get("semanas", 1)
+
+            try:
+                if not all([funcion_id, pelicula_id, sala_nombre, horario, fecha_inicio_str]):
+                    messages.error(request, "❌ Todos los campos son obligatorios.")
+                    return redirect("administrar_funciones")
+
+                funcion = Funcion.objects.get(id=funcion_id)
+                pelicula = Pelicula.objects.get(id=pelicula_id)
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+
+                # Validar que la fecha no sea pasada
+                if fecha_inicio < hoy_es:
+                    messages.error(request, "❌ No puedes programar funciones con fecha pasada.")
+                    return redirect("administrar_funciones")
+
+                # Validar que la sala exista en las salas disponibles de la película
+                salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
+                if sala_nombre not in salas_pelicula:
+                    messages.error(request, f"❌ La sala '{sala_nombre}' no está disponible para esta película")
+                    return redirect("administrar_funciones")
+
+                # Validar conflicto de horarios (excluyendo la función actual)
+                funciones_existentes = Funcion.objects.filter(
+                    sala__icontains=sala_nombre,
+                    fecha_inicio=fecha_inicio,
+                    activa=True
+                ).exclude(id=funcion_id)
+                
+                horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
+                nuevo_horario = parse_hora(horario)
+
+                if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
+                    messages.error(request, f"❌ Conflicto de horarios: la función editada está muy cerca de funciones existentes en la misma sala.")
+                    return redirect("administrar_funciones")
+
+                # Actualizar la función
+                funcion.pelicula = pelicula
+                funcion.sala = sala_nombre  # Guardar como string
+                funcion.horario = horario
+                funcion.fecha_inicio = fecha_inicio
+                funcion.semanas = int(semanas)
+                funcion.save()
+
+                messages.success(request, f"✏️ Función editada correctamente: {pelicula.nombre} - {sala_nombre} - {horario}")
+                
+                # Recargar los QuerySets después de editar
+                funciones_actuales = Funcion.objects.filter(
+                    activa=True,
+                    fecha_inicio__gte=hoy_es
+                ).select_related('pelicula').order_by('pelicula__id', 'horario')
+                
+            except Funcion.DoesNotExist:
+                messages.error(request, "❌ La función que intentas editar no existe.")
+            except Pelicula.DoesNotExist:
+                messages.error(request, "❌ La película seleccionada no existe.")
+            except Exception as e:
+                messages.error(request, f"❌ Error al editar función: {str(e)}")
+
     elif request.method == "GET" and "editar" in request.GET:
         funcion_id = request.GET.get("editar")
-        funcion_editar = get_object_or_404(Funcion, id=funcion_id)
+        if funcion_id:
+            try:
+                funcion_editar = Funcion.objects.get(id=funcion_id)
+            except Funcion.DoesNotExist:
+                messages.error(request, "La función que intentas editar no existe.")
+        else:
+            messages.error(request, "No se proporcionó ID de función para editar.")
 
     return render(request, "administrar_funciones.html", {
         "peliculas": peliculas,
-        "funciones": funciones,
+        "peliculas_con_pares": peliculas_con_pares,
+        "funciones_actuales": funciones_actuales,
+        "funciones_pasadas": funciones_pasadas,
         "funcion_editar": funcion_editar,
-        "HORARIOS_DISPONIBLES": HORARIOS_DISPONIBLES,
-        "SALAS_DISPONIBLES": SALAS_DISPONIBLES,
+        "HORARIOS_DISPONIBLES": Funcion.HORARIOS_DISPONIBLES,
+        "hoy_es": hoy_es,
     })
 
-
-
-### Reportes Administrativos
+#########################################################################
+### Reportes Administrativos##############################################
 
 from django.db.models import Sum
 from django.shortcuts import render

@@ -1,185 +1,92 @@
-// Variables globales
-let selectedSeats = [];
-const precioBase = 3.50;
-let descuentoPorcentaje = parseFloat(document.getElementById('descuento_porcentaje_actual').value) || 0;
-const STORAGE_KEY = `formData_${PELICULA_ID}`;
-const SCROLL_KEY = `scrollPos_${PELICULA_ID}`;
+console.log("🚀 Archivo asientos.js cargado");
 
-// Inicialización cuando el DOM está listo
-document.addEventListener('DOMContentLoaded', function() {
-    inicializarEventListeners();
-    cargarDatosGuardados();
-    updateSummary();
-});
-
-function inicializarEventListeners() {
-    // Event listeners para asientos
-    document.querySelectorAll('.seat.available').forEach(seat => {
-        seat.addEventListener('click', manejarClickAsiento);
-    });
-
-    // Event listeners para formato
-    document.querySelectorAll('input[name="formato"]').forEach(radio => {
-        radio.addEventListener('change', updateSummary);
-    });
-
-    // Event listener para combo
-    document.getElementById('combo').addEventListener('change', actualizarAsientos);
-
-    // Event listener para cupón
-    document.getElementById('btn-aplicar-cupon').addEventListener('click', aplicarCupon);
-}
-
-function manejarClickAsiento(event) {
-    const seat = event.currentTarget;
-    const seatNumber = seat.getAttribute('data-seat');
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("✅ DOM cargado completamente");
     
-    if (seat.classList.contains('selected')) {
-        seat.classList.remove('selected');
-        selectedSeats = selectedSeats.filter(s => s !== seatNumber);
-    } else {
-        seat.classList.add('selected');
-        selectedSeats.push(seatNumber);
+    const form = document.getElementById("reserva-form");
+    
+    if (!form) {
+        console.error("❌ No se encontró el formulario #reserva-form");
+        return;
     }
-    updateSummary();
-}
-
-function updateSummary() {
-    const selectedSeatsElement = document.getElementById('selected-seats');
-    const ticketCountElement = document.getElementById('ticket-count');
-    const asientosInput = document.getElementById('asientos');
-
-    const subtotalDisplay = document.getElementById('subtotal-display');
-    const discountPercentDisplay = document.getElementById('discount-percent-display');
-    const discountAmountDisplay = document.getElementById('discount-amount-display');
-    const discountRow = document.getElementById('discount-row');
-    const totalPriceElement = document.getElementById('total-price');
-
-    // Actualizar asientos seleccionados
-    selectedSeatsElement.textContent = selectedSeats.length > 0 ? selectedSeats.join(', ') : 'Ningún asiento seleccionado';
-    ticketCountElement.textContent = selectedSeats.length;
-
-    // Calcular precios
-    const formatoSeleccionado = document.querySelector('input[name="formato"]:checked').value;
-    let precioPorBoleto = precioBase;
-    if (formatoSeleccionado === '3D') precioPorBoleto = 4.50;
-    if (formatoSeleccionado === 'IMAX') precioPorBoleto = 6.00;
-
-    // Cálculo Subtotal
-    let subtotal = selectedSeats.length * precioPorBoleto;
     
-    // Cálculo Descuento
-    let montoDescuento = subtotal * (descuentoPorcentaje / 100);
+    console.log("✅ Formulario encontrado");
     
-    // Cálculo Total Final
-    let totalFinal = subtotal - montoDescuento;
-
-    // Actualizar displays
-    subtotalDisplay.textContent = `$${subtotal.toFixed(2)}`;
-    discountPercentDisplay.textContent = descuentoPorcentaje.toFixed(0);
-    discountAmountDisplay.textContent = `-$${montoDescuento.toFixed(2)}`;
-    totalPriceElement.textContent = `Total: $${totalFinal.toFixed(2)}`;
+    // Todos los inputs que deben disparar recálculo automático
+    const autoSubmitInputs = document.querySelectorAll(".auto-submit");
     
-    // Ocultar la fila de descuento si no hay descuento
-    discountRow.style.display = descuentoPorcentaje > 0 ? 'flex' : 'none';
+    console.log("📋 Total de elementos auto-submit:", autoSubmitInputs.length);
     
-    // Actualizar campo hidden de asientos
-    asientosInput.value = selectedSeats.join(',');
-}
-
-function actualizarAsientos() {
-    const combo = document.getElementById('combo').value;
-    
-    // Guardar datos del formulario en localStorage
-    const formData = {};
-    document.querySelectorAll('#reserva-form input, #reserva-form select').forEach(el => {
-        if (el.type === 'radio') {
-            if (el.checked) formData[el.name] = el.value;
-        } else {
-            formData[el.name] = el.value;
-        }
-    });
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-    localStorage.setItem(SCROLL_KEY, window.scrollY);
-    
-    // Redirigir con el nuevo combo
-    window.location.href = `?combo=${encodeURIComponent(combo)}`;
-}
-
-function cargarDatosGuardados() {
-    if (LIMPIAR_FORM) {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(SCROLL_KEY);
-    } else {
-        const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        
-        for (const name in savedData) {
-            const el = document.querySelector(`[name="${name}"]`);
-            if (el) {
-                if (el.type === 'radio') {
-                    if (el.value === savedData[name]) el.checked = true;
-                } else {
-                    el.value = savedData[name];
-                }
-            }
-        }
-        
-        const scrollPos = localStorage.getItem(SCROLL_KEY);
-        if (scrollPos) {
-            window.scrollTo(0, parseInt(scrollPos));
-            localStorage.removeItem(SCROLL_KEY);
-        }
-    }
-}
-
-async function aplicarCupon() {
-    const codigo = document.getElementById('codigo_cupon').value;
-    const cuponMessageElement = document.getElementById('cupon-message');
-
-    if (codigo.length === 0) {
-        cuponMessageElement.textContent = "Ingresa un código.";
-        cuponMessageElement.style.color = 'orange';
+    if (autoSubmitInputs.length === 0) {
+        console.warn("⚠️ No se encontraron elementos con clase .auto-submit");
+        console.log("Verificando elementos en el DOM:");
+        console.log("  - Radio buttons:", document.querySelectorAll('input[type="radio"]').length);
+        console.log("  - Checkboxes:", document.querySelectorAll('input[type="checkbox"]').length);
         return;
     }
 
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Listar todos los elementos auto-submit
+    autoSubmitInputs.forEach(function(input, index) {
+        console.log("   [" + index + "] " + input.type + " - name: " + input.name);
+    });
 
-    try {
-        const response = await fetch(APLICAR_DESCUENTO_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfToken
-            },
-            body: `codigo=${codigo}`
+    // Variable para evitar múltiples submits
+    let isSubmitting = false;
+
+    autoSubmitInputs.forEach(function(input) {
+        input.addEventListener("change", function() {
+            console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            console.log("🔄 CAMBIO DETECTADO");
+            console.log("   Tipo:", this.type);
+            console.log("   Name:", this.name);
+            console.log("   Value:", this.value);
+            
+            // Evitar múltiples submits simultáneos
+            if (isSubmitting) {
+                console.log("⚠️ Ya hay un submit en proceso, ignorando...");
+                return;
+            }
+            
+            isSubmitting = true;
+            
+            // Crear o actualizar el input hidden para la acción
+            let accionInput = document.querySelector('input[name="accion"][type="hidden"]');
+            
+            if (!accionInput) {
+                console.log("   ➕ Creando input hidden para 'accion'");
+                accionInput = document.createElement('input');
+                accionInput.type = 'hidden';
+                accionInput.name = 'accion';
+                form.appendChild(accionInput);
+            }
+            
+            // Establecer la acción como "recalcular"
+            accionInput.value = 'recalcular';
+            console.log("   ✅ Acción establecida: recalcular");
+            
+            console.log("   🚀 Enviando formulario...");
+            console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            
+            // Enviar el formulario
+            try {
+                form.submit();
+            } catch (error) {
+                console.error("❌ Error al enviar formulario:", error);
+                isSubmitting = false;
+            }
         });
-
-        const data = await response.json();
-
-        cuponMessageElement.textContent = data.mensaje;
-        
-        if (data.success) {
-            descuentoPorcentaje = data.descuento_porcentaje;
-            cuponMessageElement.style.color = 'green';
-            
-            // Actualizar el campo hidden del descuento
-            document.getElementById('descuento_porcentaje_actual').value = descuentoPorcentaje;
-            
-        } else {
-            // Si falla, el descuento es cero
-            descuentoPorcentaje = 0;
-            document.getElementById('descuento_porcentaje_actual').value = 0;
-            cuponMessageElement.style.color = 'red';
-        }
-
-        updateSummary();
-        
-    } catch (error) {
-        cuponMessageElement.textContent = 'Error de conexión con el servidor.';
-        cuponMessageElement.style.color = 'red';
-        descuentoPorcentaje = 0;
-        document.getElementById('descuento_porcentaje_actual').value = 0;
-        updateSummary();
+    });
+    
+    console.log("✅ Event listeners configurados correctamente");
+    
+    // Log del botón de confirmar
+    const btnConfirm = document.querySelector('.btn-confirm');
+    if (btnConfirm) {
+        console.log("✅ Botón de confirmar encontrado");
+        console.log("   - Type:", btnConfirm.type);
+        console.log("   - Name:", btnConfirm.name);
+        console.log("   - Value:", btnConfirm.value);
+    } else {
+        console.warn("⚠️ No se encontró el botón .btn-confirm");
     }
-}
+});

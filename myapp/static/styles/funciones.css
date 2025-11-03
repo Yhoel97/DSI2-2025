@@ -1,0 +1,142 @@
+/* ===== ESTILOS GENERALES ===== */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: linear-gradient(to right, #c1e5f8, #e0f3ff, #f0e6ff);
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: linear-gradient(to right, #c1e5f8, #e0f3ff, #f0e6ff);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* ===== TÍTULOS ===== */
+h1, h2 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+h1 {
+    text-align: center;
+    border-bottom: 2px solid #ecf0f1;
+    padding-bottom: 10px;
+}
+
+/* ===== TABLA ===== */
+.movie-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.movie-table th,
+.movie-table td {
+    padding: 12px 15px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.movie-table th {
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    font-weight: 600;
+    border-bottom: 2px solid #bdc3c7;
+}
+
+.movie-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* ===== CONTENEDOR DE HORARIOS EN TABLA - UNO DEBAJO DEL OTRO ===== */
+.horarios-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+    padding: 8px 0;
+}
+
+.horario-item {
+    background: #f9f9f9;
+    color: #2c3e50;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #bdc3c7;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.horario-item:hover {
+    background: #f8f8f8;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+/* ===== BOTONES DE ACCIÓN EN TABLA ===== */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 120px;
+}
+
+.btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.btn-edit {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-edit:hover {
+    background-color: #2980b9;
+}
+
+.btn-delete {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-delete:hover {
+    background-color: #c0392b;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .movie-table {
+        font-size: 14px;
+    }
+    
+    .horarios-container {
+        min-width: 150px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}

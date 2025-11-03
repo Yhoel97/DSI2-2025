@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="{% static 'styles/peliculas.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
 </head>
 <body>
     <div class="container">
@@ -46,179 +45,114 @@
 
         <!-- Botones de navegación -->
         <div class="mb-3 d-flex gap-2">
-            <a href="{% url 'index' %}" class="btn btn- btn-green">
-                <i class="fas fa-home"></i> Inicio
-            </a>
-            <a href="{% url 'administrar_salas' %}" class="btn btn-green">
-                <i class="fas fa-door-open"></i> Administrar Salas
-            </a>
-            <a href="{% url 'administrar_funciones' %}" class="btn btn-green">
-                <i class="fas fa-calendar-alt"></i> Administrar Funciones
-            </a>
-            <a href="{% url 'reportes_admin' %}" class="btn btn-green">
-                <i class="fas fa-chart-line"></i> Reportes Administrativos
-            </a>
-            <a href="{% url 'dashboard_admin' %}" class="btn btn-green">
-                <i class="fas fa-tachometer-alt"></i> Dashboard Administrativo
-            </a>
+            <a href="{% url 'index' %}" class="btn btn-green"><i class="fas fa-home"></i> Inicio</a>
+            <a href="{% url 'administrar_salas' %}" class="btn btn-green"><i class="fas fa-door-open"></i> Administrar Salas</a>
+            <a href="{% url 'administrar_funciones' %}" class="btn btn-green"><i class="fas fa-calendar-alt"></i> Administrar Funciones</a>
+            <a href="{% url 'reportes_admin' %}" class="btn btn-green"><i class="fas fa-chart-line"></i> Reportes Administrativos</a>
+            <a href="{% url 'dashboard_admin' %}" class="btn btn-green"><i class="fas fa-tachometer-alt"></i> Dashboard Administrativo</a>
         </div>
 
-                
         <!-- Formulario CRUD -->
         <div class="form-container">
             <form method="POST" action="{% url 'peliculas' %}" class="ajax-form">
                 {% csrf_token %}
-                
                 {% if pelicula_editar %}
-                <input type="hidden" name="accion" value="editar">
-                <input type="hidden" name="nombre_original" value="{{ pelicula_editar.nombre }}">
-                <h2><i class="fas fa-edit"></i> Editar Película</h2>
+                    <input type="hidden" name="accion" value="editar">
+                    <input type="hidden" name="nombre_original" value="{{ pelicula_editar.nombre }}">
+                    <h2><i class="fas fa-edit"></i> Editar Película</h2>
                 {% else %}
-                <input type="hidden" name="accion" value="crear">
-                <h2><i class="fas fa-plus-circle"></i> Nueva Película</h2>
+                    <input type="hidden" name="accion" value="crear">
+                    <h2><i class="fas fa-plus-circle"></i> Nueva Película</h2>
                 {% endif %}
-                
+
                 <div class="form-group">
                     <label for="nombre"><i class="fas fa-heading"></i> Nombre:</label>
-                    <input type="text" id="nombre" name="nombre" 
-                           value="{{ pelicula_editar.nombre|default:'' }}" required class="form-control">
+                    <input type="text" id="nombre" name="nombre" value="{{ pelicula_editar.nombre|default:'' }}" required class="form-control">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="anio"><i class="fas fa-calendar-alt"></i> Año:</label>
-                    <input type="number" id="anio" name="anio" min="1900" max="2099" 
-                           value="{{ pelicula_editar.anio|default:'' }}" required class="form-control">
+                    <input type="number" id="anio" name="anio" min="1900" max="2099" value="{{ pelicula_editar.anio|default:'' }}" required class="form-control">
                 </div>
 
-                <!-- ✅ Corrección de estructura aquí -->
                 <div class="form-group">
-                  <label for="fecha_estreno">
-                    <i class="fas fa-calendar"></i> Fecha de Estreno:
-                  </label>
-
-                  {% if pelicula_editar and pelicula_editar.fecha_estreno %}
-                   <input type="date" id="fecha_estreno" name="fecha_estreno"
-                          value="{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}"
-                          class="form-control" required>
-                  {% else %}
-                   <input type="date" id="fecha_estreno" name="fecha_estreno"
-                          class="form-control" required>
-                  {% endif %}
-
-                  <small id="fechaError" class="text-danger" style="display: none;">
-                   ⚠️ La fecha de estreno es obligatoria
-                  </small>
-                 </div>
-                  <!-- ✅ Fin de corrección -->
-
-                <div class="form-group">
-                 <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
-                 <div class="generos-container">
-                   {% for genero_codigo, genero_nombre in GENERO_CHOICES_DICT.items %}
-                     <label class="genero-checkbox">
-                      <input type="checkbox" name="generos" value="{{ genero_codigo }}"
-                        {% if pelicula_editar and genero_codigo in pelicula_editar.get_generos_codigos %}
-
-                          checked
-                        {% endif %}>
-                   {{ genero_nombre }}
-                 </label>
-                  {% endfor %}
+                    <label for="fecha_estreno"><i class="fas fa-calendar"></i> Fecha de Estreno:</label>
+                    <input type="date" id="fecha_estreno" name="fecha_estreno"
+                           value="{% if pelicula_editar and pelicula_editar.fecha_estreno %}{{ pelicula_editar.fecha_estreno|date:'Y-m-d' }}{% endif %}"
+                           class="form-control" required>
+                    <small id="fechaError" class="text-danger" style="display: none;">⚠️ La fecha de estreno es obligatoria</small>
                 </div>
-           </div>
 
-                
+                <div class="form-group">
+                    <label><i class="fas fa-tags"></i> Géneros (Máx. 3):</label>
+                    <div class="generos-container">
+                        {% for genero_codigo, genero_nombre in GENERO_CHOICES_DICT.items %}
+                            <label class="genero-checkbox">
+                                <input type="checkbox" name="generos" value="{{ genero_codigo }}"
+                                    {% if pelicula_editar and genero_codigo in pelicula_editar.get_generos_codigos %}checked{% endif %}>
+                                {{ genero_nombre }}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="clasificacion">Clasificación:</label>
                     <select name="clasificacion" id="clasificacion" class="form-control" required>
-                      <option value="APT" {% if pelicula_editar and pelicula_editar.clasificacion == 'APT' %}selected{% endif %}>
-                        APT (Todo público)
-                      </option>
-                      <option value="13+" {% if pelicula_editar and pelicula_editar.clasificacion == '13+' %}selected{% endif %}>
-                        (Mayores de 13 años)
-                      </option>
-                     <option value="18+" {% if pelicula_editar and pelicula_editar.clasificacion == '18+' %}selected{% endif %}>
-                       (Solo adultos)
-                     </option>
+                        <option value="APT" {% if pelicula_editar and pelicula_editar.clasificacion == 'APT' %}selected{% endif %}>APT (Todo público)</option>
+                        <option value="13+" {% if pelicula_editar and pelicula_editar.clasificacion == '13+' %}selected{% endif %}>(Mayores de 13 años)</option>
+                        <option value="18+" {% if pelicula_editar and pelicula_editar.clasificacion == '18+' %}selected{% endif %}>(Solo adultos)</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label for="idioma">Idioma:</label>
                     <select name="idioma" id="idioma" class="form-control" required>
-                      <option value="ESP" {% if pelicula_editar and pelicula_editar.idioma == 'ESP' %}selected{% endif %}>
-                        Español
-                      </option>
-                      <option value="SUB" {% if pelicula_editar and pelicula_editar.idioma == 'SUB' %}selected{% endif %}>
-                        Inglés Subtitulado
-                      </option>
-                      <option value="ING" {% if pelicula_editar and pelicula_editar.idioma == 'ING' %}selected{% endif %}>
-                        Inglés
-                      </option>
+                        <option value="ESP" {% if pelicula_editar and pelicula_editar.idioma == 'ESP' %}selected{% endif %}>Español</option>
+                        <option value="SUB" {% if pelicula_editar and pelicula_editar.idioma == 'SUB' %}selected{% endif %}>Inglés Subtitulado</option>
+                        <option value="ING" {% if pelicula_editar and pelicula_editar.idioma == 'ING' %}selected{% endif %}>Inglés</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label><i class="fas fa-clock"></i> Horarios Disponibles:</label>
-                    <div class="checkbox-container">
-                    {% for horario in HORARIOS_DISPONIBLES %}
-                    <label>
-                        <input type="checkbox" name="horarios" value="{{ horario }}"
-                            {% if pelicula_editar and horario in pelicula_editar.get_horarios_list %}checked{% endif %}>
-                        {{ horario }}
-                    </label>
-                    {% endfor %}
-                    </div>
-                </div>
-                
-                <div class="form-group">
                     <label><i class="fas fa-door-open"></i> Salas Disponibles:</label>
                     <div class="checkbox-container">
-                     {% for sala in SALAS_DISPONIBLES %}
-                        <label>
-                            <input type="checkbox" name="salas" value="{{ sala }}"
-                                {% if pelicula_editar and sala in pelicula_editar.get_salas_list %}checked{% endif %}>
-                            {{ sala }}
-                        </label>
+                        {% for sala, formato in SALAS_DISPONIBLES.items %}
+                            <label>
+                                <input type="checkbox" name="salas" value="{{ sala }}"
+                                    {% if pelicula_editar and sala in pelicula_editar.get_salas_list %}checked{% endif %}>
+                                {{ sala }} ({{ formato }})
+                            </label>
                         {% endfor %}
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="director"><i class="fas fa-user-tie"></i> Director:</label>
-                    <input type="text" id="director" name="director" 
-                           value="{{ pelicula_editar.director|default:'' }}" required class="form-control">
+                    <input type="text" id="director" name="director" value="{{ pelicula_editar.director|default:'' }}" required class="form-control">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="imagen_url"><i class="fas fa-image"></i> URL de Imagen:</label>
-                    <input type="url" id="imagen_url" name="imagen_url" 
-                           value="{{ pelicula_editar.imagen_url|default:'' }}" required class="form-control">
+                    <input type="url" id="imagen_url" name="imagen_url" value="{{ pelicula_editar.imagen_url|default:'' }}" required class="form-control">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="trailer_url"><i class="fab fa-youtube"></i> URL de Trailer:</label>
-                    <input type="url" id="trailer_url" name="trailer_url" 
-                           value="{{ pelicula_editar.trailer_url|default:'' }}" required class="form-control">
+                    <input type="url" id="trailer_url" name="trailer_url" value="{{ pelicula_editar.trailer_url|default:'' }}" required class="form-control">
                 </div>
-                
+
                 <div class="form-actions">
                     {% if pelicula_editar %}
-                    <button type="submit" class="btn btn-warning">
-                        <i class="fas fa-sync-alt"></i> Guardar Cambios
-                    </button>
-                    <a href="{% url 'peliculas' %}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Cancelar
-                    </a>
+                        <button type="submit" class="btn btn-warning"><i class="fas fa-sync-alt"></i> Guardar Cambios</button>
+                        <a href="{% url 'peliculas' %}" class="btn btn-secondary"><i class="fas fa-times"></i> Cancelar</a>
                     {% else %}
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Guardar
-                    </button>
-                    {% endif %}
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+                                            {% endif %}
                 </div>
             </form>
         </div>
-        
+
         <!-- Buscador -->
         <div class="search-container">
             <form method="GET" action="{% url 'peliculas' %}">
@@ -237,7 +171,7 @@
             </form>
         </div>
 
-        <!-- Tabla de Películas -->
+        <!-- Tabla de Películas en Cartelera -->
         <div class="table-responsive">
             <table class="movie-table table table-striped table-hover">
                 <thead class="table-dark">
@@ -249,7 +183,7 @@
                         <th><i class="fas fa-tags"></i> Géneros</th>
                         <th><i class="fas fa-film"></i> Clasificación</th>
                         <th><i class="fas fa-language"></i> Idioma</th>
-                        <th><i class="fas fa-clock"></i> Horario y Sala</th>
+                        <th><i class="fas fa-door-open"></i> Salas y Formato</th>
                         <th><i class="fas fa-cog"></i> Acciones</th>
                     </tr>
                 </thead>
@@ -270,8 +204,8 @@
                         <td>{{ pelicula.obj.get_clasificacion_display }}</td>
                         <td>{{ pelicula.obj.get_idioma_display }}</td>
                         <td>
-                            {% for h, s in pelicula.pares %}
-                                {{ h }} - {{ s }}{% if not forloop.last %}, {% endif %}
+                            {% for sala, formato in pelicula.pares %}
+                                {{ sala }} ({{ formato }}){% if not forloop.last %}, {% endif %}
                             {% endfor %}
                         </td>
                         <td class="action-buttons">
@@ -297,120 +231,59 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Tabla de Películas Próximas -->
+        {% if peliculas_proximas %}
+        <div class="table-responsive mt-5">
+          <h2 class="mt-4 text-center"><i class="fas fa-clock"></i> Películas Próximas</h2>
+          <table class="movie-table table table-striped table-hover">
+            <thead class="table-dark">
+              <tr>
+                <th><i class="fas fa-heading"></i> Nombre</th>
+                <th><i class="fas fa-calendar-day"></i> Estreno</th>
+                <th><i class="fas fa-user-tie"></i> Director</th>
+                <th><i class="fas fa-tags"></i> Géneros</th>
+                <th><i class="fas fa-film"></i> Clasificación</th>
+                <th><i class="fas fa-language"></i> Idioma</th>
+                <th><i class="fas fa-cog"></i> Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pelicula in peliculas_proximas %}
+              <tr>
+                <td>{{ pelicula.nombre }}</td>
+                <td>{{ pelicula.fecha_estreno|date:"d/m/Y" }}</td>
+                <td>{{ pelicula.director }}</td>
+                <td>{{ pelicula.get_generos_list|join:", " }}</td>
+                <td>{{ pelicula.get_clasificacion_display }}</td>
+                <td>{{ pelicula.get_idioma_display }}</td>
+                <td class="action-buttons">
+                  <a href="{% url 'peliculas' %}?editar={{ pelicula.nombre|urlencode }}" class="btn btn-success">
+                    <i class="fas fa-edit"></i> Editar
+                  </a>
+                  <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="eliminar">
+                    <input type="hidden" name="nombre" value="{{ pelicula.nombre }}">
+                    <button type="submit" class="btn btn-danger"
+                      onclick="return confirm('¿Estás seguro de eliminar esta película?');">
+                      <i class="fas fa-trash-alt"></i> Eliminar
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="7" class="text-center">No hay películas próximas</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
     </div>
 
-<!-- Tabla de Películas Próximas -->
-{% if peliculas_proximas %}
-<div class="table-responsive mt-5">
-  <h2 class="mt-4 text-center"><i class="fas fa-clock"></i> Películas Próximas</h2>
-  <table class="movie-table table table-striped table-hover">
-    <thead class="table-dark">
-      <tr>
-        <th><i class="fas fa-heading"></i> Nombre</th>
-        <th><i class="fas fa-calendar-day"></i> Estreno</th>
-        <th><i class="fas fa-user-tie"></i> Director</th>
-        <th><i class="fas fa-tags"></i> Géneros</th>
-        <th><i class="fas fa-film"></i> Clasificación</th>
-        <th><i class="fas fa-language"></i> Idioma</th>
-        <th><i class="fas fa-cog"></i> Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for pelicula in peliculas_proximas %}
-      <tr>
-        <td>{{ pelicula.nombre }}</td>
-        <td>{{ pelicula.fecha_estreno|date:"d/m/Y" }}</td>
-        <td>{{ pelicula.director }}</td>
-        <td>{{ pelicula.get_generos_list|join:", " }}</td>
-        <td>{{ pelicula.get_clasificacion_display }}</td>
-        <td>{{ pelicula.get_idioma_display }}</td>
-        <td class="action-buttons">
-          <a href="{% url 'peliculas' %}?editar={{ pelicula.nombre|urlencode }}" class="btn btn-success">
-            <i class="fas fa-edit"></i> Editar
-          </a>
-          <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="eliminar">
-            <input type="hidden" name="nombre" value="{{ pelicula.nombre }}">
-            <button type="submit" class="btn btn-danger"
-              onclick="return confirm('¿Estás seguro de eliminar esta película?');">
-              <i class="fas fa-trash-alt"></i> Eliminar
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="7" class="text-center">No hay películas próximas</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-
-    <script>
-        // Auto-cierre de notificaciones
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(function() {
-                var alerts = document.querySelectorAll('.alert');
-                alerts.forEach(function(alert) {
-                    var bsAlert = new bootstrap.Alert(alert);
-                    bsAlert.close();
-                });
-            }, 5000);
-        });
-    </script>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-           const fechaInput = document.getElementById("fecha_estreno");
-           const fechaError = document.getElementById("fechaError");
-
-           fechaInput.addEventListener("input", () => {
-               if (!fechaInput.value) {
-                   fechaInput.classList.add("is-invalid");
-                   fechaError.style.display = "block";
-                } else {
-                   fechaInput.classList.remove("is-invalid");
-                   fechaError.style.display = "none";
-                }
-           });
-
-           const form = document.querySelector(".ajax-form");
-           form.addEventListener("submit", (e) => {
-               if (!fechaInput.value) {
-                   e.preventDefault();
-                   fechaInput.classList.add("is-invalid");
-                   fechaError.style.display = "block";
-                   fechaInput.focus();
-               }
-           });
-        });
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.closeButton').forEach(button => {
-                button.addEventListener('click', function() {
-                    const notification = this.closest('.alert');
-                    notification.style.animation = 'fadeOut 0.5s forwards';
-                    setTimeout(() => notification.remove(), 500);
-                });
-            });
-
-            document.querySelectorAll('.alert').forEach((alert, index) => {
-                let timeout = 5000;
-                if (alert.classList.contains('alert-search')) {
-                    timeout = 3000;
-                }
-                setTimeout(() => {
-                    alert.style.animation = 'fadeOut 0.5s forwards';
-                    setTimeout(() => alert.remove(), 500);
-                }, timeout + (index * 200));
-            });
-        });
-    </script>
+    <!-- JS externo -->
+    <script src="{% static 'js/peliculas.js' %}"></script>
 </body>
 </html>

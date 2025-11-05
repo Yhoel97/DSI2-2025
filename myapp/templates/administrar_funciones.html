@@ -34,113 +34,140 @@
             {% if funcion_editar %}✏️ Editar Función{% else %}🎥 Agregar Nueva Función{% endif %}
         </div>
         <div class="card-body">
-            <form method="POST" action="{% url 'administrar_funciones' %}" id="funcionForm">
-                {% csrf_token %}
-                <input type="hidden" name="accion" value="{% if funcion_editar %}editar{% else %}agregar{% endif %}">
-                {% if funcion_editar %}
-                    <input type="hidden" name="funcion_id" value="{{ funcion_editar.id }}">
-                {% endif %}
+        <!-- Correcion en formulario -->
+        <form method="POST" action="{% url 'administrar_funciones' %}" id="funcionForm">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="{% if funcion_editar %}editar{% else %}agregar{% endif %}">
+            {% if funcion_editar %}
+                <input type="hidden" name="funcion_id" value="{{ funcion_editar.id }}">
+            {% endif %}
 
-                <div class="row g-3">
-                    <!-- Película -->
-                    <div class="col-md-6">
-                        <label class="form-label">Película</label>
-                        <select name="pelicula" class="form-select" id="peliculaSelect" required>
-                            <option value="">-- Selecciona una película --</option>
-                            {% for p in peliculas %}
-                                <option value="{{ p.id }}"
-                                    data-salas="{% for sala, formato in p.get_salas_con_formato %}{{ sala }} - {{ formato }};{% endfor %}"
-                                    {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>
-                                    {{ p.nombre }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Fecha de inicio -->
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha de inicio</label>
-                        <input type="date" name="fecha_inicio" id="fechaInput" class="form-control"
-                               min="{{ hoy_es|date:'Y-m-d' }}"
-                               value="{% if funcion_editar %}{{ funcion_editar.fecha_inicio|date:'Y-m-d' }}{% endif %}"
-                               required>
-                    </div>
-
-                    <!-- Semanas -->
-                    <div class="col-md-3">
-                        <label class="form-label">Semanas en cartelera</label>
-                        <select name="semanas" class="form-select" required>
-                            {% for n in "12345678"|make_list %}
-                                <option value="{{ n }}"
-                                    {% if funcion_editar and funcion_editar.semanas == n|add:"0" %}selected{% endif %}>
-                                    {{ n }} semana{% if n != '1' %}s{% endif %}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
+            <div class="row g-3">
+                <!-- Película -->
+                <div class="col-md-6">
+                    <label class="form-label">Película</label>
+                    <select name="pelicula" class="form-select" id="peliculaSelect" 
+                            {% if not funcion_editar %}required{% endif %}>
+                        <option value="">-- Selecciona una película --</option>
+                        {% for p in peliculas %}
+                            <option value="{{ p.id }}"
+                                data-salas="{% for sala, formato in p.get_salas_con_formato %}{{ sala }} - {{ formato }};{% endfor %}"
+                                {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>
+                                {{ p.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if funcion_editar %}
+                        <small class="text-muted">Actual: {{ funcion_editar.pelicula.nombre }}</small>
+                    {% endif %}
                 </div>
 
-                <!-- Sección de Horarios Múltiples -->
-                <div class="mt-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0"><i class="fas fa-clock"></i> Horarios y Salas</h5>
+                <!-- Fecha de inicio -->
+                <div class="col-md-3">
+                    <label class="form-label">Fecha de inicio</label>
+                    <input type="date" name="fecha_inicio" id="fechaInput" class="form-control"
+                        {% if not funcion_editar %}
+                        min="{{ hoy_es|date:'Y-m-d' }}"
+                        {% endif %}
+                        value="{% if funcion_editar %}{{ funcion_editar.fecha_inicio|date:'Y-m-d' }}{% endif %}"
+                        {% if not funcion_editar %}required{% endif %}>
+                    {% if funcion_editar %}
+                        <small class="text-muted">Actual: {{ funcion_editar.fecha_inicio|date:'d/m/Y' }}</small>
+                    {% endif %}
+                </div>
+
+                <!-- Semanas -->
+                <div class="col-md-3">
+                    <label class="form-label">Semanas en cartelera</label>
+                    <select name="semanas" class="form-select" {% if not funcion_editar %}required{% endif %}>
+                        {% for n in "12345678"|make_list %}
+                            <option value="{{ n }}"
+                                {% if funcion_editar and funcion_editar.semanas == n|add:"0" %}selected{% endif %}>
+                                {{ n }} semana{% if n != '1' %}s{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if funcion_editar %}
+                        <small class="text-muted">Actual: {{ funcion_editar.semanas }} semana{{ funcion_editar.semanas|pluralize }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Sección de Horarios Múltiples -->
+            <div class="mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0"><i class="fas fa-clock"></i> Horarios y Salas</h5>
+                    {% if not funcion_editar %}
                         <button type="button" class="btn btn-outline-primary btn-sm" id="agregarHorario">
                             <i class="fas fa-plus"></i> Agregar Horario
                         </button>
-                    </div>
-                    
-                    <div id="horariosContainer">
-                        <div class="horario-item">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Horario</label>
-                                    <select name="horario[]" class="form-select" required>
-                                        <option value="">-- Selecciona horario --</option>
-                                        {% for h, label in HORARIOS_DISPONIBLES %}
-                                            <option value="{{ h }}"
-                                                {% if funcion_editar and funcion_editar.horario == h %}selected{% endif %}>
-                                                {{ label }}
+                    {% endif %}
+                </div>
+                
+                <div id="horariosContainer">
+                    <div class="horario-item">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Horario</label>
+                                <select name="horario[]" class="form-select" {% if not funcion_editar %}required{% endif %}>
+                                    <option value="">-- Selecciona horario --</option>
+                                    {% for h, label in HORARIOS_DISPONIBLES %}
+                                        <option value="{{ h }}"
+                                            {% if funcion_editar and funcion_editar.horario == h %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                {% if funcion_editar %}
+                                    <small class="text-muted">Actual: {{ funcion_editar.get_horario_display }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Sala / Formato</label>
+                                <select name="sala[]" class="form-select sala-select" {% if not funcion_editar %}required{% endif %}>
+                                    <option value="">-- Selecciona una sala --</option>
+                                    {% if funcion_editar %}
+                                        {% for sala, formato in funcion_editar.pelicula.get_salas_con_formato %}
+                                            <option value="{{ sala }}"
+                                                {% if funcion_editar.sala == sala %}selected{% endif %}>
+                                                {{ sala }} - {{ formato }}
                                             </option>
                                         {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label">Sala / Formato</label>
-                                    <select name="sala[]" class="form-select sala-select" required>
-                                        <option value="">-- Selecciona una sala --</option>
-                                        {% if funcion_editar %}
-                                            {% for sala, formato in funcion_editar.pelicula.get_salas_con_formato %}
-                                                <option value="{{ sala }}"
-                                                    {% if funcion_editar.sala == sala %}selected{% endif %}>
-                                                    {{ sala }} - {{ formato }}
-                                                </option>
-                                            {% endfor %}
-                                        {% endif %}
-                                    </select>
-                                </div>
-                                <div class="col-md-1 d-flex align-items-end">
+                                    {% endif %}
+                                </select>
+                                {% if funcion_editar %}
+                                    <small class="text-muted">Actual: {{ funcion_editar.sala }} - {{ funcion_editar.get_formato_sala }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                {% if not funcion_editar %}
                                     <button type="button" class="btn btn-outline-danger remove-horario" style="display: none;">
                                         <i class="fas fa-times"></i>
                                     </button>
-                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
-
-                    <div class="text-muted small mt-2">
-                        <i class="fas fa-info-circle"></i> Puede agregar múltiples horarios para la misma película
-                    </div>
                 </div>
 
-                <div class="mt-4 text-center">
+                <div class="text-muted small mt-2">
                     {% if funcion_editar %}
-                        <button type="submit" class="btn btn-warning px-4"><i class="fas fa-save"></i> Guardar Cambios</button>
-                        <a href="{% url 'administrar_funciones' %}" class="btn btn-secondary px-4">Cancelar</a>
+                        <i class="fas fa-info-circle"></i> Editando función existente. Deja campos vacíos para mantener valores actuales.
                     {% else %}
-                        <button type="submit" class="btn btn-success px-4"><i class="fas fa-plus"></i> Agregar Funciones</button>
+                        <i class="fas fa-info-circle"></i> Puede agregar múltiples horarios para la misma película
                     {% endif %}
                 </div>
-            </form>
+            </div>
+
+            <div class="mt-4 text-center">
+                {% if funcion_editar %}
+                    <button type="submit" class="btn btn-warning px-4"><i class="fas fa-save"></i> Guardar Cambios</button>
+                    <a href="{% url 'administrar_funciones' %}" class="btn btn-secondary px-4">Cancelar</a>
+                {% else %}
+                    <button type="submit" class="btn btn-success px-4"><i class="fas fa-plus"></i> Agregar Funciones</button>
+                {% endif %}
+            </div>
+        </form>
         </div>
     </div>
 

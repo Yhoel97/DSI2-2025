@@ -263,6 +263,10 @@ class Reserva(models.Model):
     codigo_reserva = models.CharField(max_length=10, unique=True)
     usado = models.BooleanField(default=False)
     fecha_funcion = models.DateField(null=True, blank=True, help_text="Fecha de la función reservada")
+    
+    # Campos de pago - PBI-30
+    pago_completado = models.BooleanField(default=False, help_text="Indica si el pago fue completado")
+    fecha_pago = models.DateTimeField(null=True, blank=True, help_text="Fecha y hora en que se completó el pago")
 
     def __str__(self):
         return f"Reserva #{self.codigo_reserva} - {self.pelicula.nombre}"
@@ -348,3 +352,42 @@ class Venta(models.Model):
 
     def __str__(self):
         return f"{self.pelicula.nombre} - {self.fecha}"
+
+
+#################################################################
+# MODELOS PARA SISTEMA DE PAGO - PBI-27 y PBI-30
+#################################################################
+
+class Pago(models.Model):
+    """Modelo para registrar pagos de reservas"""
+    
+    ESTADO_PAGO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('APROBADO', 'Aprobado'),
+        ('RECHAZADO', 'Rechazado'),
+        ('REEMBOLSADO', 'Reembolsado'),
+    ]
+    
+    METODO_PAGO_CHOICES = [
+        ('TARJETA', 'Tarjeta de Crédito/Débito'),
+        ('CUENTA_DIGITAL', 'Cuenta Digital'),
+    ]
+    
+    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='pagos')
+    monto = models.DecimalField(max_digits=8, decimal_places=2)
+    metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES)
+    estado_pago = models.CharField(max_length=15, choices=ESTADO_PAGO_CHOICES, default='PENDIENTE')
+    fecha_pago = models.DateTimeField(auto_now_add=True)
+    numero_transaccion = models.CharField(max_length=50, unique=True, help_text="Número único de transacción")
+    detalles_pago = models.JSONField(null=True, blank=True, help_text="Información adicional del pago")
+    # metodo_pago_guardado se agregará en migración posterior (Fase 2)
+    # metodo_pago_guardado = models.ForeignKey('MetodoPago', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    def __str__(self):
+        return f"Pago {self.numero_transaccion} - {self.get_estado_pago_display()}"
+    
+    class Meta:
+        db_table = 'pagos'
+        verbose_name = 'Pago'
+        verbose_name_plural = 'Pagos'
+        ordering = ['-fecha_pago']

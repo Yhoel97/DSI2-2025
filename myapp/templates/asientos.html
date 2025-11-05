@@ -176,11 +176,106 @@
                     <div class="total-price" id="total-price">
                         Total: ${{ total|floatformat:2 }}
                     </div>
+                </div>
 
-                    <!-- Botón de confirmación -->
-                    <button type="submit" name="accion" value="reservar" class="btn-confirm">
-                        Confirmar Reserva
+                <!-- Sección de Método de Pago - PBI-30 -->
+                <div class="payment-section">
+                    <h3>💳 Método de Pago</h3>
+                    
+                    <div class="payment-method-selector">
+                        <label class="payment-option">
+                            <input type="radio" name="usar_metodo_guardado" value="false" checked class="payment-radio">
+                            <div class="payment-option-content">
+                                <span class="payment-icon">💳</span>
+                                <span class="payment-label">Pagar con nueva tarjeta</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Formulario de nueva tarjeta -->
+                    <div id="new-card-form" class="new-card-form">
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="numero_tarjeta">Número de Tarjeta *</label>
+                                <div class="card-number-input">
+                                    <input type="text" 
+                                           id="numero_tarjeta" 
+                                           name="numero_tarjeta" 
+                                           placeholder="1234 5678 9012 3456"
+                                           maxlength="19"
+                                           required>
+                                    <span class="card-icon" id="card-icon">💳</span>
+                                </div>
+                                <span class="field-error" id="error-numero-tarjeta"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nombre_titular">Nombre del Titular *</label>
+                                <input type="text" 
+                                       id="nombre_titular" 
+                                       name="nombre_titular" 
+                                       placeholder="Como aparece en la tarjeta"
+                                       required>
+                                <span class="field-error" id="error-nombre-titular"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fecha_expiracion">Fecha de Expiración *</label>
+                                <input type="text" 
+                                       id="fecha_expiracion" 
+                                       name="fecha_expiracion" 
+                                       placeholder="MM/YY"
+                                       maxlength="5"
+                                       required>
+                                <span class="field-error" id="error-fecha-expiracion"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cvv">CVV *</label>
+                                <input type="text" 
+                                       id="cvv" 
+                                       name="cvv" 
+                                       placeholder="123"
+                                       maxlength="4"
+                                       required>
+                                <span class="field-error" id="error-cvv"></span>
+                            </div>
+                        </div>
+
+                        {% if user.is_authenticated %}
+                        <div class="save-card-option">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="guardar_tarjeta" id="guardar_tarjeta">
+                                <span>💾 Guardar esta tarjeta para futuras compras</span>
+                            </label>
+                        </div>
+                        {% else %}
+                        <div class="login-suggestion">
+                            <p>💡 <a href="{% url 'login' %}?next={{ request.path }}">Inicia sesión</a> para guardar tus métodos de pago</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="payment-security-note">
+                        <small>🔒 Tu información está protegida. Este es un sistema de simulación - no se procesarán cargos reales.</small>
+                    </div>
+                </div>
+
+                <!-- Botón de confirmación y pago -->
+                <div class="confirm-payment-section">
+                    <button type="submit" name="accion" value="reservar" class="btn-confirm-payment" id="btn-confirm-payment">
+                        <span class="btn-icon">🎟️</span>
+                        <span class="btn-text">Confirmar Reserva y Pagar</span>
+                        <span class="btn-amount">${{ total|floatformat:2 }}</span>
                     </button>
+                    <div class="processing-indicator" id="processing-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Procesando pago, por favor espera...</span>
+                    </div>
                 </div>
 
                 <!-- Hidden fields -->

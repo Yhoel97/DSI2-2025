@@ -71,7 +71,8 @@ from datetime import date, datetime, timedelta
 from itertools import groupby
 import pytz
 
-from .models import Pelicula, Funcion
+from .models import Pelicula, Funcion, Pago
+from .utils.payment_simulator import simular_pago
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -641,12 +642,24 @@ def asientos(request, pelicula_id=None):
         email = request.POST.get("email", "").strip()
         funcion_id = request.POST.get("funcion_id")
 
+        # Datos de pago
+        numero_tarjeta = request.POST.get("numero_tarjeta", "").strip().replace(" ", "")
+        nombre_titular = request.POST.get("nombre_titular", "").strip()
+        fecha_expiracion = request.POST.get("fecha_expiracion", "").strip()
+        cvv = request.POST.get("cvv", "").strip()
+
         errores = []
         if not nombre_cliente: errores.append("El nombre es obligatorio")
         if not apellido_cliente: errores.append("El apellido es obligatorio")
         if not email or "@" not in email: errores.append("Ingrese un email válido")
         if not funcion_id: errores.append("Seleccione una función")
         if cantidad_boletos == 0: errores.append("Seleccione al menos un asiento")
+        
+        # Validaciones de pago
+        if not numero_tarjeta: errores.append("El número de tarjeta es obligatorio")
+        if not nombre_titular: errores.append("El nombre del titular es obligatorio")
+        if not fecha_expiracion: errores.append("La fecha de expiración es obligatoria")
+        if not cvv: errores.append("El CVV es obligatorio")
 
         if not errores:
             try:
@@ -658,65 +671,107 @@ def asientos(request, pelicula_id=None):
                 descuento_monto = subtotal * (descuento_porcentaje / 100)
                 precio_total = subtotal - descuento_monto
 
-                reserva = Reserva(
-                    pelicula=pelicula,
-                    nombre_cliente=nombre_cliente,
-                    apellido_cliente=apellido_cliente,
-                    email=email,
-                    formato=formato_funcion,
-                    sala=str(funcion.sala),
-                    horario=funcion.horario,
-                    fecha_funcion=fecha_seleccionada,
-                    asientos=",".join(asientos_seleccionados),
-                    cantidad_boletos=cantidad_boletos,
-                    precio_total=precio_total,
-                    estado="RESERVADO",
-                    usuario=request.user if request.user.is_authenticated else None
-                )
-                reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                reserva.save()
-
-                # Registrar venta
-                Venta.objects.create(
-                    pelicula=reserva.pelicula,
-                    sala=reserva.sala,
-                    fecha=fecha_seleccionada,
-                    cantidad_boletos=reserva.cantidad_boletos,
-                    total_venta=reserva.precio_total
+                # Procesar pago simulado
+                resultado_pago = simular_pago(
+                    numero_tarjeta=numero_tarjeta,
+                    nombre_titular=nombre_titular,
+                    fecha_expiracion=fecha_expiracion,
+                    cvv=cvv,
+                    monto=float(precio_total)
                 )
 
-                # PDF y correo
-                pdf_buffer = generar_pdf_reserva(reserva)
-                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
-                body = (
-                    f"Hola {reserva.nombre_cliente},<br><br>"
-                    f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
-                    f"Código de reserva: {reserva.codigo_reserva}<br>"
-                    f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
-                    f"Horario: {funcion.get_horario_display()}<br>"
-                    f"Sala: {funcion.sala}<br>"
-                    f"Formato: {formato_funcion}<br>"
-                    f"Asientos: {','.join(asientos_seleccionados)}<br>"
-                    f"Subtotal: ${subtotal:.2f}<br>"
-                    f"Descuento: -${descuento_monto:.2f}<br>"
-                    f"Total: ${precio_total:.2f}<br><br>"
-                    "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
-                    "¡Gracias por elegir CineDot!"
+                # Crear registro de pago pendiente
+                pago = Pago(
+                    reserva=None,  # Se asignará después si el pago es exitoso
+                    monto=precio_total,
+                    metodo_pago="TARJETA",
+                    estado_pago="PENDIENTE",
+                    numero_transaccion=resultado_pago.get("numero_transaccion", ""),
+                    detalles_pago={
+                        "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
+                        "nombre_titular": nombre_titular,
+                        "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
+                    }
                 )
-                send_brevo_email(
-                    to_emails=[reserva.email],
-                    subject=subject,
-                    html_content=body,
-                    attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
-                )
+                pago.save()
 
-                request.session["codigo_reserva"] = reserva.codigo_reserva
-                messages.success(request, f"¡Reserva exitosa! Código: {reserva.codigo_reserva}")
-                return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+                if resultado_pago["exitoso"]:
+                    # Pago exitoso: actualizar estado y crear reserva
+                    pago.estado_pago = "APROBADO"
+                    pago.save()
+
+                    # Crear reserva
+                    reserva = Reserva(
+                        pelicula=pelicula,
+                        nombre_cliente=nombre_cliente,
+                        apellido_cliente=apellido_cliente,
+                        email=email,
+                        formato=formato_funcion,
+                        sala=str(funcion.sala),
+                        horario=funcion.horario,
+                        fecha_funcion=fecha_seleccionada,
+                        asientos=",".join(asientos_seleccionados),
+                        cantidad_boletos=cantidad_boletos,
+                        precio_total=precio_total,
+                        estado="RESERVADO",
+                        usuario=request.user if request.user.is_authenticated else None,
+                        pago_completado=True,
+                        fecha_pago=timezone.now()
+                    )
+                    reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    reserva.save()
+
+                    # Asociar pago con reserva
+                    pago.reserva = reserva
+                    pago.save()
+
+                    # Registrar venta
+                    Venta.objects.create(
+                        pelicula=reserva.pelicula,
+                        sala=reserva.sala,
+                        fecha=fecha_seleccionada,
+                        cantidad_boletos=reserva.cantidad_boletos,
+                        total_venta=reserva.precio_total
+                    )
+
+                    # PDF y correo
+                    pdf_buffer = generar_pdf_reserva(reserva)
+                    subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                    body = (
+                        f"Hola {reserva.nombre_cliente},<br><br>"
+                        f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
+                        f"Código de reserva: {reserva.codigo_reserva}<br>"
+                        f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
+                        f"Horario: {funcion.get_horario_display()}<br>"
+                        f"Sala: {funcion.sala}<br>"
+                        f"Formato: {formato_funcion}<br>"
+                        f"Asientos: {','.join(asientos_seleccionados)}<br>"
+                        f"Subtotal: ${subtotal:.2f}<br>"
+                        f"Descuento: -${descuento_monto:.2f}<br>"
+                        f"Total: ${precio_total:.2f}<br>"
+                        f"Transacción: {pago.numero_transaccion}<br><br>"
+                        "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
+                        "¡Gracias por elegir CineDot!"
+                    )
+                    send_brevo_email(
+                        to_emails=[reserva.email],
+                        subject=subject,
+                        html_content=body,
+                        attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
+                    )
+
+                    request.session["codigo_reserva"] = reserva.codigo_reserva
+                    messages.success(request, f"¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}")
+                    return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+                else:
+                    # Pago rechazado
+                    pago.estado_pago = "RECHAZADO"
+                    pago.detalles_pago["mensaje_error"] = resultado_pago.get("mensaje", "Pago rechazado")
+                    pago.save()
+                    
+                    messages.error(request, f"Error en el pago: {resultado_pago.get('mensaje', 'Pago rechazado')}. Por favor, intente nuevamente.")
             except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
-            except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
+                messages.error(request, f"Error al procesar la transacción: {str(e)}")
         else:
             for error in errores:
                 messages.error(request, error)

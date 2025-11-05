@@ -1420,6 +1420,10 @@ def hay_conflicto_distancia(hora, existentes):
             return True
     return False
 
+#********************************************
+# Vista Administrar funciones
+#----------------------------------------
+
 @csrf_exempt
 def administrar_funciones(request):
     hoy_es = _ahora_es().date()
@@ -1452,8 +1456,7 @@ def administrar_funciones(request):
             else {'llenas': 0, 'media': False}
         )
 
-# ✅ CORRECCIÓN: Filtrar funciones según su fecha_fin calculada
-    # Obtener TODAS las funciones activas y filtrar manualmente por fecha_fin
+    # ✅ CORRECCIÓN: Filtrar funciones según su fecha_fin calculada
     todas_funciones_activas = Funcion.objects.filter(
         activa=True
     ).select_related('pelicula').order_by('pelicula__id', 'horario')
@@ -1462,7 +1465,7 @@ def administrar_funciones(request):
     funciones_actuales = []
     for funcion in todas_funciones_activas:
         fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
-        if fecha_fin >= hoy_es:  # Si la fecha_fin no ha pasado, está vigente
+        if fecha_fin >= hoy_es:
             funciones_actuales.append(funcion)
     
     # Funciones pasadas: inactivas O con fecha_fin ya pasada
@@ -1475,7 +1478,7 @@ def administrar_funciones(request):
     # Agregar funciones activas pero con fecha_fin pasada
     for funcion in todas_funciones_activas:
         fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
-        if fecha_fin < hoy_es:  # Si la fecha_fin ya pasó
+        if fecha_fin < hoy_es:
             funciones_pasadas.append(funcion)
 
     funcion_editar = None
@@ -1483,18 +1486,16 @@ def administrar_funciones(request):
     if request.method == "POST":
         accion = request.POST.get("accion")
 
-                # --- AGREGAR NUEVA FUNCIÓN CON MÚLTIPLES HORARIOS ---
+        # --- AGREGAR NUEVA FUNCIÓN CON MÚLTIPLES HORARIOS ---
         if accion == "agregar":
             pelicula_id = request.POST.get("pelicula")
             fecha_inicio_str = request.POST.get("fecha_inicio")
             semanas = request.POST.get("semanas", 1)
             
-            # Obtener arrays de horarios y salas
             horarios = request.POST.getlist('horario[]')
             salas = request.POST.getlist('sala[]')
 
             try:
-                # Validar datos requeridos
                 if not all([pelicula_id, fecha_inicio_str]):
                     messages.error(request, "❌ Película y fecha son obligatorios.")
                     return redirect("administrar_funciones")
@@ -1503,11 +1504,9 @@ def administrar_funciones(request):
                     messages.error(request, "❌ Debes agregar al menos un horario y sala.")
                     return redirect("administrar_funciones")
 
-                # Obtener objetos relacionados
                 pelicula = Pelicula.objects.get(id=pelicula_id)
                 fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
 
-                # Validar que la fecha no sea pasada
                 if fecha_inicio < hoy_es:
                     messages.error(request, "❌ No puedes crear funciones con fecha pasada.")
                     return redirect("administrar_funciones")
@@ -1515,19 +1514,16 @@ def administrar_funciones(request):
                 funciones_creadas = 0
                 errores = []
 
-                # Procesar cada par horario-sala
                 for i, (horario, sala_nombre) in enumerate(zip(horarios, salas)):
                     if not horario or not sala_nombre:
-                        continue  # Saltar campos vacíos
+                        continue
 
                     try:
-                        # Validar que la sala exista en las salas disponibles de la película
                         salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
                         if sala_nombre not in salas_pelicula:
                             errores.append(f"La sala '{sala_nombre}' no está disponible para esta película")
                             continue
 
-                        # ✅ VALIDACIÓN CRÍTICA 1: Verificar horario exacto (mismo horario, misma sala, misma fecha)
                         conflicto_exacto = Funcion.objects.filter(
                             sala__icontains=sala_nombre,
                             horario=horario,
@@ -1539,12 +1535,11 @@ def administrar_funciones(request):
                             errores.append(f"❌ Ya existe una función en {sala_nombre} a las {horario} el {fecha_inicio.strftime('%d/%m/%Y')}")
                             continue
 
-                        # ✅ VALIDACIÓN CRÍTICA 2: Verificar distancia mínima (2h30m entre funciones)
                         funciones_existentes = Funcion.objects.filter(
                             sala__icontains=sala_nombre,
                             fecha_inicio=fecha_inicio,
                             activa=True
-                        ).exclude(horario=horario)  # Excluir el mismo horario (ya validado arriba)
+                        ).exclude(horario=horario)
                         
                         horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
                         nuevo_horario = parse_hora(horario)
@@ -1553,7 +1548,6 @@ def administrar_funciones(request):
                             errores.append(f"⚠️ Horario {horario} en {sala_nombre}: debe haber mínimo 2h30m con funciones existentes")
                             continue
 
-                        # Crear la nueva función
                         nueva_funcion = Funcion(
                             pelicula=pelicula,
                             sala=sala_nombre,
@@ -1568,34 +1562,12 @@ def administrar_funciones(request):
                     except Exception as e:
                         errores.append(f"Error en horario {horario}: {str(e)}")
 
-                # Mostrar resultados
                 if funciones_creadas > 0:
                     messages.success(request, f"✅ {funciones_creadas} función(es) agregada(s) para {pelicula.nombre}")
                 
                 if errores:
                     for error in errores:
                         messages.warning(request, f"⚠️ {error}")
-                
-                # Recargar los QuerySets después de agregar
-                todas_funciones_activas = Funcion.objects.filter(
-                    activa=True
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                
-                funciones_actuales = []
-                for funcion in todas_funciones_activas:
-                    fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
-                    if fecha_fin >= hoy_es:
-                        funciones_actuales.append(funcion)
-                
-                todas_funciones = Funcion.objects.filter(
-                    models.Q(activa=False)
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                
-                funciones_pasadas = list(todas_funciones)
-                for funcion in todas_funciones_activas:
-                    fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
-                    if fecha_fin < hoy_es:
-                        funciones_pasadas.append(funcion)
                 
             except Pelicula.DoesNotExist:
                 messages.error(request, "❌ La película seleccionada no existe.")
@@ -1610,26 +1582,14 @@ def administrar_funciones(request):
             if funcion_id:
                 try:
                     funcion = Funcion.objects.get(id=funcion_id)
-                    # CORRECCIÓN: Al reactivar, también actualizar fecha_inicio si es pasada
                     if funcion.fecha_inicio < hoy_es:
                         funcion.fecha_inicio = hoy_es
                     
-                    # Reactivar la función
                     funcion.activa = True
                     funcion.fecha_eliminacion = None
                     funcion.save()
                     
                     messages.success(request, f"✅ Función de '{funcion.pelicula.nombre}' reactivada correctamente.")
-                    
-                    # CORRECCIÓN: Recargar los QuerySets después de la reactivación
-                    funciones_actuales = Funcion.objects.filter(
-                        activa=True,
-                        fecha_inicio__gte=hoy_es
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                    
-                    funciones_pasadas = Funcion.objects.filter(
-                        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
                     
                 except Funcion.DoesNotExist:
                     messages.error(request, "La función que intentas reactivar no existe.")
@@ -1647,22 +1607,11 @@ def administrar_funciones(request):
                     funcion = Funcion.objects.get(id=funcion_id)
                     nombre_pelicula = funcion.pelicula.nombre
                     
-                    # En lugar de eliminar, marcar como inactiva
                     funcion.activa = False
                     funcion.fecha_eliminacion = hoy_es
                     funcion.save()
                     
                     messages.success(request, f"🗑️ Función de '{nombre_pelicula}' desactivada correctamente.")
-                    
-                    # CORRECCIÓN: Recargar los QuerySets después de la eliminación
-                    funciones_actuales = Funcion.objects.filter(
-                        activa=True,
-                        fecha_inicio__gte=hoy_es
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                    
-                    funciones_pasadas = Funcion.objects.filter(
-                        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
                     
                 except Funcion.DoesNotExist:
                     messages.error(request, "La función que intentas eliminar no existe.")
@@ -1676,16 +1625,14 @@ def administrar_funciones(request):
         elif accion == "editar":
             funcion_id = request.POST.get("funcion_id")
             pelicula_id = request.POST.get("pelicula")
-            sala_nombre = request.POST.getlist("sala[]")[0] if request.POST.getlist("sala[]") else None  # Tomar el primero
-            horario = request.POST.getlist("horario[]")[0] if request.POST.getlist("horario[]") else None  # Tomar el primero
+            sala_nombre = request.POST.getlist("sala[]")[0] if request.POST.getlist("sala[]") else None
+            horario = request.POST.getlist("horario[]")[0] if request.POST.getlist("horario[]") else None
             fecha_inicio_str = request.POST.get("fecha_inicio")
             semanas = request.POST.get("semanas", 1)
 
             try:
-                # ✅ CORRECCIÓN: Obtener la función existente primero
                 funcion = Funcion.objects.get(id=funcion_id)
                 
-                # ✅ CORRECCIÓN: Usar valores existentes si no se proporcionan nuevos
                 if not pelicula_id:
                     pelicula = funcion.pelicula
                 else:
@@ -1702,18 +1649,15 @@ def administrar_funciones(request):
                 else:
                     fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
 
-                # Validar que la fecha no sea pasada (solo si cambió)
                 if fecha_inicio < hoy_es and fecha_inicio != funcion.fecha_inicio:
                     messages.error(request, "❌ No puedes programar funciones con fecha pasada.")
                     return redirect("administrar_funciones")
 
-                # Validar que la sala exista en las salas disponibles de la película
                 salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
                 if sala_nombre not in salas_pelicula:
                     messages.error(request, f"❌ La sala '{sala_nombre}' no está disponible para esta película")
                     return redirect("administrar_funciones")
 
-                # ✅ VALIDACIÓN 1: Verificar horario exacto (excluyendo la función actual)
                 conflicto_exacto = Funcion.objects.filter(
                     sala__icontains=sala_nombre,
                     horario=horario,
@@ -1725,7 +1669,6 @@ def administrar_funciones(request):
                     messages.error(request, f"❌ Ya existe otra función en {sala_nombre} a las {horario} el {fecha_inicio.strftime('%d/%m/%Y')}")
                     return redirect("administrar_funciones")
 
-                # ✅ VALIDACIÓN 2: Verificar distancia mínima (excluyendo la función actual)
                 funciones_existentes = Funcion.objects.filter(
                     sala__icontains=sala_nombre,
                     fecha_inicio=fecha_inicio,
@@ -1739,7 +1682,6 @@ def administrar_funciones(request):
                     messages.error(request, f"❌ Conflicto de horarios: debe haber mínimo 2h30m con funciones existentes en la misma sala.")
                     return redirect("administrar_funciones")
 
-                # Actualizar la función
                 funcion.pelicula = pelicula
                 funcion.sala = sala_nombre
                 funcion.horario = horario
@@ -1748,27 +1690,6 @@ def administrar_funciones(request):
                 funcion.save()
 
                 messages.success(request, f"✏️ Función editada correctamente: {pelicula.nombre} - {sala_nombre} - {horario}")
-                
-                # Recargar los QuerySets después de editar
-                todas_funciones_activas = Funcion.objects.filter(
-                    activa=True
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                
-                funciones_actuales = []
-                for funcion in todas_funciones_activas:
-                    fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
-                    if fecha_fin >= hoy_es:
-                        funciones_actuales.append(funcion)
-                
-                todas_funciones = Funcion.objects.filter(
-                    models.Q(activa=False)
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                
-                funciones_pasadas = list(todas_funciones)
-                for funcion in todas_funciones_activas:
-                    fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
-                    if fecha_fin < hoy_es:
-                        funciones_pasadas.append(funcion)
                 
             except Funcion.DoesNotExist:
                 messages.error(request, "❌ La función que intentas editar no existe.")
@@ -1787,15 +1708,41 @@ def administrar_funciones(request):
         else:
             messages.error(request, "No se proporcionó ID de función para editar.")
 
+    # ✅ CORRECCIÓN CRÍTICA: Agrupar funciones por película Y fecha_inicio
+    funciones_actuales_sorted = sorted(funciones_actuales, key=lambda f: (f.pelicula.id, f.fecha_inicio))
+    funciones_actuales_agrupadas = []
+    
+    for (pelicula_id, fecha_inicio), grupo in groupby(funciones_actuales_sorted, key=lambda f: (f.pelicula.id, f.fecha_inicio)):
+        funciones_lista = list(grupo)
+        funciones_actuales_agrupadas.append({
+            'pelicula': funciones_lista[0].pelicula,
+            'fecha_inicio': fecha_inicio,
+            'funciones': funciones_lista
+        })
+
+    # Para funciones pasadas
+    funciones_pasadas_sorted = sorted(funciones_pasadas, key=lambda f: (f.pelicula.id, f.fecha_inicio))
+    funciones_pasadas_agrupadas = []
+    
+    for (pelicula_id, fecha_inicio), grupo in groupby(funciones_pasadas_sorted, key=lambda f: (f.pelicula.id, f.fecha_inicio)):
+        funciones_lista = list(grupo)
+        funciones_pasadas_agrupadas.append({
+            'pelicula': funciones_lista[0].pelicula,
+            'fecha_inicio': fecha_inicio,
+            'funciones': funciones_lista
+        })
+
     return render(request, "administrar_funciones.html", {
         "peliculas": peliculas,
         "peliculas_con_pares": peliculas_con_pares,
-        "funciones_actuales": funciones_actuales,
-        "funciones_pasadas": funciones_pasadas,
+        "funciones_actuales_agrupadas": funciones_actuales_agrupadas,  # ← Nuevo
+        "funciones_pasadas_agrupadas": funciones_pasadas_agrupadas,    # ← Nuevo
         "funcion_editar": funcion_editar,
         "HORARIOS_DISPONIBLES": Funcion.HORARIOS_DISPONIBLES,
         "hoy_es": hoy_es,
     })
+
+
 
 #########################################################################
 ### Reportes Administrativos##############################################

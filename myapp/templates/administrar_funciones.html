@@ -13,7 +13,6 @@
 <div class="container mt-4 mb-5">
     <h1 class="text-center mb-4"><i class="fas fa-calendar-alt"></i> Administrar Funciones</h1>
 
-    <!-- Mensajes -->
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -34,144 +33,141 @@
             {% if funcion_editar %}✏️ Editar Función{% else %}🎥 Agregar Nueva Función{% endif %}
         </div>
         <div class="card-body">
-        <!-- Correcion en formulario -->
-        <form method="POST" action="{% url 'administrar_funciones' %}" id="funcionForm">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="{% if funcion_editar %}editar{% else %}agregar{% endif %}">
-            {% if funcion_editar %}
-                <input type="hidden" name="funcion_id" value="{{ funcion_editar.id }}">
-            {% endif %}
+            <form method="POST" action="{% url 'administrar_funciones' %}" id="funcionForm">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="{% if funcion_editar %}editar{% else %}agregar{% endif %}">
+                {% if funcion_editar %}
+                    <input type="hidden" name="funcion_id" value="{{ funcion_editar.id }}">
+                {% endif %}
 
-            <div class="row g-3">
-                <!-- Película -->
-                <div class="col-md-6">
-                    <label class="form-label">Película</label>
-                    <select name="pelicula" class="form-select" id="peliculaSelect" 
-                            {% if not funcion_editar %}required{% endif %}>
-                        <option value="">-- Selecciona una película --</option>
-                        {% for p in peliculas %}
-                            <option value="{{ p.id }}"
-                                data-salas="{% for sala, formato in p.get_salas_con_formato %}{{ sala }} - {{ formato }};{% endfor %}"
-                                {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>
-                                {{ p.nombre }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    {% if funcion_editar %}
-                        <small class="text-muted">Actual: {{ funcion_editar.pelicula.nombre }}</small>
-                    {% endif %}
-                </div>
-
-                <!-- Fecha de inicio -->
-                <div class="col-md-3">
-                    <label class="form-label">Fecha de inicio</label>
-                    <input type="date" name="fecha_inicio" id="fechaInput" class="form-control"
-                        {% if not funcion_editar %}
-                        min="{{ hoy_es|date:'Y-m-d' }}"
+                <div class="row g-3">
+                    <!-- Película -->
+                    <div class="col-md-6">
+                        <label class="form-label">Película</label>
+                        <select name="pelicula" class="form-select" id="peliculaSelect" 
+                                {% if not funcion_editar %}required{% endif %}>
+                            <option value="">-- Selecciona una película --</option>
+                            {% for p in peliculas %}
+                                <option value="{{ p.id }}"
+                                    data-salas="{% for sala, formato in p.get_salas_con_formato %}{{ sala }} - {{ formato }};{% endfor %}"
+                                    {% if funcion_editar and funcion_editar.pelicula.id == p.id %}selected{% endif %}>
+                                    {{ p.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if funcion_editar %}
+                            <small class="text-muted">Actual: {{ funcion_editar.pelicula.nombre }}</small>
                         {% endif %}
-                        value="{% if funcion_editar %}{{ funcion_editar.fecha_inicio|date:'Y-m-d' }}{% endif %}"
-                        {% if not funcion_editar %}required{% endif %}>
-                    {% if funcion_editar %}
-                        <small class="text-muted">Actual: {{ funcion_editar.fecha_inicio|date:'d/m/Y' }}</small>
-                    {% endif %}
-                </div>
+                    </div>
 
-                <!-- Semanas -->
-                <div class="col-md-3">
-                    <label class="form-label">Semanas en cartelera</label>
-                    <select name="semanas" class="form-select" {% if not funcion_editar %}required{% endif %}>
-                        {% for n in "12345678"|make_list %}
-                            <option value="{{ n }}"
-                                {% if funcion_editar and funcion_editar.semanas == n|add:"0" %}selected{% endif %}>
-                                {{ n }} semana{% if n != '1' %}s{% endif %}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    {% if funcion_editar %}
-                        <small class="text-muted">Actual: {{ funcion_editar.semanas }} semana{{ funcion_editar.semanas|pluralize }}</small>
-                    {% endif %}
-                </div>
-            </div>
+                    <!-- Fecha de inicio -->
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha de inicio</label>
+                        <input type="date" name="fecha_inicio" id="fechaInput" class="form-control"
+                            {% if not funcion_editar %}
+                            min="{{ hoy_es|date:'Y-m-d' }}"
+                            {% endif %}
+                            value="{% if funcion_editar %}{{ funcion_editar.fecha_inicio|date:'Y-m-d' }}{% endif %}"
+                            {% if not funcion_editar %}required{% endif %}>
+                        {% if funcion_editar %}
+                            <small class="text-muted">Actual: {{ funcion_editar.fecha_inicio|date:'d/m/Y' }}</small>
+                        {% endif %}
+                    </div>
 
-            <!-- Sección de Horarios Múltiples -->
-            <div class="mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0"><i class="fas fa-clock"></i> Horarios y Salas</h5>
-                    {% if not funcion_editar %}
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="agregarHorario">
-                            <i class="fas fa-plus"></i> Agregar Horario
-                        </button>
-                    {% endif %}
-                </div>
-                
-                <div id="horariosContainer">
-                    <div class="horario-item">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Horario</label>
-                                <select name="horario[]" class="form-select" {% if not funcion_editar %}required{% endif %}>
-                                    <option value="">-- Selecciona horario --</option>
-                                    {% for h, label in HORARIOS_DISPONIBLES %}
-                                        <option value="{{ h }}"
-                                            {% if funcion_editar and funcion_editar.horario == h %}selected{% endif %}>
-                                            {{ label }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                {% if funcion_editar %}
-                                    <small class="text-muted">Actual: {{ funcion_editar.get_horario_display }}</small>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label">Sala / Formato</label>
-                                <select name="sala[]" class="form-select sala-select" {% if not funcion_editar %}required{% endif %}>
-                                    <option value="">-- Selecciona una sala --</option>
-                                    {% if funcion_editar %}
-                                        {% for sala, formato in funcion_editar.pelicula.get_salas_con_formato %}
-                                            <option value="{{ sala }}"
-                                                {% if funcion_editar.sala == sala %}selected{% endif %}>
-                                                {{ sala }} - {{ formato }}
-                                            </option>
-                                        {% endfor %}
-                                    {% endif %}
-                                </select>
-                                {% if funcion_editar %}
-                                    <small class="text-muted">Actual: {{ funcion_editar.sala }} - {{ funcion_editar.get_formato_sala }}</small>
-                                {% endif %}
-                            </div>
-                            <div class="col-md-1 d-flex align-items-end">
-                                {% if not funcion_editar %}
-                                    <button type="button" class="btn btn-outline-danger remove-horario" style="display: none;">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                {% endif %}
-                            </div>
-                        </div>
+                    <!-- Semanas -->
+                    <div class="col-md-3">
+                        <label class="form-label">Semanas en cartelera</label>
+                        <select name="semanas" class="form-select" {% if not funcion_editar %}required{% endif %}>
+                            {% for n in "12345678"|make_list %}
+                                <option value="{{ n }}"
+                                    {% if funcion_editar and funcion_editar.semanas == n|add:"0" %}selected{% endif %}>
+                                    {{ n }} semana{% if n != '1' %}s{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if funcion_editar %}
+                            <small class="text-muted">Actual: {{ funcion_editar.semanas }} semana{{ funcion_editar.semanas|pluralize }}</small>
+                        {% endif %}
                     </div>
                 </div>
 
-                <div class="text-muted small mt-2">
+                <!-- Horarios -->
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0"><i class="fas fa-clock"></i> Horarios y Salas</h5>
+                        {% if not funcion_editar %}
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="agregarHorario">
+                                <i class="fas fa-plus"></i> Agregar Horario
+                            </button>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="horariosContainer">
+                        <div class="horario-item">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Horario</label>
+                                    <select name="horario[]" class="form-select" {% if not funcion_editar %}required{% endif %}>
+                                        <option value="">-- Selecciona horario --</option>
+                                        {% for h, label in HORARIOS_DISPONIBLES %}
+                                            <option value="{{ h }}" {% if funcion_editar and funcion_editar.horario == h %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if funcion_editar %}
+                                        <small class="text-muted">Actual: {{ funcion_editar.get_horario_display }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">Sala / Formato</label>
+                                    <select name="sala[]" class="form-select sala-select" {% if not funcion_editar %}required{% endif %}>
+                                        <option value="">-- Selecciona una sala --</option>
+                                        {% if funcion_editar %}
+                                            {% for sala, formato in funcion_editar.pelicula.get_salas_con_formato %}
+                                                <option value="{{ sala }}" {% if funcion_editar.sala == sala %}selected{% endif %}>
+                                                    {{ sala }} - {{ formato }}
+                                                </option>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </select>
+                                    {% if funcion_editar %}
+                                        <small class="text-muted">Actual: {{ funcion_editar.sala }} - {{ funcion_editar.get_formato_sala }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    {% if not funcion_editar %}
+                                        <button type="button" class="btn btn-outline-danger remove-horario" style="display: none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                        {% if funcion_editar %}
+                            <i class="fas fa-info-circle"></i> Editando función existente. Deja campos vacíos para mantener valores actuales.
+                        {% else %}
+                            <i class="fas fa-info-circle"></i> Puede agregar múltiples horarios para la misma película
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center">
                     {% if funcion_editar %}
-                        <i class="fas fa-info-circle"></i> Editando función existente. Deja campos vacíos para mantener valores actuales.
+                        <button type="submit" class="btn btn-warning px-4"><i class="fas fa-save"></i> Guardar Cambios</button>
+                        <a href="{% url 'administrar_funciones' %}" class="btn btn-secondary px-4">Cancelar</a>
                     {% else %}
-                        <i class="fas fa-info-circle"></i> Puede agregar múltiples horarios para la misma película
+                        <button type="submit" class="btn btn-success px-4"><i class="fas fa-plus"></i> Agregar Funciones</button>
                     {% endif %}
                 </div>
-            </div>
-
-            <div class="mt-4 text-center">
-                {% if funcion_editar %}
-                    <button type="submit" class="btn btn-warning px-4"><i class="fas fa-save"></i> Guardar Cambios</button>
-                    <a href="{% url 'administrar_funciones' %}" class="btn btn-secondary px-4">Cancelar</a>
-                {% else %}
-                    <button type="submit" class="btn btn-success px-4"><i class="fas fa-plus"></i> Agregar Funciones</button>
-                {% endif %}
-            </div>
-        </form>
+            </form>
         </div>
     </div>
 
-    <!-- Tabla de funciones vigentes -->
+    <!-- === FUNCIONES VIGENTES === -->
     <div class="card mt-4 shadow-sm">
         <div class="card-header bg-dark text-white">🎞️ Funciones Vigentes</div>
         <div class="card-body table-responsive">
@@ -181,66 +177,44 @@
                         <th>Imagen</th>
                         <th>Película</th>
                         <th>Inicio</th>
-                        <th>Duración</th>
-                        <th>Finalización</th>
-                        <th>Horarios y Salas</th>
-                        <th>Acciones</th>
+                        <th>Semanas</th>
+                        <th colspan="2" class="text-center">Horarios, Salas y Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% regroup funciones_actuales by pelicula.id as peliculas_funciones %}
-                    {% for pelicula_grupo in peliculas_funciones %}
-                        {% with pelicula_grupo.list.0.pelicula as pelicula %}
-                        <tr class="funcion-combinada">
+                    {% for grupo in funciones_actuales_agrupadas %}
+                        <tr>
                             <td>
-                                {% if pelicula.imagen_url %}
-                                    <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="img-thumbnail" style="width:60px; height:80px; object-fit: cover;">
+                                {% if grupo.pelicula.imagen_url %}
+                                    <img src="{{ grupo.pelicula.imagen_url }}" alt="{{ grupo.pelicula.nombre }}" class="img-thumbnail" style="width:60px; height:80px; object-fit: cover;">
                                 {% else %}
-                                    <div class="bg-secondary d-flex align-items-center justify-content-center img-thumbnail" style="width:60px; height:80px;">
-                                        <i class="fas fa-film text-white"></i>
+                                    <div class="bg-secondary text-white text-center img-thumbnail d-flex justify-content-center align-items-center" style="width:60px; height:80px;">
+                                        <i class="fas fa-film"></i>
                                     </div>
                                 {% endif %}
                             </td>
-                            <td><strong>{{ pelicula.nombre }}</strong></td>
-                            <td>{{ pelicula_grupo.list.0.fecha_inicio|date:"d/m/Y" }}</td>
-                            <td>
-                                {% for funcion in pelicula_grupo.list %}
-                                    {{ funcion.semanas }} semana{{ funcion.semanas|pluralize }}
-                                    {% if not forloop.last %}<br>{% endif %}
+                            <td><strong>{{ grupo.pelicula.nombre }}</strong></td>
+                            <td>{{ grupo.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td>{{ grupo.funciones.0.semanas }} semana{{ grupo.funciones.0.semanas|pluralize }}</td>
+                            <td colspan="2">
+                                {% for funcion in grupo.funciones %}
+                                    <div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                                        <div>
+                                            <i class="fas fa-clock text-muted me-1"></i>
+                                            {{ funcion.get_horario_display }} - <strong>{{ funcion.sala }}</strong> - {{ funcion.get_formato_sala }}
+                                        </div>
+                                        <div class="d-flex gap-1">
+                                            <a href="?editar={{ funcion.id }}" class="btn btn-warning btn-sm" title="Editar"><i class="fas fa-edit"></i></a>
+                                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalEliminar{{ funcion.id }}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
                                 {% endfor %}
                             </td>
-                            <td>{{ pelicula_grupo.list.0.fecha_fin|date:"d/m/Y" }}</td>
-                            <td>
-                                <div class="horarios-container">
-                                    {% for funcion in pelicula_grupo.list %}
-                                        <div class="horario-item mb-1">
-                                            {{ funcion.get_horario_display }} - {{ funcion.sala }} - {{ funcion.get_formato_sala }}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    {% for funcion in pelicula_grupo.list %}
-                                        <div class="d-flex gap-1 mb-1">
-                                            <a href="?editar={{ funcion.id }}" class="btn btn-warning btn-sm">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-danger btn-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#modalEliminar{{ funcion.id }}">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </td>
                         </tr>
-                        {% endwith %}
                     {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
-                                <i class="fas fa-calendar-times fa-2x mb-2"></i><br>
-                                No hay funciones vigentes
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="fas fa-calendar-times fa-2x mb-2"></i><br>No hay funciones vigentes
                             </td>
                         </tr>
                     {% endfor %}
@@ -249,165 +223,67 @@
         </div>
     </div>
 
-    <!-- Modales de Eliminación -->
-    {% regroup funciones_actuales by pelicula.id as peliculas_funciones %}
-    {% for pelicula_grupo in peliculas_funciones %}
-        {% for funcion in pelicula_grupo.list %}
-        <div class="modal fade" id="modalEliminar{{ funcion.id }}" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow-lg">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <p class="fs-5">¿Estás seguro de que deseas eliminar esta función?</p>
-                        <p class="text-muted mb-0">
-                            <strong>{{ funcion.pelicula.nombre }}</strong><br>
-                            {{ funcion.fecha_inicio|date:"d/m/Y" }} - {{ funcion.get_horario_display }} - {{ funcion.sala }} - {{ funcion.get_formato_sala }}
-                        </p>
-                    </div>
-                    <div class="modal-footer d-flex justify-content-center">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">
-                            <i class="fas fa-times"></i> Cancelar
-                        </button>
-                        <form method="POST" action="{% url 'administrar_funciones' %}" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="accion" value="eliminar">
-                            <input type="hidden" name="funcion_id" value="{{ funcion.id }}">
-                            <button type="submit" class="btn btn-danger px-4">
-                                <i class="fas fa-trash-alt"></i> Eliminar
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    {% endfor %}
-
-    <!-- Tabla de funciones pasadas -->
-    <div class="card mt-4 shadow-sm">
-        <div class="card-header bg-secondary text-white">📜 Funciones Pasadas</div>
-        <div class="card-body table-responsive">
-            <table class="table table-striped align-middle">
-                <thead class="table-dark">
+<!-- === FUNCIONES PASADAS === -->
+<div class="card mt-4 shadow-sm">
+    <div class="card-header bg-secondary text-white">📜 Funciones Pasadas</div>
+    <div class="card-body table-responsive">
+        <table class="table table-striped align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Imagen</th>
+                    <th>Película</th>
+                    <th>Inicio</th>
+                    <th>Semanas</th>
+                    <th colspan="2" class="text-center">Horarios, Salas y Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for grupo in funciones_pasadas_agrupadas %}
                     <tr>
-                        <th>Imagen</th>
-                        <th>Película</th>
-                        <th>Inicio</th>
-                        <th>Duración</th>
-                        <th>Finalización</th>
-                        <th>Horarios y Salas</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% regroup funciones_pasadas by pelicula.id as peliculas_funciones_pasadas %}
-                    {% for pelicula_grupo in peliculas_funciones_pasadas %}
-                        {% with pelicula_grupo.list.0.pelicula as pelicula %}
-                        <tr class="funcion-combinada">
-                            <td>
-                                {% if pelicula.imagen_url %}
-                                    <img src="{{ pelicula.imagen_url }}" alt="{{ pelicula.nombre }}" class="img-thumbnail" style="width:60px; height:80px; object-fit: cover;">
-                                {% else %}
-                                    <div class="bg-secondary d-flex align-items-center justify-content-center img-thumbnail" style="width:60px; height:80px;">
-                                        <i class="fas fa-film text-white"></i>
+                        <td>
+                            {% if grupo.pelicula.imagen_url %}
+                                <img src="{{ grupo.pelicula.imagen_url }}" alt="{{ grupo.pelicula.nombre }}" class="img-thumbnail" style="width:60px; height:80px; object-fit: cover;">
+                            {% else %}
+                                <div class="bg-secondary text-white text-center img-thumbnail d-flex justify-content-center align-items-center" style="width:60px; height:80px;">
+                                    <i class="fas fa-film"></i>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ grupo.pelicula.nombre }}</strong></td>
+                        <td>{{ grupo.fecha_inicio|date:"d/m/Y" }}</td>
+                        <td>{{ grupo.funciones.0.semanas }} semana{{ grupo.funciones.0.semanas|pluralize }}</td>
+                        <td colspan="2">
+                            {% for funcion in grupo.funciones %}
+                                <div class="d-flex justify-content-between align-items-center border-bottom py-1">
+                                    <div>
+                                        <i class="fas fa-clock text-muted me-1"></i>
+                                        {{ funcion.get_horario_display }} - <strong>{{ funcion.sala }}</strong> - {{ funcion.get_formato_sala }}
                                     </div>
-                                {% endif %}
-                            </td>
-                            <td>{{ pelicula.nombre }}</td>
-                            <td>{{ pelicula_grupo.list.0.fecha_inicio|date:"d/m/Y" }}</td>
-                            <td>
-                                {% for funcion in pelicula_grupo.list %}
-                                    {% if funcion.activa %}
-                                        {{ funcion.semanas }} semana{{ funcion.semanas|pluralize }}
-                                    {% else %}
-                                        {{ funcion.get_duracion_real }} día{{ funcion.get_duracion_real|pluralize }}
-                                    {% endif %}
-                                    {% if not forloop.last %}<br>{% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>{{ pelicula_grupo.list.0.fecha_fin|date:"d/m/Y" }}</td>
-                            <td>
-                                <div class="horarios-container">
-                                    {% for funcion in pelicula_grupo.list %}
-                                        <div class="horario-item mb-1">
-                                            {{ funcion.get_horario_display }} - {{ funcion.sala }} - {{ funcion.get_formato_sala }}
-                                        </div>
-                                    {% endfor %}
+                                    <div>
+                                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalReactivar{{ funcion.id }}" title="Reactivar">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    {% for funcion in pelicula_grupo.list %}
-                                        <div class="mb-1">
-                                            <button type="button" class="btn btn-success btn-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#modalReactivar{{ funcion.id }}"
-                                                    title="Reactivar función">
-                                                <i class="fas fa-redo"></i>
-                                            </button>
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endwith %}
-                    {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
-                                <i class="fas fa-history fa-2x mb-2"></i><br>
-                                No hay funciones pasadas
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-history fa-2x mb-2"></i><br>No hay funciones pasadas
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-
-    <!-- Modales de Reactivación -->
-    {% regroup funciones_pasadas by pelicula.id as peliculas_funciones_pasadas %}
-    {% for pelicula_grupo in peliculas_funciones_pasadas %}
-        {% for funcion in pelicula_grupo.list %}
-        <div class="modal fade" id="modalReactivar{{ funcion.id }}" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow-lg">
-                    <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title"><i class="fas fa-redo"></i> Confirmar Reactivación</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <p class="fs-5">¿Deseas reactivar esta función?</p>
-                        <p class="text-muted mb-0">
-                            <strong>{{ funcion.pelicula.nombre }}</strong><br>
-                            {{ funcion.fecha_inicio|date:"d/m/Y" }} - {{ funcion.get_horario_display }} - {{ funcion.sala }} - {{ funcion.get_formato_sala }}
-                        </p>
-                        <div class="alert alert-info mt-3 text-start">
-                            <i class="fas fa-info-circle"></i> La función volverá a estar activa con sus fechas originales.
-                        </div>
-                    </div>
-                    <div class="modal-footer d-flex justify-content-center">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">
-                            <i class="fas fa-times"></i> Cancelar
-                        </button>
-                        <form method="POST" action="{% url 'administrar_funciones' %}" class="d-inline">
-                            {% csrf_token %}
-                            <input type="hidden" name="accion" value="reactivar">
-                            <input type="hidden" name="funcion_id" value="{{ funcion.id }}">
-                            <button type="submit" class="btn btn-success px-4">
-                                <i class="fas fa-redo"></i> Reactivar
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    {% endfor %}
 </div>
 
-<!-- Scripts -->
+
+
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{% static 'js/funciones.js' %}"></script>
 </body>

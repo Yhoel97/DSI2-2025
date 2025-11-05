@@ -131,12 +131,15 @@
                         <td>{{ u.last_login|date:"d/m/Y H:i" }}</td>
                         <td>
                             <a href="?editar={{ u.id }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i> Editar</a>
-
+                            <button type="button" class="btn btn-warning btn-sm" 
+                                    onclick="abrirResetModal('{{ u.id }}', '{{ u.username }}')">
+                                <i class="fas fa-key"></i> Restablecer
+                            </button>
                             <form method="POST" action="{% url 'administrar_usuarios' %}" class="delete-form" style="display:inline;">
                                 {% csrf_token %}
                                 <input type="hidden" name="accion" value="eliminar">
                                 <input type="hidden" name="user_id" value="{{ u.id }}">
-                                <button type="button" class="btn btn-danger btn-sm delete-btn">
+                                <button type="submit" class="btn btn-danger btn-sm delete-btn">
                                     <i class="fas fa-trash"></i> Eliminar
                                 </button>
                             </form>
@@ -157,11 +160,11 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    const deleteButtons = document.querySelectorAll(".delete-btn");
+    document.querySelectorAll(".delete-form").forEach(form => {
+        form.addEventListener("submit", function(e) {
+            e.preventDefault(); // Evita que se envíe inmediatamente
 
-    deleteButtons.forEach(btn => {
-        btn.addEventListener("click", function(e) {
-            const form = this.closest(".delete-form");
+            const username = this.querySelector("input[name='user_id']").value;
 
             Swal.fire({
                 title: '¿Eliminar usuario?',
@@ -171,22 +174,92 @@ document.addEventListener("DOMContentLoaded", () => {
                 confirmButtonColor: '#d33',
                 cancelButtonColor: '#3085d6',
                 confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                backdrop: true,
-                focusCancel: true,
-                customClass: {
-                    popup: 'rounded-4 shadow-lg',
-                    confirmButton: 'btn btn-danger px-4 py-2',
-                    cancelButton: 'btn btn-secondary px-4 py-2'
-                }
+                cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    form.submit();
+                    this.submit(); // Envía el formulario al confirmar
                 }
             });
         });
     });
 });
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+function abrirResetModal(userId, username) {
+    Swal.fire({
+        title: `🔑 Restablecer contraseña`,
+        html: `
+            <p>Introduce una nueva contraseña para <strong>${username}</strong>:</p>
+            <input type="password" id="nuevaPassword" class="swal2-input" placeholder="Nueva contraseña">
+        `,
+        confirmButtonText: 'Guardar',
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            const nuevaPass = document.getElementById('nuevaPassword').value;
+            if (!nuevaPass) {
+                Swal.showValidationMessage('⚠️ La contraseña no puede estar vacía');
+                return false;
+            }
+            return nuevaPass;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Crear formulario dinámico para POST
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'administrar_usuarios' %}";
+            
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrfmiddlewaretoken';
+            csrf.value = '{{ csrf_token }}';
+            
+            const accion = document.createElement('input');
+            accion.type = 'hidden';
+            accion.name = 'accion';
+            accion.value = 'reset_password';
+
+            const uid = document.createElement('input');
+            uid.type = 'hidden';
+            uid.name = 'user_id';
+            uid.value = userId;
+
+            const pass = document.createElement('input');
+            pass.type = 'hidden';
+            pass.name = 'nueva_password';
+            pass.value = result.value;
+
+            form.appendChild(csrf);
+            form.appendChild(accion);
+            form.appendChild(uid);
+            form.appendChild(pass);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+// Confirmar eliminación bonita
+function confirmarEliminar(form, username) {
+    Swal.fire({
+        title: `¿Eliminar a ${username}?`,
+        text: "Esta acción no se puede deshacer.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.submit();
+        }
+    });
+}
 </script>
 
 </body>

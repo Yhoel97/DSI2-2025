@@ -88,6 +88,7 @@ GENERO_CHOICES_DICT = {
 }
 
 @admin_required
+@staff_member_required
 @csrf_exempt
 def peliculas(request):
     from datetime import date
@@ -239,7 +240,7 @@ def admin_required(view_func):
         if not request.user.is_authenticated:
             # Redirigir a nuestro login personalizado
             return redirect('/accounts/login/')
-        if not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser):
             # Si no es superuser, redirigir al índice
             return redirect('index')
         return view_func(request, *args, **kwargs)
@@ -2226,82 +2227,66 @@ def cancelar_reserva(request, pk):
    #PBI-29 -- Gestionar Usuarios
    #*****************************
 
-@admin_required
-def administrar_usuarios(request):
-    usuarios = User.objects.all().order_by('-is_staff', 'username')
-    usuario_editar = None
 
-    # --- CREAR / EDITAR / ELIMINAR ---
+@user_passes_test(lambda u: u.is_staff)
+def administrar_usuarios(request):
+    usuarios = User.objects.all().order_by('username')
+    usuario_editar = None  # 🧩 Para identificar si estamos en modo edición
+
     if request.method == "POST":
         accion = request.POST.get("accion")
+        user_id = request.POST.get("user_id")
 
-        # Crear usuario
-        if accion == "crear":
-            username = request.POST.get("username", "").strip()
-            email = request.POST.get("email", "").strip()
-            password = request.POST.get("password", "").strip()
-            es_admin = request.POST.get("es_admin") == "on"
+        # 🔄 Restablecer contraseña
+        if accion == "reset_password":
+            nueva_pass = request.POST.get("nueva_password")
+            usuario = get_object_or_404(User, id=user_id)
+            usuario.set_password(nueva_pass)
+            usuario.save()
+            messages.success(request, f"🔑 Contraseña de '{usuario.username}' restablecida correctamente.")
+            return redirect("administrar_usuarios")
 
-            # 🔍 Validación: evitar nombres duplicados sin importar mayúsculas/minúsculas
-            if User.objects.filter(username__iexact=username).exists():
-                messages.error(request, f"⚠️ El nombre de usuario '{username}' ya está registrado (sin importar mayúsculas).")
-                return redirect("administrar_usuarios")
+        # 🗑️ Eliminar usuario
+        elif accion == "eliminar":
+            usuario = get_object_or_404(User, id=user_id)
+            usuario.delete()
+            messages.success(request, f"🗑️ Usuario '{usuario.username}' eliminado correctamente.")
+            return redirect("administrar_usuarios")
 
+        # ✏️ Editar usuario
+        elif accion == "editar":
+            usuario = get_object_or_404(User, id=user_id)
+            usuario.username = request.POST.get("username")
+            usuario.email = request.POST.get("email")
+            usuario.is_active = request.POST.get("is_active") == "True"
+            usuario.is_staff = request.POST.get("is_staff") == "True"
+            usuario.save()
+            messages.success(request, f"✅ Usuario '{usuario.username}' actualizado correctamente.")
+            return redirect("administrar_usuarios")
 
-            # <-- CORRECCIÓN: convertir explícitamente el string a booleano
+        # ➕ Crear usuario
+        elif accion == "crear":
+            username = request.POST.get("username")
+            email = request.POST.get("email")
+            password = request.POST.get("password")
             is_staff = request.POST.get("is_staff") == "True"
 
-            if not (username and email and password):
-                messages.error(request, "⚠️ Todos los campos son obligatorios.")
+            # Evitar duplicados sin importar mayúsculas/minúsculas
+            if User.objects.filter(username__iexact=username).exists():
+                messages.error(request, "❌ Ya existe un usuario con ese nombre (sin importar mayúsculas o minúsculas).")
                 return redirect("administrar_usuarios")
 
-            if User.objects.filter(username=username).exists():
-                messages.warning(request, "⚠️ El nombre de usuario ya existe.")
-                return redirect("administrar_usuarios")
-
-            # Por defecto el usuario recién creado estará activo
-            new_user = User.objects.create_user(
-                username=username, email=email, password=password, is_staff=is_staff
-            )
-            new_user.is_active = True
-            new_user.save()
-
-            messages.success(request, "✅ Usuario creado correctamente.")
+            User.objects.create_user(username=username, email=email, password=password, is_staff=is_staff)
+            messages.success(request, f"👤 Usuario '{username}' creado exitosamente.")
             return redirect("administrar_usuarios")
 
-        # Editar usuario
-        elif accion == "editar":
-            user_id = request.POST.get("user_id")
-            user = get_object_or_404(User, id=user_id)
-
-            user.username = request.POST.get("username", user.username)
-            user.email = request.POST.get("email", user.email)
-
-            # <-- CORRECCIÓN: convertir explícitamente los flags a booleanos
-            user.is_staff = request.POST.get("is_staff") == "True"
-            # Si el select no se envía por alguna razón, conservar el valor actual
-            is_active_post = request.POST.get("is_active")
-            if is_active_post is not None:
-                user.is_active = is_active_post == "True"
-
-            user.save()
-            messages.success(request, "✏️ Usuario actualizado correctamente.")
-            return redirect("administrar_usuarios")
-
-        # Eliminar usuario
-        elif accion == "eliminar":
-            user_id = request.POST.get("user_id")
-            user = get_object_or_404(User, id=user_id)
-            user.delete()
-            messages.success(request, "🗑️ Usuario eliminado correctamente.")
-            return redirect("administrar_usuarios")
-
-    # --- MODO EDICIÓN ---
-    if request.method == "GET" and "editar" in request.GET:
+    # 🟡 Si viene ?editar=ID → cargar datos del usuario
+    elif request.method == "GET" and "editar" in request.GET:
         usuario_id = request.GET.get("editar")
         usuario_editar = get_object_or_404(User, id=usuario_id)
 
     return render(request, "administrar_usuarios.html", {
         "usuarios": usuarios,
-        "usuario_editar": usuario_editar,
+        "usuario_editar": usuario_editar  # <-- Ahora el HTML mostrará modo edición
     })
+

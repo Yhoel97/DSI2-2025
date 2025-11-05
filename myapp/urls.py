@@ -48,5 +48,9 @@ urlpatterns = [
 
     path('mis_reservaciones/', views.mis_reservaciones_cancelables, name='mis_reservaciones_cancelables'),
     path('reserva/cancelar/<int:pk>/', views.cancelar_reserva, name='cancelar_reserva'),
+
+    #Path para administrar usuarios
+    path('administrar_usuarios/', views.administrar_usuarios, name='administrar_usuarios'),
+
 ]
 

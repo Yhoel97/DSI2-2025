@@ -9,7 +9,8 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from DSI2025 import settings
 from .forms import *
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from functools import wraps
@@ -2181,3 +2182,89 @@ def cancelar_reserva(request, pk):
         
     # Si es GET, simplemente se redirige o se pide confirmación
    # return redirect('mis_reservaciones_cancelables')
+
+
+
+#**************************************
+   #PBI-29 -- Gestionar Usuarios
+   #*****************************
+
+@admin_required
+def administrar_usuarios(request):
+    usuarios = User.objects.all().order_by('-is_staff', 'username')
+    usuario_editar = None
+
+    # --- CREAR / EDITAR / ELIMINAR ---
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+
+        # Crear usuario
+        if accion == "crear":
+            username = request.POST.get("username", "").strip()
+            email = request.POST.get("email", "").strip()
+            password = request.POST.get("password", "").strip()
+            es_admin = request.POST.get("es_admin") == "on"
+
+            # 🔍 Validación: evitar nombres duplicados sin importar mayúsculas/minúsculas
+            if User.objects.filter(username__iexact=username).exists():
+                messages.error(request, f"⚠️ El nombre de usuario '{username}' ya está registrado (sin importar mayúsculas).")
+                return redirect("administrar_usuarios")
+
+
+            # <-- CORRECCIÓN: convertir explícitamente el string a booleano
+            is_staff = request.POST.get("is_staff") == "True"
+
+            if not (username and email and password):
+                messages.error(request, "⚠️ Todos los campos son obligatorios.")
+                return redirect("administrar_usuarios")
+
+            if User.objects.filter(username=username).exists():
+                messages.warning(request, "⚠️ El nombre de usuario ya existe.")
+                return redirect("administrar_usuarios")
+
+            # Por defecto el usuario recién creado estará activo
+            new_user = User.objects.create_user(
+                username=username, email=email, password=password, is_staff=is_staff
+            )
+            new_user.is_active = True
+            new_user.save()
+
+            messages.success(request, "✅ Usuario creado correctamente.")
+            return redirect("administrar_usuarios")
+
+        # Editar usuario
+        elif accion == "editar":
+            user_id = request.POST.get("user_id")
+            user = get_object_or_404(User, id=user_id)
+
+            user.username = request.POST.get("username", user.username)
+            user.email = request.POST.get("email", user.email)
+
+            # <-- CORRECCIÓN: convertir explícitamente los flags a booleanos
+            user.is_staff = request.POST.get("is_staff") == "True"
+            # Si el select no se envía por alguna razón, conservar el valor actual
+            is_active_post = request.POST.get("is_active")
+            if is_active_post is not None:
+                user.is_active = is_active_post == "True"
+
+            user.save()
+            messages.success(request, "✏️ Usuario actualizado correctamente.")
+            return redirect("administrar_usuarios")
+
+        # Eliminar usuario
+        elif accion == "eliminar":
+            user_id = request.POST.get("user_id")
+            user = get_object_or_404(User, id=user_id)
+            user.delete()
+            messages.success(request, "🗑️ Usuario eliminado correctamente.")
+            return redirect("administrar_usuarios")
+
+    # --- MODO EDICIÓN ---
+    if request.method == "GET" and "editar" in request.GET:
+        usuario_id = request.GET.get("editar")
+        usuario_editar = get_object_or_404(User, id=usuario_id)
+
+    return render(request, "administrar_usuarios.html", {
+        "usuarios": usuarios,
+        "usuario_editar": usuario_editar,
+    })

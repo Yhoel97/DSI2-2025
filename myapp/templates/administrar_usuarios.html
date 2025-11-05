@@ -1,0 +1,193 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Administrar Usuarios - Cinedot</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{% static 'styles/peliculas.css' %}">
+</head>
+<body class="bg-light">
+
+<div class="container mt-4 mb-5">
+    <h1 class="text-center mb-4"><i class="fas fa-users-cog"></i> Gestión de Usuarios</h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="mb-3 d-flex gap-2">
+        <a href="{% url 'index' %}" class="btn btn-primary">
+            <i class="fas fa-home"></i> Volver al Inicio
+            
+        </a>
+        <a href="{% url 'peliculas' %}" class="btn btn-primary"><i class="fas fa-film"></i> Administrar Películas</a>
+    </div>
+
+    <!-- Formulario Crear/Editar Usuario -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-gradient text-white {% if usuario_editar %}bg-warning{% else %}bg-success{% endif %}">
+            {% if usuario_editar %}
+                ✏️ Editar Usuario
+            {% else %}
+                👤 Crear Nuevo Usuario
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{% url 'administrar_usuarios' %}">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="{% if usuario_editar %}editar{% else %}crear{% endif %}">
+                {% if usuario_editar %}
+                    <input type="hidden" name="user_id" value="{{ usuario_editar.id }}">
+                {% endif %}
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Nombre de usuario</label>
+                        <input type="text" name="username" value="{{ usuario_editar.username|default:'' }}" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Correo electrónico</label>
+                        <input type="email" name="email" value="{{ usuario_editar.email|default:'' }}" class="form-control" required>
+                    </div>
+
+                    {% if not usuario_editar %}
+                    <div class="col-md-4">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-3">
+                        <label class="form-label">Administrador</label>
+                        <select name="is_staff" class="form-select">
+                            <option value="False" {% if usuario_editar and not usuario_editar.is_staff %}selected{% endif %}>No</option>
+                            <option value="True" {% if usuario_editar and usuario_editar.is_staff %}selected{% endif %}>Sí</option>
+                        </select>
+                    </div>
+
+                    {% if usuario_editar %}
+                    <div class="col-md-3">
+                        <label class="form-label">Activo</label>
+                        <select name="is_active" class="form-select">
+                            <option value="True" {% if usuario_editar.is_active %}selected{% endif %}>Sí</option>
+                            <option value="False" {% if not usuario_editar.is_active %}selected{% endif %}>No</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mt-4 text-center">
+                    {% if usuario_editar %}
+                        <button type="submit" class="btn btn-warning px-4"><i class="fas fa-save"></i> Guardar Cambios</button>
+                        <a href="{% url 'administrar_usuarios' %}" class="btn btn-secondary px-4">Cancelar</a>
+                    {% else %}
+                        <button type="submit" class="btn btn-success px-4"><i class="fas fa-plus"></i> Crear</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de usuarios -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">📋 Lista de Usuarios</div>
+        <div class="card-body table-responsive">
+            <table class="table table-striped align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Último acceso</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td>{{ u.username }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>
+                            {% if u.is_staff %}
+                                <span class="badge bg-danger">Administrador</span>
+                            {% else %}
+                                <span class="badge bg-success">Usuario</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge bg-primary">Activo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.last_login|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <a href="?editar={{ u.id }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i> Editar</a>
+
+                            <form method="POST" action="{% url 'administrar_usuarios' %}" class="delete-form" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="accion" value="eliminar">
+                                <input type="hidden" name="user_id" value="{{ u.id }}">
+                                <button type="button" class="btn btn-danger btn-sm delete-btn">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </form>
+
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted">No hay usuarios registrados</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://kit.fontawesome.com/a076d05399.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const deleteButtons = document.querySelectorAll(".delete-btn");
+
+    deleteButtons.forEach(btn => {
+        btn.addEventListener("click", function(e) {
+            const form = this.closest(".delete-form");
+
+            Swal.fire({
+                title: '¿Eliminar usuario?',
+                text: 'Esta acción no se puede deshacer.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                backdrop: true,
+                focusCancel: true,
+                customClass: {
+                    popup: 'rounded-4 shadow-lg',
+                    confirmButton: 'btn btn-danger px-4 py-2',
+                    cancelButton: 'btn btn-secondary px-4 py-2'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+});
+</script>
+
+</body>
+</html>

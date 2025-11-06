@@ -30,6 +30,9 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("   Name:", this.name);
             console.log("   Value:", this.value);
 
+            // Si cambiamos de función, necesitamos actualizar los asientos ocupados
+            const esCambioFuncion = this.name === "funcion_id";
+
             // Crear objeto con los datos del formulario
             const formData = new FormData(form);
             formData.append("accion", "recalcular");
@@ -45,6 +48,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 .then(response => response.json())
                 .then(data => {
                     console.log("✅ Respuesta AJAX recibida:", data);
+
+                    // Si cambiamos de función, actualizar asientos ocupados
+                    if (esCambioFuncion && data.asientos_ocupados) {
+                        actualizarAsientosOcupados(data.asientos_ocupados);
+                        // Limpiar selección actual
+                        limpiarSeleccionAsientos();
+                    }
 
                     // Actualizar resumen dinámicamente
                     const seatsDiv = document.querySelector(".selected-seats");
@@ -88,3 +98,50 @@ document.addEventListener("DOMContentLoaded", function () {
 
     console.log("✅ Event listeners configurados correctamente");
 });
+
+/**
+ * Actualiza visualmente los asientos ocupados en la interfaz
+ */
+function actualizarAsientosOcupados(asientosOcupados) {
+    console.log("🔄 Actualizando asientos ocupados:", asientosOcupados);
+    
+    // Primero, quitar la clase 'reserved' de todos los asientos
+    const todosLosAsientos = document.querySelectorAll(".seat");
+    todosLosAsientos.forEach(seat => {
+        seat.classList.remove("reserved");
+        const checkbox = seat.closest(".seat-label")?.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            checkbox.disabled = false;
+        }
+    });
+
+    // Luego, marcar como ocupados los que están en la lista
+    asientosOcupados.forEach(asientoId => {
+        const checkbox = document.querySelector(`input[type="checkbox"][value="${asientoId}"]`);
+        if (checkbox) {
+            const seat = checkbox.nextElementSibling;
+            if (seat && seat.classList.contains("seat")) {
+                seat.classList.add("reserved");
+                checkbox.disabled = true;
+                checkbox.checked = false; // Asegurar que no esté seleccionado
+            }
+        }
+    });
+}
+
+/**
+ * Limpia la selección actual de asientos
+ */
+function limpiarSeleccionAsientos() {
+    console.log("🧹 Limpiando selección de asientos");
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][name="asientos_list"]');
+    checkboxes.forEach(checkbox => {
+        if (!checkbox.disabled) {
+            checkbox.checked = false;
+            const seat = checkbox.nextElementSibling;
+            if (seat && seat.classList.contains("seat")) {
+                seat.classList.remove("selected");
+            }
+        }
+    });
+}

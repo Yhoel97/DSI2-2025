@@ -648,6 +648,7 @@ def asientos(request, pelicula_id=None):
             "descuento": descuento_porcentaje,
             "descuento_monto": descuento_monto,
             "total": total,
+            "asientos_ocupados": asientos_ocupados,  # ← AGREGADO: enviar asientos ocupados
         })
 
     # --- Confirmar reserva ---
@@ -731,8 +732,6 @@ def asientos(request, pelicula_id=None):
                 return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
             except Exception as e:
                 messages.error(request, f"Error al crear la reserva: {str(e)}")
-            except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
         else:
             for error in errores:
                 messages.error(request, error)
@@ -771,8 +770,6 @@ def asientos(request, pelicula_id=None):
         "codigo_cupon": codigo_cupon,
     }
     return render(request, "asientos.html", context)
-       
-
 
 #################################################################
 #################################################################

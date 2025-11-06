@@ -71,6 +71,7 @@ from django.utils import timezone
 from datetime import date, datetime, timedelta
 from itertools import groupby
 import pytz
+from decimal import Decimal
 
 from .models import Pelicula, Funcion, Pago, MetodoPago
 from .utils.payment_simulator import simular_pago
@@ -628,7 +629,7 @@ def asientos(request, pelicula_id=None):
     descuento_porcentaje = 0
     mensaje_cupon = ""
     if codigo_cupon:
-        cupon = Cupon.objects.filter(codigo__iexact=codigo_cupon, activo=True).first()
+        cupon = CodigoDescuento.objects.filter(codigo__iexact=codigo_cupon, estado=True).first()
         if cupon:
             descuento_porcentaje = cupon.porcentaje
             mensaje_cupon = f"Cupón aplicado: {descuento_porcentaje}%"
@@ -636,7 +637,7 @@ def asientos(request, pelicula_id=None):
             mensaje_cupon = "Código inválido o inactivo"
 
     subtotal = cantidad_boletos * precio_funcion_actual
-    descuento_monto = subtotal * (descuento_porcentaje / 100)
+    descuento_monto = subtotal * (float(descuento_porcentaje / 100))
     total = subtotal - descuento_monto
 
     # --- AJAX: devolver JSON dinámico ---
@@ -736,7 +737,7 @@ def asientos(request, pelicula_id=None):
                 precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
                 subtotal = cantidad_boletos * precio_por_boleto
-                descuento_monto = subtotal * (descuento_porcentaje / 100)
+                descuento_monto = subtotal * (float(descuento_porcentaje / 100))
                 precio_total = subtotal - descuento_monto
 
                 # Procesar pago simulado
@@ -2501,11 +2502,14 @@ def dashboard_admin(request):
 def mis_reservaciones_cancelables(request):
     #Define el limite de tiempo 24 horas
     tiempo_limite = timezone.now() - timedelta(hours=24)
+    #la reserva solo se podra cancelar 3 horas antes de la funcion
+    tiempo_limite_proyeccion = timezone.now() + timedelta(hours=3)
     
     # Filtra las reservas solo de usuarios logueados
     reservas_validas = Reserva.objects.filter(
         usuario=request.user,                 # Solo las del usuario logueado
         fecha_reserva__gte=tiempo_limite,     # Filtrar: Hechas en las últimas 24h
+        horario__gte=tiempo_limite_proyeccion,
         estado__in=['RESERVADO', 'CONFIRMADO']                      
     ).order_by('-fecha_reserva') 
     
@@ -2522,13 +2526,19 @@ def cancelar_reserva(request, pk):
     
     #tiempo_limite = timezone.now() - timedelta(hours=24)
     TIEMPO_MAXIMO_CANCELACION = timedelta(hours=24)
+    TIEMPO_MINIMO_CANCELACION_PROYECCION = timedelta(hours=3)
     tiempo_transcurrido = timezone.now() - reserva.fecha_reserva
+    tiempo_hasta_proyeccion = reserva.horario - timezone.now()
 
     
     if request.method == 'POST':
         #  Verifica si la reserva ya pasó el límite o ya está cancelada
         if tiempo_transcurrido > TIEMPO_MAXIMO_CANCELACION:
             messages.error(request, 'Esta reserva ya no puede ser cancelada.')
+            return redirect('mis_reservaciones_cancelables')
+        
+        if tiempo_hasta_proyeccion < TIEMPO_MINIMO_CANCELACION_PROYECCION:
+            messages.error(request, 'Esta reserva ya no puede ser cancelada: la función inicia en menos de 3 horas.')
             return redirect('mis_reservaciones_cancelables')
             
         #  Cancelar la reserva y invalidar el codigo qr del ticket generado en la reservacion

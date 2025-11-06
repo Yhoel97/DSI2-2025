@@ -1974,6 +1974,7 @@ def administrar_funciones(request):
                 funcion.save()
 
                 messages.success(request, f"✏️ Función editada correctamente: {pelicula.nombre} - {sala_nombre} - {horario}")
+                return redirect("administrar_funciones")
                 
             except Funcion.DoesNotExist:
                 messages.error(request, "❌ La función que intentas editar no existe.")

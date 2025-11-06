@@ -473,16 +473,39 @@ Permitir a usuarios autenticados guardar sus métodos de pago para futuras compr
 ## Orden de Implementación Recomendado
 
 ### Fase 1: Base del Sistema de Pago Integrado (PBI-30) ✅ COMPLETADO
-1. ✅ Crear modelo `Pago` y modificar modelo `Reserva`
-2. ✅ Crear migraciones y aplicarlas
+1. ✅ Crear modelo `Pago` y modificar modelo `Reserva` - Commit: a710402
+2. ✅ Crear migraciones y aplicarlas (0016_reserva_fecha_pago_reserva_pago_completado_pago)
 3. ✅ Crear archivo `utils/payment_simulator.py` con función `simular_pago()`
-4. ✅ Configurar settings.py (PAYMENT_MODE, PAYMENT_SUCCESS_RATE)
+   - Validaciones: número de tarjeta, CVV, fecha de expiración
+   - Generación de número de transacción único (TXN-YYYYMMDDHHMMSS-XXXXXX)
+   - Simulación con 90% de éxito configurable
+4. ✅ Configurar settings.py (PAYMENT_MODE='SIMULATION', PAYMENT_SUCCESS_RATE=0.9)
 5. ✅ Modificar template `asientos.html` - agregar sección de pago
-6. ✅ Modificar CSS `asientos.css` - estilos de pago
-7. ✅ Modificar JavaScript `asientos.js` - validaciones de tarjeta
+   - Formulario con campos: número_tarjeta, nombre_titular, fecha_expiracion, cvv
+   - Checkbox guardar_tarjeta (para usuarios autenticados)
+   - Indicador de procesamiento con spinner
+6. ✅ Modificar CSS `asientos.css` - estilos de pago (+300 líneas)
+   - Estilos para payment-section, new-card-form
+   - Animaciones de spinner y transiciones
+   - Diseño responsive
+7. ✅ Modificar JavaScript `asientos.js` - validaciones de tarjeta (+200 líneas)
+   - Validación en tiempo real: número, CVV, fecha, nombre
+   - Formato automático de número de tarjeta
+   - Detección de tipo de tarjeta (Visa/Mastercard/Amex)
 8. ✅ Modificar vista `asientos()` - integrar procesamiento de pago
-9. ✅ Registrar modelo `Pago` en admin.py
+   - Llamar simular_pago() antes de crear Reserva
+   - Crear registro Pago con estado PENDIENTE
+   - Solo crear Reserva si pago exitoso (APROBADO)
+   - Manejo de errores y mensajes para pagos rechazados
+9. ✅ Registrar modelo `Pago` en admin.py - Commit: 952a4d7
+   - list_display, list_filter, search_fields
+   - Campos readonly para auditoría
+   - Permisos restringidos (no agregar/eliminar)
 10. ✅ Testing básico del flujo de pago
+    - Pago exitoso con tarjeta válida ✓
+    - Pago rechazado por simulación ✓
+    - Validaciones frontend funcionando ✓
+    - Generación de PDF y email solo tras pago exitoso ✓
 
 ### Fase 2: Sistema de Métodos de Pago Guardados (PBI-27) - PENDIENTE
 11. Crear modelo `MetodoPago` (con campos para tarjetas y encriptación)

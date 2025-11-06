@@ -265,7 +265,7 @@ class Reserva(models.Model):
     fecha_funcion = models.DateField(null=True, blank=True, help_text="Fecha de la función reservada")
     
     # Campos de pago - PBI-30
-    pago_completado = models.BooleanField(default=False, help_text="Indica si el pago fue completado")
+    pago_completado = models.BooleanField(default=False, null=True, blank=True, help_text="Indica si el pago fue completado")
     fecha_pago = models.DateTimeField(null=True, blank=True, help_text="Fecha y hora en que se completó el pago")
 
     def __str__(self):

@@ -48,5 +48,12 @@ urlpatterns = [
 
     path('mis_reservaciones/', views.mis_reservaciones_cancelables, name='mis_reservaciones_cancelables'),
     path('reserva/cancelar/<int:pk>/', views.cancelar_reserva, name='cancelar_reserva'),
+    
+    # URLs para gestión de métodos de pago - PBI-27
+    path('mis-metodos-pago/', views.mis_metodos_pago, name='mis_metodos_pago'),
+    path('metodos-pago/agregar/', views.agregar_metodo_pago, name='agregar_metodo_pago'),
+    path('metodos-pago/editar/<int:metodo_id>/', views.editar_metodo_pago, name='editar_metodo_pago'),
+    path('metodos-pago/eliminar/<int:metodo_id>/', views.eliminar_metodo_pago, name='eliminar_metodo_pago'),
+    path('metodos-pago/predeterminado/<int:metodo_id>/', views.marcar_predeterminado, name='marcar_predeterminado'),
 ]
 

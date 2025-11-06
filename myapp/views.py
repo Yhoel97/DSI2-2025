@@ -71,8 +71,9 @@ from datetime import date, datetime, timedelta
 from itertools import groupby
 import pytz
 
-from .models import Pelicula, Funcion, Pago
+from .models import Pelicula, Funcion, Pago, MetodoPago
 from .utils.payment_simulator import simular_pago
+from .utils.encryption import encrypt_card_data, get_card_type
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -2236,3 +2237,269 @@ def cancelar_reserva(request, pk):
         
     # Si es GET, simplemente se redirige o se pide confirmación
    # return redirect('mis_reservaciones_cancelables')
+
+
+#################################################################
+# GESTIÓN DE MÉTODOS DE PAGO (PBI-27)
+#################################################################
+
+@login_required
+def mis_metodos_pago(request):
+    """
+    Vista para listar los métodos de pago guardados del usuario
+    """
+    metodos_pago = MetodoPago.objects.filter(
+        usuario=request.user,
+        activo=True
+    ).order_by('-es_predeterminado', '-fecha_creacion')
+    
+    context = {
+        'metodos_pago': metodos_pago
+    }
+    
+    return render(request, 'mis_metodos_pago.html', context)
+
+
+@login_required
+def agregar_metodo_pago(request):
+    """
+    Vista para agregar un nuevo método de pago
+    """
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        tipo = request.POST.get('tipo')
+        alias = request.POST.get('alias', '').strip()
+        es_predeterminado = request.POST.get('es_predeterminado') == 'true'
+        
+        errores = []
+        
+        # Validaciones comunes
+        if not alias:
+            errores.append("El alias es obligatorio")
+        
+        # Verificar que el alias no esté duplicado para este usuario
+        if MetodoPago.objects.filter(usuario=request.user, alias=alias, activo=True).exists():
+            errores.append(f"Ya tienes un método con el alias '{alias}'")
+        
+        if tipo == 'TARJETA':
+            numero_tarjeta = request.POST.get('numero_tarjeta', '').replace(' ', '')
+            mes_expiracion = request.POST.get('mes_expiracion')
+            anio_expiracion = request.POST.get('anio_expiracion')
+            nombre_titular = request.POST.get('nombre_titular', '').strip()
+            
+            # Validaciones de tarjeta
+            if not numero_tarjeta or len(numero_tarjeta) < 13:
+                errores.append("Número de tarjeta inválido")
+            if not mes_expiracion or not anio_expiracion:
+                errores.append("Fecha de expiración incompleta")
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+            
+            # Validar que la tarjeta no esté expirada
+            if mes_expiracion and anio_expiracion:
+                hoy = datetime.now()
+                if int(anio_expiracion) < hoy.year or \
+                   (int(anio_expiracion) == hoy.year and int(mes_expiracion) < hoy.month):
+                    errores.append("La tarjeta está expirada")
+            
+            if not errores:
+                # Procesar datos de tarjeta
+                card_data = encrypt_card_data(numero_tarjeta)
+                tipo_tarjeta = get_card_type(numero_tarjeta)
+                
+                # Crear método de pago
+                metodo = MetodoPago(
+                    usuario=request.user,
+                    tipo='TARJETA',
+                    alias=alias,
+                    es_predeterminado=es_predeterminado,
+                    ultimos_4_digitos=card_data['ultimos_4'],
+                    tipo_tarjeta=tipo_tarjeta,
+                    mes_expiracion=int(mes_expiracion),
+                    anio_expiracion=int(anio_expiracion),
+                    nombre_titular=nombre_titular.upper(),
+                    datos_encriptados=card_data['datos_encriptados']
+                )
+                metodo.save()
+                
+                messages.success(request, f"Método de pago '{alias}' guardado exitosamente")
+                return redirect('mis_metodos_pago')
+                
+        elif tipo == 'CUENTA_DIGITAL':
+            tipo_cuenta = request.POST.get('tipo_cuenta')
+            email_cuenta = request.POST.get('email_cuenta', '').strip()
+            
+            # Validaciones de cuenta digital
+            if not tipo_cuenta:
+                errores.append("Selecciona el tipo de cuenta")
+            if not email_cuenta or '@' not in email_cuenta:
+                errores.append("Email de cuenta inválido")
+            
+            if not errores:
+                # Crear método de pago
+                metodo = MetodoPago(
+                    usuario=request.user,
+                    tipo='CUENTA_DIGITAL',
+                    alias=alias,
+                    es_predeterminado=es_predeterminado,
+                    tipo_cuenta=tipo_cuenta,
+                    email_cuenta=email_cuenta
+                )
+                metodo.save()
+                
+                messages.success(request, f"Método de pago '{alias}' guardado exitosamente")
+                return redirect('mis_metodos_pago')
+        
+        # Si hay errores, mostrarlos
+        for error in errores:
+            messages.error(request, error)
+    
+    # Contexto para el template
+    context = {
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'agregar_metodo_pago.html', context)
+
+
+@login_required
+def editar_metodo_pago(request, metodo_id):
+    """
+    Vista para editar un método de pago existente
+    """
+    from datetime import datetime
+    
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        alias = request.POST.get('alias', '').strip()
+        es_predeterminado = request.POST.get('es_predeterminado') == 'true'
+        
+        errores = []
+        
+        # Validar alias
+        if not alias:
+            errores.append("El alias es obligatorio")
+        
+        # Verificar que el alias no esté duplicado (excepto el actual)
+        if MetodoPago.objects.filter(
+            usuario=request.user, 
+            alias=alias, 
+            activo=True
+        ).exclude(id=metodo_id).exists():
+            errores.append(f"Ya tienes otro método con el alias '{alias}'")
+        
+        if metodo.tipo == 'TARJETA':
+            mes_expiracion = request.POST.get('mes_expiracion')
+            anio_expiracion = request.POST.get('anio_expiracion')
+            nombre_titular = request.POST.get('nombre_titular', '').strip()
+            
+            if not mes_expiracion or not anio_expiracion:
+                errores.append("Fecha de expiración incompleta")
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+            
+            # Validar que la tarjeta no esté expirada
+            if mes_expiracion and anio_expiracion:
+                hoy = datetime.now()
+                if int(anio_expiracion) < hoy.year or \
+                   (int(anio_expiracion) == hoy.year and int(mes_expiracion) < hoy.month):
+                    errores.append("La tarjeta está expirada")
+            
+            if not errores:
+                metodo.alias = alias
+                metodo.es_predeterminado = es_predeterminado
+                metodo.mes_expiracion = int(mes_expiracion)
+                metodo.anio_expiracion = int(anio_expiracion)
+                metodo.nombre_titular = nombre_titular.upper()
+                metodo.save()
+                
+                messages.success(request, f"Método '{alias}' actualizado exitosamente")
+                return redirect('mis_metodos_pago')
+                
+        elif metodo.tipo == 'CUENTA_DIGITAL':
+            email_cuenta = request.POST.get('email_cuenta', '').strip()
+            
+            if not email_cuenta or '@' not in email_cuenta:
+                errores.append("Email de cuenta inválido")
+            
+            if not errores:
+                metodo.alias = alias
+                metodo.es_predeterminado = es_predeterminado
+                metodo.email_cuenta = email_cuenta
+                metodo.save()
+                
+                messages.success(request, f"Método '{alias}' actualizado exitosamente")
+                return redirect('mis_metodos_pago')
+        
+        # Mostrar errores
+        for error in errores:
+            messages.error(request, error)
+    
+    # Contexto para el template
+    context = {
+        'metodo': metodo,
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'editar_metodo_pago.html', context)
+
+
+@login_required
+def eliminar_metodo_pago(request, metodo_id):
+    """
+    Vista para eliminar (soft delete) un método de pago
+    """
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        alias_eliminado = metodo.alias
+        era_predeterminado = metodo.es_predeterminado
+        
+        # Soft delete: marcar como inactivo
+        metodo.activo = False
+        metodo.save()
+        
+        # Si era predeterminado, marcar otro como predeterminado
+        if era_predeterminado:
+            siguiente_metodo = MetodoPago.objects.filter(
+                usuario=request.user,
+                activo=True
+            ).order_by('-fecha_creacion').first()
+            
+            if siguiente_metodo:
+                siguiente_metodo.es_predeterminado = True
+                siguiente_metodo.save()
+        
+        messages.success(request, f"Método '{alias_eliminado}' eliminado exitosamente")
+        return redirect('mis_metodos_pago')
+    
+    # Si es GET, redirigir a la lista
+    return redirect('mis_metodos_pago')
+
+
+@login_required
+def marcar_predeterminado(request, metodo_id):
+    """
+    Vista para marcar un método como predeterminado
+    """
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        # Desmarcar todos los métodos del usuario
+        MetodoPago.objects.filter(
+            usuario=request.user,
+            activo=True
+        ).update(es_predeterminado=False)
+        
+        # Marcar el seleccionado
+        metodo.es_predeterminado = True
+        metodo.save()
+        
+        messages.success(request, f"'{metodo.alias}' marcado como predeterminado")
+    
+    return redirect('mis_metodos_pago')

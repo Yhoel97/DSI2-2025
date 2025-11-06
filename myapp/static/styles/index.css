@@ -234,46 +234,11 @@ nav ul li a:hover {
   transform: translateY(-2px);
 }
 
-/* ===== BOTÓN FILTRAR ===== */
-#filtrar-personalizado a,
-#filtrar-personalizado a:link,
-#filtrar-personalizado a:visited {
-  background: linear-gradient(to right, #28a745, #218838) !important;
-  color: #fff !important;
+/* ===== ELIMINAR ESTILOS ESPECIALES DEL BOTÓN FILTRAR ===== */
+.filter-btn {
+  background: var(--gradient-header) !important;
+  color: white !important;
   border: 2px solid #000 !important;
-  border-radius: 5px !important;
-  padding: 0.7rem 1.1rem !important;
-  font-weight: bold !important;
-  text-decoration: none !important;
-  transition: all 0.3s ease !important;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
-  min-height: 44px !important;
-  min-width: 120px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 0.95rem !important;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
-  }
-}
-
-#filtrar-personalizado a:hover {
-  background: linear-gradient(to right, #218838, #1e7e34) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-  border-color: #000 !important;
-  transform: translateY(-2px) !important;
-  animation: none;
 }
 
 /* ===== BIENVENIDA DEL USUARIO ===== */
@@ -317,24 +282,23 @@ nav ul li a:hover {
 }
 
 /* ============================================================
-   🗓️ SELECTOR DE FECHA - MISMOS ESTILOS QUE HEADER
+   🗓️ SELECTOR DE FECHA - ESTILO BOTONES
    ============================================================ */
 
 .date-selector-new {
   background: var(--gradient-header);
-  padding: 8px 15px; /* Reducido de 12px a 8px */
+  padding: 12px 15px;
   border-radius: 10px;
-  margin: 0 auto 18px auto; /* Reducido margen inferior */
+  margin: 0 auto 18px auto;
   text-align: center;
   color: white;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   border: 2px solid #000;
   position: relative;
   overflow: hidden;
-  max-width: 400px;
+  max-width: 600px;
   animation: scaleIn 0.6s ease-out;
   transition: all 0.3s ease;
-  min-height: auto;
 }
 
 .date-selector-new:hover {
@@ -355,79 +319,73 @@ nav ul li a:hover {
 }
 
 .date-selector-title-new {
-  margin-bottom: 6px; /* Reducido de 8px a 6px */
-  font-size: 1.1rem; /* Reducido de 1.2rem a 1.1rem */
+  margin-bottom: 12px;
+  font-size: 1.2rem;
   font-weight: bold;
   text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
   position: relative;
   z-index: 1;
-  line-height: 1.2; /* Añadido para control de altura */
-}
-
-.date-form-new {
-  display: inline-block;
-  position: relative;
-  z-index: 1;
-}
-
-.date-dropdown-new {
-  padding: 4px 12px; /* Reducido de 6px a 4px */
-  border: 2px solid #000;
-  border-radius: 5px;
-  font-size: 0.95rem; /* Reducido de 1rem a 0.95rem */
-  background: white;
-  color: #333;
-  cursor: pointer;
-  min-width: 180px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 600;
-  line-height: 1.3; /* Añadido para mejor control de altura */
-}
-
-.date-dropdown-new:hover {
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  transform: translateY(-1px);
-  border-color: #000;
-}
-
-.date-dropdown-new:focus {
-  outline: none;
-  border-color: #000;
-  box-shadow: 0 0 0 3px rgba(0, 198, 255, 0.3);
-}
-
-/* Estilos para las opciones del dropdown con gradiente */
-.date-dropdown-new {
-  background: white; /* Fondo blanco para el selector */
-}
-
-.date-dropdown-new option {
-  padding: 8px 12px; /* Padding ajustado */
-  font-size: 0.95rem;
-  background: white; /* Fondo blanco por defecto */
-  color: #333;
-  border: none;
+  line-height: 1.2;
   transition: all 0.3s ease;
 }
 
-.date-dropdown-new option:hover {
-  background: var(--gradient-header) !important; /* Gradiente al hacer hover */
-  color: white !important;
-  font-weight: bold;
+/* Botones de fecha estilo Bootstrap */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-.date-dropdown-new option:checked {
-  background: var(--gradient-header) !important; /* Gradiente para opción seleccionada */
-  color: white !important;
-  font-weight: bold;
+.date-btn {
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 2px solid #fff;
+  border-radius: 5px;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  min-width: 90px;
 }
 
-/* Para navegadores WebKit (Chrome, Safari, Edge) */
-.date-dropdown-new option:active,
-.date-dropdown-new option:focus {
-  background: var(--gradient-header) !important;
-  color: white !important;
+.date-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.2);
+  transition: left 0.4s;
+}
+
+.date-btn:hover::before {
+  left: 100%;
+}
+
+.date-btn.btn-outline:hover {
+  background: rgba(255,255,255,0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.date-btn.btn-active {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #2c3e50;
+  border-color: #000;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+}
+
+.date-btn.btn-active:hover {
+  background: linear-gradient(135deg, #ffed4e, #ffd700);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(255, 215, 0, 0.5);
 }
 
 /* ============================================================
@@ -917,21 +875,19 @@ nav ul li a:hover {
   to { width: 80px; }
 }
 
-
-
 /* ============================================================
-   📱 RESPONSIVE DESIGN MEJORADO - 4 BOTONES POR LÍNEA
+   📱 RESPONSIVE DESIGN - TABLET Y MÓVIL NORMAL
    ============================================================ */
 
 @media (max-width: 768px) {
   body {
-    margin-top: 130px; /* Reducido pero con espacio suficiente */
+    margin-top: 130px;
     animation: none;
   }
 
   header {
     height: auto;
-    min-height: 95px; /* Altura optimizada para 2 líneas de 4 botones */
+    min-height: 95px;
     padding: 4px 8px;
     flex-direction: column;
     animation: headerSlideDownMobile 0.7s ease-out;
@@ -978,7 +934,7 @@ nav ul li a:hover {
   }
 
   nav ul li {
-    flex: 0 0 calc(25% - 0.12rem); /* 4 BOTONES POR LÍNEA */
+    flex: 0 0 calc(25% - 0.12rem);
     min-width: 0;
     margin-bottom: 0.12rem;
   }
@@ -986,8 +942,8 @@ nav ul li a:hover {
   nav ul li a {
     min-width: 0;
     width: 100%;
-    min-height: 26px; /* Altura compacta */
-    font-size: 0.6rem; /* Texto pequeño pero legible */
+    min-height: 26px;
+    font-size: 0.6rem;
     padding: 0.15rem 0.08rem;
     border-radius: 3px;
     text-align: center;
@@ -1000,7 +956,6 @@ nav ul li a:hover {
     line-height: 1;
   }
 
-  /* Botón filtrar específico en móvil */
   #filtrar-personalizado a,
   #filtrar-personalizado a:link,
   #filtrar-personalizado a:visited {
@@ -1023,210 +978,63 @@ nav ul li a:hover {
     line-height: 1.1;
   }
 
-  /* MÁS ESPACIO PARA EL CONTENEDOR PRINCIPAL */
   .cine-container {
-    margin-top: 3rem !important; /* Aumentado significativamente */
+    margin-top: 3rem !important;
     padding-top: 1.5rem;
     padding-bottom: 1.5rem;
   }
 
-  /* Selector de fecha con más espacio */
+  /* Selector de fecha más pequeño en móvil */
   .date-selector-new {
-    padding: 8px 12px;
-    margin: 15px auto 20px auto; /* Más margen superior e inferior */
+    padding: 6px 10px;
+    margin: 10px auto 15px auto;
     max-width: 95%;
     position: relative;
     z-index: 10;
   }
-}
-
-@media (max-width: 480px) {
-  body {
-    margin-top: 120px;
-  }
-
-  header {
-    min-height: 90px; /* Compacto pero funcional */
-    padding: 3px 6px;
-  }
-
-  .logo-img {
-    height: 28px;
-  }
-
-  .nav-container {
-    gap: 0.08rem;
-    margin-top: 2px;
-  }
-
-  /* MANTENER 4 BOTONES POR LÍNEA EN MÓVILES PEQUEÑOS */
-  nav ul li {
-    flex: 0 0 calc(25% - 0.08rem); /* SIEMPRE 4 POR LÍNEA */
-    margin-bottom: 0.08rem;
-  }
-
-  nav ul li a {
-    min-height: 24px; /* Un poco más compacto */
-    font-size: 0.55rem; /* Texto más pequeño pero legible */
-    padding: 0.12rem 0.06rem;
-  }
-
-  #filtrar-personalizado a,
-  #filtrar-personalizado a:link,
-  #filtrar-personalizado a:visited {
-    min-height: 24px !important;
-    font-size: 0.55rem !important;
-    padding: 0.12rem 0.06rem !important;
-  }
-
-  .user-welcome-wrapper {
-    font-size: 0.6rem;
-    padding: 0.15rem 0.3rem;
-    margin-top: 2px;
-    min-height: 20px;
-  }
-
-  /* AÚN MÁS ESPACIO EN MÓVILES PEQUEÑOS */
-  .cine-container {
-    margin-top: 2.5rem !important;
-    padding-top: 1.2rem;
-  }
-
-  .date-selector-new {
-    margin: 12px auto 18px auto;
-    padding: 6px 10px;
-  }
-}
-
-/* Ajuste para pantallas muy estrechas (iPhone SE, etc) */
-@media (max-width: 360px) {
-  body {
-    margin-top: 115px;
-  }
-
-  header {
-    min-height: 85px; /* Mínimo posible con 2 líneas de 4 botones */
-    padding: 2px 4px;
-  }
-
-  .logo-img {
-    height: 24px;
-  }
-
-  nav ul li a {
-    font-size: 0.5rem; /* Texto mínimo pero legible */
-    padding: 0.1rem 0.04rem;
-    min-height: 22px; /* Altura mínima funcional */
-  }
-
-  #filtrar-personalizado a,
-  #filtrar-personalizado a:link,
-  #filtrar-personalizado a:visited {
-    font-size: 0.5rem !important;
-    padding: 0.1rem 0.04rem !important;
-    min-height: 22px !important;
-  }
-
-  .user-welcome-wrapper {
-    font-size: 0.55rem;
-    padding: 0.1rem 0.25rem;
-    min-height: 18px;
-  }
-
-  /* ESPACIO ADECUADO INCLUSO EN PANTALLAS MUY PEQUEÑAS */
-  .cine-container {
-    margin-top: 2rem !important;
-    padding-top: 1rem;
-  }
-
-  .date-selector-new {
-    margin: 10px auto 15px auto;
-    padding: 5px 8px;
-  }
-}
-
-/* Ajuste para tablets - también 4 botones por línea */
-@media (min-width: 481px) and (max-width: 768px) {
-  nav ul li {
-    flex: 0 0 calc(25% - 0.1rem); /* 4 botones por línea en tablets también */
-  }
-  
-  nav ul li a {
-    font-size: 0.65rem;
-    padding: 0.18rem 0.1rem;
-    min-height: 28px;
-  }
-  
-  #filtrar-personalizado a {
-    font-size: 0.65rem !important;
-    padding: 0.18rem 0.1rem !important;
-    min-height: 28px !important;
-  }
-}
-
-/* Asegurar que el selector de fecha sea completamente visible */
-@media (max-width: 768px) {
-  .date-selector-new {
-    background: var(--gradient-header);
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin: 15px auto 20px auto; /* Espacio generoso */
-    text-align: center;
-    color: white;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    border: 2px solid #000;
-    position: relative;
-    overflow: visible;
-    max-width: 95%;
-    animation: scaleIn 0.6s ease-out;
-    transition: all 0.3s ease;
-    min-height: auto;
-    z-index: 5;
-  }
 
   .date-selector-title-new {
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     font-size: 0.95rem;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-    position: relative;
-    z-index: 1;
+    line-height: 1.1;
+  }
+
+  .btn-group {
+    gap: 0.3rem;
+  }
+
+  .date-btn {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.7rem;
+    min-width: 60px;
     line-height: 1.2;
   }
 
-  .date-dropdown-new {
-    padding: 5px 10px;
-    border: 2px solid #000;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    background: white;
-    color: #333;
-    cursor: pointer;
-    min-width: 130px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s ease;
-    font-weight: 600;
-    line-height: 1.3;
+  /* Grid de películas - máximo 3 por fila como en filtros */
+  .peliculas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    padding: 0.5rem;
   }
-}
 
-/* Espacio adicional para todo el contenido principal */
-@media (max-width: 768px) {
+  .pelicula-card {
+    max-width: 100%;
+  }
+
+  .poster-container {
+    height: 220px;
+  }
+
   main {
     padding-top: 10px;
   }
-  
-  .peliculas-grid {
-    margin-top: 10px;
-    padding-top: 0;
-  }
-  
+
   .section-title {
     margin-top: 1.5rem;
     margin-bottom: 1.5rem;
+    font-size: 1.5rem;
   }
 }
-
 
 /* ============================================================
    💻 RESPONSIVE PARA TABLET
@@ -1248,7 +1056,13 @@ nav ul li a:hover {
   }
 
   .date-selector-new {
-    max-width: 350px;
+    max-width: 500px;
+  }
+
+  .date-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+    min-width: 80px;
   }
 }
 

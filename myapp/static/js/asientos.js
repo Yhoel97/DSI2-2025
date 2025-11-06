@@ -30,6 +30,9 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("   Name:", this.name);
             console.log("   Value:", this.value);
 
+            // Si cambiamos de función, necesitamos actualizar los asientos ocupados
+            const esCambioFuncion = this.name === "funcion_id";
+
             // Crear objeto con los datos del formulario
             const formData = new FormData(form);
             formData.append("accion", "recalcular");
@@ -45,6 +48,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 .then(response => response.json())
                 .then(data => {
                     console.log("✅ Respuesta AJAX recibida:", data);
+
+                    // Si cambiamos de función, actualizar asientos ocupados
+                    if (esCambioFuncion && data.asientos_ocupados) {
+                        actualizarAsientosOcupados(data.asientos_ocupados);
+                        // Limpiar selección actual
+                        limpiarSeleccionAsientos();
+                    }
 
                     // Actualizar resumen dinámicamente
                     const seatsDiv = document.querySelector(".selected-seats");

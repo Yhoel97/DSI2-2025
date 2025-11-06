@@ -26,6 +26,20 @@
 
 <!-- Contenido principal -->
 <div class="container mb-5 mt-4">
+
+    <!-- Selector de fechas -->
+    <div class="text-center mb-4">
+        <h4 class="mb-3">📅 {{ fecha_formateada }}</h4>
+        <div class="btn-group" role="group">
+            {% for dia in dias_disponibles %}
+                <a href="?fecha={{ dia.fecha|date:'Y-m-d' }}" 
+                   class="btn {% if dia.fecha == fecha_seleccionada %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    {{ dia.nombre_es }}<br>{{ dia.formato_corto }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+
     {% if peliculas %}
         <div class="row">
             {% for pelicula in peliculas %}
@@ -37,7 +51,7 @@
 
                         <div class="card-body">
                             <h5 class="card-title">{{ pelicula.nombre }}</h5>
-                            <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.get_generos_list|join:", " }}</p>
+                            <p class="card-text mb-1"><strong>Género:</strong> {{ pelicula.generos_list|join:", " }}</p>
                             <p class="card-text mb-1"><strong>Año:</strong> {{ pelicula.anio }}</p>
                             {% if pelicula.fecha_estreno %}
                                 <p class="card-text mb-1"><strong>Estreno:</strong> {{ pelicula.fecha_estreno|date:"d/m/Y" }}</p>
@@ -45,24 +59,28 @@
                             <p class="card-text mb-1"><strong>Clasificación:</strong> {{ pelicula.get_clasificacion_display }}</p>
                             <p class="card-text mb-1"><strong>Idioma:</strong> {{ pelicula.get_idioma_display }}</p>
 
-                            <h6 class="horarios-titulo"><i class="fas fa-door-open"></i> Salas disponibles:</h6>
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                {% for sala, formato in pelicula.get_salas_con_formato %}
-                                    <a href="{% url 'asientos' pelicula.id %}?sala={{ sala }}&formato={{ formato }}&from=horarios"
-                                       class="btn-horario btn-sm">
-                                       {{ sala }} ({{ formato }})
-                                    </a>
+                            <h6 class="horarios-titulo"><i class="fas fa-clock"></i> Horarios disponibles:</h6>
+                            <div class="d-flex flex-wrap gap-2 mt-2 mb-3">
+                                {% for funcion in pelicula.funciones_del_dia %}
+                                    <span class="badge bg-info text-dark">
+                                        {{ funcion.get_horario_display }} - {{ funcion.sala }} ({{ funcion.get_formato_sala }})
+                                    </span>
                                 {% empty %}
-                                    <p class="text-muted">No hay salas disponibles</p>
+                                    <p class="text-muted">No hay horarios disponibles</p>
                                 {% endfor %}
                             </div>
+
+                            <a href="{% url 'asientos' pelicula.id %}?fecha={{ fecha_seleccionada|date:'Y-m-d' }}" 
+                               class="btn btn-primary btn-sm w-100">
+                               <i class="fas fa-ticket-alt me-2"></i>Reservar Asientos
+                            </a>
                         </div>
                     </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <p class="text-center text-muted">No hay películas disponibles en este momento.</p>
+        <p class="text-center text-muted">No hay películas disponibles para el {{ fecha_formateada }}.</p>
     {% endif %}
 </div>
 

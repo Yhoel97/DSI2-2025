@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CineDot - Cartelera</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'styles/index.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -24,29 +25,29 @@
       
       <!-- 🎬 Botón de Horarios - SIEMPRE VISIBLE -->
       <li>
-        <a href="{% url 'horarios_por_pelicula' %}" class="btn btn-outline-info">
+        <a href="{% url 'horarios_por_pelicula' %}">
           <i class="fas fa-clock"></i> Ver Horarios
         </a>
       </li>
 
       <!-- 🔍 Botón de Filtrar - SIEMPRE VISIBLE -->
       <li>
-        <a href="{% url 'filtrar_peliculas' %}" class="btn filter-btn">
+        <a href="{% url 'filtrar_peliculas' %}">
           <i class="fas fa-search"></i> Filtrar Películas
         </a>
       </li>
 
       {% if user.is_authenticated %}
         {% if user.is_staff %}
-          <li><a href="{% url 'peliculas' %}" class="btn admin-btn"><i class="fas fa-cog"></i> Panel Admin</a></li>
-          <li><a href="{% url 'registrar_cupon' %}" class="btn logout-btn"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
+          <li><a href="{% url 'peliculas' %}"><i class="fas fa-cog"></i> Panel Admin</a></li>
+          <li><a href="{% url 'registrar_cupon' %}"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
         {% endif %}
         <li><a href="{% url 'mis_metodos_pago' %}" class="btn payment-btn"><i class="fas fa-credit-card"></i> Métodos de Pago</a></li>
         <li><a href="{% url 'mis_reservaciones_cancelables' %}" class="btn logout-btn"><i class="fas fa-times-circle"></i> Cancelar Reservas</a></li>
         <li><a href="{% url 'my_logout' %}" class="btn logout-btn"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
       {% else %}
-        <li><a href="{% url 'login' %}" class="btn login-btn"><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a></li>
-        <li><a href="{% url 'registro' %}" class="btn register-btn"><i class="fas fa-user-plus"></i> Registrarse</a></li>
+        <li><a href="{% url 'login' %}"><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a></li>
+        <li><a href="{% url 'registro' %}"><i class="fas fa-user-plus"></i> Registrarse</a></li>
       {% endif %}
     </ul>
   </nav>
@@ -61,7 +62,7 @@
 </header>
 
 <main>
-<!-- 🗓️ Selector de Fecha MEJORADO -->
+<!-- 🗓️ Selector de Fecha con Botones -->
 <section class="section container">
     <div class="date-selector-new">
         <h3 class="date-selector-title-new" id="date-title">
@@ -69,20 +70,15 @@
             Cartelera {% if fecha_seleccionada == hoy %}Hoy{% else %}del{% endif %} {{ fecha_formateada }}
         </h3>
         
-        <form method="GET" action="{% url 'index' %}" class="date-form-new" id="date-form">
-            <select name="fecha" class="date-dropdown-new" id="date-selector">
-                {% for dia in dias_disponibles %}
-                    <option value="{{ dia.fecha|date:'Y-m-d' }}" 
-                            {% if dia.fecha == fecha_seleccionada %}selected{% endif %}>
-                        {% if dia.fecha == hoy %}
-                            🎬 Hoy - {{ dia.nombre_es }} {{ dia.fecha|date:"d/m" }}
-                        {% else %}
-                            {{ dia.nombre_es }} {{ dia.fecha|date:"d/m" }}
-                        {% endif %}
-                    </option>
-                {% endfor %}
-            </select>
-        </form>
+        <div class="btn-group" role="group" id="date-buttons">
+            {% for dia in dias_disponibles %}
+                <button type="button" 
+                        class="btn date-btn {% if dia.fecha == fecha_seleccionada %}btn-active{% else %}btn-outline{% endif %}" 
+                        data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
+                    {{ dia.nombre_es }}<br>{{ dia.formato_corto }}
+                </button>
+            {% endfor %}
+        </div>
     </div>
 </section>
 
@@ -300,6 +296,7 @@
     <p>© 2025 CineDot. Todos los derechos reservados.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{% static 'js/index.js' %}"></script>
 </body>
 </html>

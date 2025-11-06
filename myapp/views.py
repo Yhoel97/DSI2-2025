@@ -9,7 +9,8 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from DSI2025 import settings
 from .forms import *
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
 from functools import wraps
@@ -89,6 +90,7 @@ GENERO_CHOICES_DICT = {
 }
 
 @admin_required
+@staff_member_required
 @csrf_exempt
 def peliculas(request):
     from datetime import date
@@ -240,7 +242,7 @@ def admin_required(view_func):
         if not request.user.is_authenticated:
             # Redirigir a nuestro login personalizado
             return redirect('/accounts/login/')
-        if not request.user.is_superuser:
+        if not (request.user.is_staff or request.user.is_superuser):
             # Si no es superuser, redirigir al índice
             return redirect('index')
         return view_func(request, *args, **kwargs)
@@ -310,31 +312,45 @@ def index(request):
     # Formato: "Lunes 03 de Noviembre"
     fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
 
-    # ✅ CARTELERA: Películas CON funciones activas en la fecha seleccionada
-    # Ordenar por -pelicula__id para que las más recientes aparezcan primero
+    # 🔴 CORRECCIÓN CRÍTICA: Filtrar funciones que estén vigentes en la fecha seleccionada
+    # Una función está vigente si:
+    # 1. está activa (activa=True)
+    # 2. ya comenzó (fecha_inicio <= fecha_seleccionada)
+    # 3. NO ha terminado (fecha_fin >= fecha_seleccionada)
+    
+    from django.db.models import F, ExpressionWrapper, DurationField
+    
+    
     funciones = (
         Funcion.objects.filter(
             activa=True,
             fecha_inicio__lte=fecha_seleccionada,
         )
         .select_related('pelicula')
-        .order_by('-pelicula__id', 'horario')  # Orden descendente por ID de película
+        .order_by('-pelicula__id', 'horario')
     )
 
+    # 🔴 Filtrar funciones que NO hayan expirado para la fecha seleccionada
     funciones_filtradas = []
     for funcion in funciones:
+        # Calcular fecha de fin: fecha_inicio + semanas - 1 día
         fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
         
-        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
-            if fecha_seleccionada == hoy:
-                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
-                
-                margen = timedelta(minutes=10)
-                if datetime_funcion > (ahora_naive - margen):
-                    funciones_filtradas.append(funcion)
-            else:
+        # ✅ CORRECCIÓN: Verificar que la función NO haya terminado
+        if fecha_fin_funcion < fecha_seleccionada:
+            continue  # Esta función ya terminó, no la incluimos
+        
+        # Si es hoy, verificar que el horario no haya pasado (con margen de 10 min)
+        if fecha_seleccionada == hoy:
+            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+            datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+            
+            margen = timedelta(minutes=10)
+            if datetime_funcion > (ahora_naive - margen):
                 funciones_filtradas.append(funcion)
+        else:
+            # Para fechas futuras, incluir todas las funciones vigentes
+            funciones_filtradas.append(funcion)
 
     # ✅ Agrupar funciones por película (ordenadas por ID descendente)
     peliculas_cartelera = []
@@ -431,9 +447,9 @@ def index(request):
     es_admin = request.user.is_authenticated and request.user.is_staff
 
     return render(request, 'index.html', {
-        'peliculas_base_datos': peliculas_base_datos,        # Admin: TODAS las películas
-        'peliculas_proximas': peliculas_proximas,            # Próximamente
-        'peliculas_cartelera': peliculas_cartelera,          # Cartelera activa
+        'peliculas_base_datos': peliculas_base_datos,
+        'peliculas_proximas': peliculas_proximas,
+        'peliculas_cartelera': peliculas_cartelera,
         'es_admin': es_admin,
         'dias_disponibles': dias_disponibles,
         'fecha_seleccionada': fecha_seleccionada,
@@ -634,6 +650,7 @@ def asientos(request, pelicula_id=None):
             "descuento": descuento_porcentaje,
             "descuento_monto": descuento_monto,
             "total": total,
+            "asientos_ocupados": asientos_ocupados,  # ← AGREGADO: enviar asientos ocupados
         })
 
     # --- Confirmar reserva ---
@@ -859,7 +876,7 @@ def asientos(request, pelicula_id=None):
                     
                     messages.error(request, f"Error en el pago: {resultado_pago.get('mensaje', 'Pago rechazado')}. Por favor, intente nuevamente.")
             except Exception as e:
-                messages.error(request, f"Error al procesar la transacción: {str(e)}")
+                messages.error(request, f"Error al crear la reserva: {str(e)}")
         else:
             for error in errores:
                 messages.error(request, error)
@@ -907,8 +924,6 @@ def asientos(request, pelicula_id=None):
         "metodos_guardados": metodos_guardados,
     }
     return render(request, "asientos.html", context)
-       
-
 
 #################################################################
 #################################################################
@@ -1381,11 +1396,9 @@ def eliminar_valoracion(request, pelicula_id):
 
 ###############################################################################
 
-
 def filtrar_peliculas(request):
     """
-    Muestra SOLO películas con funciones activas vigentes HOY
-    (misma lógica que index para cartelera)
+    Muestra SOLO películas con funciones activas vigentes para la fecha seleccionada
     """
     from django.db.models import Q
     
@@ -1396,12 +1409,57 @@ def filtrar_peliculas(request):
     # ✅ Usar datetime.now() sin zona horaria
     ahora_naive = datetime.now()
     hoy = ahora_naive.date()
+    
+    # ✅ Obtener fecha seleccionada (si existe)
+    fecha_seleccionada_str = request.GET.get('fecha')
+    if fecha_seleccionada_str:
+        try:
+            fecha_seleccionada = datetime.strptime(fecha_seleccionada_str, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_seleccionada = hoy
+    else:
+        fecha_seleccionada = hoy
 
-    # ✅ CARTELERA: Películas CON funciones activas vigentes HOY
+    # ✅ Nombres de meses y días en español
+    nombres_meses_es = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    
+    nombres_dias_es = {
+        'Monday': 'Lunes',
+        'Tuesday': 'Martes', 
+        'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves',
+        'Friday': 'Viernes',
+        'Saturday': 'Sábado',
+        'Sunday': 'Domingo'
+    }
+    
+    # ✅ Generar lista de 5 días (hoy + 4 días siguientes)
+    dias_disponibles = []
+    for i in range(5):
+        dia = hoy + timedelta(days=i)
+        dia_info = {
+            'fecha': dia,
+            'nombre_es': nombres_dias_es[dia.strftime('%A')],
+            'formato_corto': dia.strftime('%d/%m')
+        }
+        dias_disponibles.append(dia_info)
+
+    # ✅ Información de fecha seleccionada en español (FORMATO COMPLETO)
+    nombre_dia_seleccionado = nombres_dias_es[fecha_seleccionada.strftime('%A')]
+    nombre_mes_seleccionado = nombres_meses_es[fecha_seleccionada.month]
+    
+    # Formato: "Lunes 03 de Noviembre"
+    fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
+
+    # ✅ Filtrar funciones vigentes para la fecha seleccionada
     funciones = (
         Funcion.objects.filter(
             activa=True,
-            fecha_inicio__lte=hoy,
+            fecha_inicio__lte=fecha_seleccionada,
         )
         .select_related('pelicula')
         .order_by('-pelicula__id', 'horario')
@@ -1412,13 +1470,17 @@ def filtrar_peliculas(request):
         fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
         
         # Verificar que la función esté en el rango de fechas
-        if funcion.fecha_inicio <= hoy <= fecha_fin_funcion:
-            # Verificar que no haya pasado (margen de 10 minutos)
-            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-            datetime_funcion = datetime.combine(hoy, hora_funcion)
-            
-            margen = timedelta(minutes=10)
-            if datetime_funcion > (ahora_naive - margen):
+        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
+            # Si es hoy, verificar que no haya pasado (margen de 10 minutos)
+            if fecha_seleccionada == hoy:
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                
+                margen = timedelta(minutes=10)
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_filtradas.append(funcion)
+            else:
+                # Para fechas futuras, incluir todas
                 funciones_filtradas.append(funcion)
 
     # ✅ Agrupar funciones por película
@@ -1463,6 +1525,10 @@ def filtrar_peliculas(request):
         'clasificacion': clasificacion,
         'idioma': idioma,
         'GENERO_CHOICES': Pelicula.GENERO_CHOICES,
+        'dias_disponibles': dias_disponibles,
+        'fecha_seleccionada': fecha_seleccionada,
+        'fecha_formateada': fecha_formateada,
+        'hoy': hoy,
     }
 
     return render(request, 'filtrar.html', context)
@@ -1472,19 +1538,63 @@ def filtrar_peliculas(request):
 
 def horarios_por_pelicula(request):
     """
-    Muestra SOLO películas con funciones activas vigentes HOY
+    Muestra SOLO películas con funciones activas vigentes para la fecha seleccionada
     con todos sus horarios y salas disponibles
-    (misma lógica que index para cartelera)
     """
     # ✅ Usar datetime.now() sin zona horaria
     ahora_naive = datetime.now()
     hoy = ahora_naive.date()
 
-    # ✅ CARTELERA: Películas CON funciones activas vigentes HOY
+    # ✅ Obtener fecha seleccionada (si existe)
+    fecha_seleccionada_str = request.GET.get('fecha')
+    if fecha_seleccionada_str:
+        try:
+            fecha_seleccionada = datetime.strptime(fecha_seleccionada_str, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_seleccionada = hoy
+    else:
+        fecha_seleccionada = hoy
+
+    # ✅ Nombres de meses y días en español
+    nombres_meses_es = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    
+    nombres_dias_es = {
+        'Monday': 'Lunes',
+        'Tuesday': 'Martes', 
+        'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves',
+        'Friday': 'Viernes',
+        'Saturday': 'Sábado',
+        'Sunday': 'Domingo'
+    }
+    
+    # ✅ Generar lista de 5 días (hoy + 4 días siguientes)
+    dias_disponibles = []
+    for i in range(5):
+        dia = hoy + timedelta(days=i)
+        dia_info = {
+            'fecha': dia,
+            'nombre_es': nombres_dias_es[dia.strftime('%A')],
+            'formato_corto': dia.strftime('%d/%m')
+        }
+        dias_disponibles.append(dia_info)
+
+    # ✅ Información de fecha seleccionada en español (FORMATO COMPLETO)
+    nombre_dia_seleccionado = nombres_dias_es[fecha_seleccionada.strftime('%A')]
+    nombre_mes_seleccionado = nombres_meses_es[fecha_seleccionada.month]
+    
+    # Formato: "Lunes 03 de Noviembre"
+    fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
+
+    # ✅ Filtrar funciones vigentes para la fecha seleccionada
     funciones = (
         Funcion.objects.filter(
             activa=True,
-            fecha_inicio__lte=hoy,
+            fecha_inicio__lte=fecha_seleccionada,
         )
         .select_related('pelicula')
         .order_by('-pelicula__id', 'horario')
@@ -1495,13 +1605,17 @@ def horarios_por_pelicula(request):
         fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
         
         # Verificar que la función esté en el rango de fechas
-        if funcion.fecha_inicio <= hoy <= fecha_fin_funcion:
-            # Verificar que no haya pasado (margen de 10 minutos)
-            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-            datetime_funcion = datetime.combine(hoy, hora_funcion)
-            
-            margen = timedelta(minutes=10)
-            if datetime_funcion > (ahora_naive - margen):
+        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
+            # Si es hoy, verificar que no haya pasado (margen de 10 minutos)
+            if fecha_seleccionada == hoy:
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                
+                margen = timedelta(minutes=10)
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_filtradas.append(funcion)
+            else:
+                # Para fechas futuras, incluir todas
                 funciones_filtradas.append(funcion)
 
     # ✅ Agrupar funciones por película (ordenadas por ID descendente)
@@ -1523,7 +1637,10 @@ def horarios_por_pelicula(request):
 
     context = {
         'peliculas': peliculas_cartelera,
-        'fecha': hoy,
+        'dias_disponibles': dias_disponibles,
+        'fecha_seleccionada': fecha_seleccionada,
+        'fecha_formateada': fecha_formateada,
+        'hoy': hoy,
     }
 
     return render(request, 'horarios.html', context)
@@ -1557,6 +1674,10 @@ def hay_conflicto_distancia(hora, existentes):
             return True
     return False
 
+#********************************************
+# Vista Administrar funciones
+#----------------------------------------
+
 @csrf_exempt
 def administrar_funciones(request):
     hoy_es = _ahora_es().date()
@@ -1589,17 +1710,30 @@ def administrar_funciones(request):
             else {'llenas': 0, 'media': False}
         )
 
-    # ✅ CORRECCIÓN CRÍTICA: Ordenar por pelicula__id para que regroup funcione
-    # Funciones actuales: activas Y fecha_inicio >= hoy
-    funciones_actuales = Funcion.objects.filter(
-        activa=True,
-        fecha_inicio__gte=hoy_es
+    # ✅ CORRECCIÓN: Filtrar funciones según su fecha_fin calculada
+    todas_funciones_activas = Funcion.objects.filter(
+        activa=True
     ).select_related('pelicula').order_by('pelicula__id', 'horario')
-
-    # Funciones pasadas: inactivas O fecha_inicio < hoy
-    funciones_pasadas = Funcion.objects.filter(
-        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
+    
+    # Separar en vigentes y pasadas según fecha_fin
+    funciones_actuales = []
+    for funcion in todas_funciones_activas:
+        fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        if fecha_fin >= hoy_es:
+            funciones_actuales.append(funcion)
+    
+    # Funciones pasadas: inactivas O con fecha_fin ya pasada
+    todas_funciones = Funcion.objects.filter(
+        models.Q(activa=False)
     ).select_related('pelicula').order_by('pelicula__id', 'horario')
+    
+    funciones_pasadas = list(todas_funciones)
+    
+    # Agregar funciones activas pero con fecha_fin pasada
+    for funcion in todas_funciones_activas:
+        fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        if fecha_fin < hoy_es:
+            funciones_pasadas.append(funcion)
 
     funcion_editar = None
 
@@ -1612,12 +1746,10 @@ def administrar_funciones(request):
             fecha_inicio_str = request.POST.get("fecha_inicio")
             semanas = request.POST.get("semanas", 1)
             
-            # Obtener arrays de horarios y salas
             horarios = request.POST.getlist('horario[]')
             salas = request.POST.getlist('sala[]')
 
             try:
-                # Validar datos requeridos
                 if not all([pelicula_id, fecha_inicio_str]):
                     messages.error(request, "❌ Película y fecha son obligatorios.")
                     return redirect("administrar_funciones")
@@ -1626,11 +1758,9 @@ def administrar_funciones(request):
                     messages.error(request, "❌ Debes agregar al menos un horario y sala.")
                     return redirect("administrar_funciones")
 
-                # Obtener objetos relacionados
                 pelicula = Pelicula.objects.get(id=pelicula_id)
                 fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
 
-                # Validar que la fecha no sea pasada
                 if fecha_inicio < hoy_es:
                     messages.error(request, "❌ No puedes crear funciones con fecha pasada.")
                     return redirect("administrar_funciones")
@@ -1638,36 +1768,43 @@ def administrar_funciones(request):
                 funciones_creadas = 0
                 errores = []
 
-                # Procesar cada par horario-sala
                 for i, (horario, sala_nombre) in enumerate(zip(horarios, salas)):
                     if not horario or not sala_nombre:
-                        continue  # Saltar campos vacíos
+                        continue
 
                     try:
-                        # Validar que la sala exista en las salas disponibles de la película
                         salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
                         if sala_nombre not in salas_pelicula:
                             errores.append(f"La sala '{sala_nombre}' no está disponible para esta película")
                             continue
 
-                        # Validar conflicto de horarios en la misma sala y fecha
-                        funciones_existentes = Funcion.objects.filter(
-                            sala__icontains=sala_nombre,  # Buscar por nombre de sala en string
+                        conflicto_exacto = Funcion.objects.filter(
+                            sala__icontains=sala_nombre,
+                            horario=horario,
                             fecha_inicio=fecha_inicio,
                             activa=True
-                        )
+                        ).exists()
+                        
+                        if conflicto_exacto:
+                            errores.append(f"❌ Ya existe una función en {sala_nombre} a las {horario} el {fecha_inicio.strftime('%d/%m/%Y')}")
+                            continue
+
+                        funciones_existentes = Funcion.objects.filter(
+                            sala__icontains=sala_nombre,
+                            fecha_inicio=fecha_inicio,
+                            activa=True
+                        ).exclude(horario=horario)
                         
                         horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
                         nuevo_horario = parse_hora(horario)
 
                         if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
-                            errores.append(f"Horario {horario} en {sala_nombre}: conflicto con funciones existentes")
+                            errores.append(f"⚠️ Horario {horario} en {sala_nombre}: debe haber mínimo 2h30m con funciones existentes")
                             continue
 
-                        # Crear la nueva función - usar sala como string
                         nueva_funcion = Funcion(
                             pelicula=pelicula,
-                            sala=sala_nombre,  # Guardar como string
+                            sala=sala_nombre,
                             horario=horario,
                             fecha_inicio=fecha_inicio,
                             semanas=int(semanas),
@@ -1679,23 +1816,12 @@ def administrar_funciones(request):
                     except Exception as e:
                         errores.append(f"Error en horario {horario}: {str(e)}")
 
-                # Mostrar resultados
                 if funciones_creadas > 0:
                     messages.success(request, f"✅ {funciones_creadas} función(es) agregada(s) para {pelicula.nombre}")
                 
                 if errores:
                     for error in errores:
                         messages.warning(request, f"⚠️ {error}")
-                
-                # Recargar los QuerySets después de agregar
-                funciones_actuales = Funcion.objects.filter(
-                    activa=True,
-                    fecha_inicio__gte=hoy_es
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                
-                funciones_pasadas = Funcion.objects.filter(
-                    models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
                 
             except Pelicula.DoesNotExist:
                 messages.error(request, "❌ La película seleccionada no existe.")
@@ -1710,26 +1836,14 @@ def administrar_funciones(request):
             if funcion_id:
                 try:
                     funcion = Funcion.objects.get(id=funcion_id)
-                    # CORRECCIÓN: Al reactivar, también actualizar fecha_inicio si es pasada
                     if funcion.fecha_inicio < hoy_es:
                         funcion.fecha_inicio = hoy_es
                     
-                    # Reactivar la función
                     funcion.activa = True
                     funcion.fecha_eliminacion = None
                     funcion.save()
                     
                     messages.success(request, f"✅ Función de '{funcion.pelicula.nombre}' reactivada correctamente.")
-                    
-                    # CORRECCIÓN: Recargar los QuerySets después de la reactivación
-                    funciones_actuales = Funcion.objects.filter(
-                        activa=True,
-                        fecha_inicio__gte=hoy_es
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                    
-                    funciones_pasadas = Funcion.objects.filter(
-                        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
                     
                 except Funcion.DoesNotExist:
                     messages.error(request, "La función que intentas reactivar no existe.")
@@ -1747,22 +1861,11 @@ def administrar_funciones(request):
                     funcion = Funcion.objects.get(id=funcion_id)
                     nombre_pelicula = funcion.pelicula.nombre
                     
-                    # En lugar de eliminar, marcar como inactiva
                     funcion.activa = False
                     funcion.fecha_eliminacion = hoy_es
                     funcion.save()
                     
                     messages.success(request, f"🗑️ Función de '{nombre_pelicula}' desactivada correctamente.")
-                    
-                    # CORRECCIÓN: Recargar los QuerySets después de la eliminación
-                    funciones_actuales = Funcion.objects.filter(
-                        activa=True,
-                        fecha_inicio__gte=hoy_es
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
-                    
-                    funciones_pasadas = Funcion.objects.filter(
-                        models.Q(activa=False) | models.Q(fecha_inicio__lt=hoy_es)
-                    ).select_related('pelicula').order_by('pelicula__id', 'horario')
                     
                 except Funcion.DoesNotExist:
                     messages.error(request, "La función que intentas eliminar no existe.")
@@ -1776,60 +1879,71 @@ def administrar_funciones(request):
         elif accion == "editar":
             funcion_id = request.POST.get("funcion_id")
             pelicula_id = request.POST.get("pelicula")
-            sala_nombre = request.POST.get("sala")
-            horario = request.POST.get("horario")
+            sala_nombre = request.POST.getlist("sala[]")[0] if request.POST.getlist("sala[]") else None
+            horario = request.POST.getlist("horario[]")[0] if request.POST.getlist("horario[]") else None
             fecha_inicio_str = request.POST.get("fecha_inicio")
             semanas = request.POST.get("semanas", 1)
 
             try:
-                if not all([funcion_id, pelicula_id, sala_nombre, horario, fecha_inicio_str]):
-                    messages.error(request, "❌ Todos los campos son obligatorios.")
-                    return redirect("administrar_funciones")
-
                 funcion = Funcion.objects.get(id=funcion_id)
-                pelicula = Pelicula.objects.get(id=pelicula_id)
-                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+                
+                if not pelicula_id:
+                    pelicula = funcion.pelicula
+                else:
+                    pelicula = Pelicula.objects.get(id=pelicula_id)
+                
+                if not sala_nombre:
+                    sala_nombre = funcion.sala
+                
+                if not horario:
+                    horario = funcion.horario
+                
+                if not fecha_inicio_str:
+                    fecha_inicio = funcion.fecha_inicio
+                else:
+                    fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
 
-                # Validar que la fecha no sea pasada
-                if fecha_inicio < hoy_es:
+                if fecha_inicio < hoy_es and fecha_inicio != funcion.fecha_inicio:
                     messages.error(request, "❌ No puedes programar funciones con fecha pasada.")
                     return redirect("administrar_funciones")
 
-                # Validar que la sala exista en las salas disponibles de la película
                 salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
                 if sala_nombre not in salas_pelicula:
                     messages.error(request, f"❌ La sala '{sala_nombre}' no está disponible para esta película")
                     return redirect("administrar_funciones")
 
-                # Validar conflicto de horarios (excluyendo la función actual)
+                conflicto_exacto = Funcion.objects.filter(
+                    sala__icontains=sala_nombre,
+                    horario=horario,
+                    fecha_inicio=fecha_inicio,
+                    activa=True
+                ).exclude(id=funcion_id).exists()
+                
+                if conflicto_exacto:
+                    messages.error(request, f"❌ Ya existe otra función en {sala_nombre} a las {horario} el {fecha_inicio.strftime('%d/%m/%Y')}")
+                    return redirect("administrar_funciones")
+
                 funciones_existentes = Funcion.objects.filter(
                     sala__icontains=sala_nombre,
                     fecha_inicio=fecha_inicio,
                     activa=True
-                ).exclude(id=funcion_id)
+                ).exclude(id=funcion_id).exclude(horario=horario)
                 
                 horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
                 nuevo_horario = parse_hora(horario)
 
                 if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
-                    messages.error(request, f"❌ Conflicto de horarios: la función editada está muy cerca de funciones existentes en la misma sala.")
+                    messages.error(request, f"❌ Conflicto de horarios: debe haber mínimo 2h30m con funciones existentes en la misma sala.")
                     return redirect("administrar_funciones")
 
-                # Actualizar la función
                 funcion.pelicula = pelicula
-                funcion.sala = sala_nombre  # Guardar como string
+                funcion.sala = sala_nombre
                 funcion.horario = horario
                 funcion.fecha_inicio = fecha_inicio
                 funcion.semanas = int(semanas)
                 funcion.save()
 
                 messages.success(request, f"✏️ Función editada correctamente: {pelicula.nombre} - {sala_nombre} - {horario}")
-                
-                # Recargar los QuerySets después de editar
-                funciones_actuales = Funcion.objects.filter(
-                    activa=True,
-                    fecha_inicio__gte=hoy_es
-                ).select_related('pelicula').order_by('pelicula__id', 'horario')
                 
             except Funcion.DoesNotExist:
                 messages.error(request, "❌ La función que intentas editar no existe.")
@@ -1848,15 +1962,41 @@ def administrar_funciones(request):
         else:
             messages.error(request, "No se proporcionó ID de función para editar.")
 
+    # ✅ CORRECCIÓN CRÍTICA: Agrupar funciones por película Y fecha_inicio
+    funciones_actuales_sorted = sorted(funciones_actuales, key=lambda f: (f.pelicula.id, f.fecha_inicio))
+    funciones_actuales_agrupadas = []
+    
+    for (pelicula_id, fecha_inicio), grupo in groupby(funciones_actuales_sorted, key=lambda f: (f.pelicula.id, f.fecha_inicio)):
+        funciones_lista = list(grupo)
+        funciones_actuales_agrupadas.append({
+            'pelicula': funciones_lista[0].pelicula,
+            'fecha_inicio': fecha_inicio,
+            'funciones': funciones_lista
+        })
+
+    # Para funciones pasadas
+    funciones_pasadas_sorted = sorted(funciones_pasadas, key=lambda f: (f.pelicula.id, f.fecha_inicio))
+    funciones_pasadas_agrupadas = []
+    
+    for (pelicula_id, fecha_inicio), grupo in groupby(funciones_pasadas_sorted, key=lambda f: (f.pelicula.id, f.fecha_inicio)):
+        funciones_lista = list(grupo)
+        funciones_pasadas_agrupadas.append({
+            'pelicula': funciones_lista[0].pelicula,
+            'fecha_inicio': fecha_inicio,
+            'funciones': funciones_lista
+        })
+
     return render(request, "administrar_funciones.html", {
         "peliculas": peliculas,
         "peliculas_con_pares": peliculas_con_pares,
-        "funciones_actuales": funciones_actuales,
-        "funciones_pasadas": funciones_pasadas,
+        "funciones_actuales_agrupadas": funciones_actuales_agrupadas,  # ← Nuevo
+        "funciones_pasadas_agrupadas": funciones_pasadas_agrupadas,    # ← Nuevo
         "funcion_editar": funcion_editar,
         "HORARIOS_DISPONIBLES": Funcion.HORARIOS_DISPONIBLES,
         "hoy_es": hoy_es,
     })
+
+
 
 #########################################################################
 ### Reportes Administrativos##############################################

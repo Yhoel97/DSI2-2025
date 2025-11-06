@@ -56,7 +56,7 @@ urlpatterns = [
     path('metodos-pago/eliminar/<int:metodo_id>/', views.eliminar_metodo_pago, name='eliminar_metodo_pago'),
     path('metodos-pago/predeterminado/<int:metodo_id>/', views.marcar_predeterminado, name='marcar_predeterminado'),
 
-    #Path para administrar usuarios
+    # PBI-29: Gestión de Usuarios
     path('administrar_usuarios/', views.administrar_usuarios, name='administrar_usuarios'),
 
 ]

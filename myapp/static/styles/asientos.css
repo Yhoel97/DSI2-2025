@@ -606,6 +606,109 @@ body {
   font-size: 1.1rem;
 }
 
+/* Estilos para métodos guardados */
+.saved-method .payment-option-content {
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.payment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.payment-info {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.badge-default {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: linear-gradient(135deg, #7b68ee, #9b8bef);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge-expirada {
+  background: #dc3545;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.manage-methods-link {
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.manage-methods-link a {
+  color: #7b68ee;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: color 0.3s ease;
+}
+
+.manage-methods-link a:hover {
+  color: #5f4ec4;
+  text-decoration: underline;
+}
+
+.saved-method-cvv {
+  background: #fff9e6;
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.saved-method-cvv .form-group {
+  margin-bottom: 0;
+}
+
+.saved-method-cvv label {
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.saved-method-cvv input {
+  width: 150px;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.saved-method-cvv input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+}
+
+.saved-method-cvv small {
+  display: block;
+  margin-top: 0.5rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
 .new-card-form {
   background: #f8f9fa;
   border-radius: 8px;

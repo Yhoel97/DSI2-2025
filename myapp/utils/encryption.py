@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 import base64
 import hashlib
+import json
 
 
 def get_encryption_key():
@@ -142,3 +143,55 @@ def get_card_type(numero_tarjeta: str) -> str:
         return 'DISCOVER'
     else:
         return 'OTRO'
+
+
+def encrypt_card_data_full(numero_tarjeta: str, nombre_titular: str, fecha_expiracion: str) -> str:
+    """
+    Encripta todos los datos sensibles de una tarjeta.
+    
+    Args:
+        numero_tarjeta (str): Número completo de la tarjeta
+        nombre_titular (str): Nombre del titular
+        fecha_expiracion (str): Fecha de expiración (MM/YY)
+        
+    Returns:
+        str: Datos encriptados en formato JSON encriptado
+    """
+    datos = {
+        'numero_tarjeta': numero_tarjeta,
+        'nombre_titular': nombre_titular,
+        'fecha_expiracion': fecha_expiracion
+    }
+    
+    # Convertir a JSON y encriptar
+    json_datos = json.dumps(datos)
+    return encrypt_data(json_datos)
+
+
+def decrypt_card_data(encrypted_json: str) -> dict:
+    """
+    Desencripta los datos completos de una tarjeta guardada.
+    
+    Args:
+        encrypted_json (str): JSON encriptado con los datos de la tarjeta
+        
+    Returns:
+        dict: Diccionario con los datos desencriptados {
+            'numero_tarjeta': str,
+            'nombre_titular': str,
+            'fecha_expiracion': str
+        }
+    """
+    if not encrypted_json:
+        return {}
+    
+    try:
+        # Desencriptar el JSON
+        json_datos = decrypt_data(encrypted_json)
+        
+        # Convertir JSON a diccionario
+        datos = json.loads(json_datos)
+        return datos
+    except Exception as e:
+        print(f"Error al desencriptar datos de tarjeta: {str(e)}")
+        return {}

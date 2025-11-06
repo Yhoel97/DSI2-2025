@@ -118,8 +118,10 @@ def simular_pago(datos_tarjeta, monto):
     # Validar monto
     if monto <= 0:
         return {
-            'success': False,
-            'transaction_id': None,
+            'exitoso': False,
+            'numero_transaccion': None,
+            'numero_tarjeta_enmascarado': '',
+            'tipo_tarjeta': '',
             'error_code': 'INVALID_AMOUNT',
             'error_message': 'El monto debe ser mayor a cero',
             'timestamp': datetime.now(),
@@ -130,8 +132,10 @@ def simular_pago(datos_tarjeta, monto):
     valido, resultado = validar_numero_tarjeta(datos_tarjeta['numero'])
     if not valido:
         return {
-            'success': False,
-            'transaction_id': None,
+            'exitoso': False,
+            'numero_transaccion': None,
+            'numero_tarjeta_enmascarado': '',
+            'tipo_tarjeta': '',
             'error_code': 'INVALID_CARD_NUMBER',
             'error_message': resultado,
             'timestamp': datetime.now(),
@@ -147,8 +151,10 @@ def simular_pago(datos_tarjeta, monto):
     )
     if not valido:
         return {
-            'success': False,
-            'transaction_id': None,
+            'exitoso': False,
+            'numero_transaccion': None,
+            'numero_tarjeta_enmascarado': '',
+            'tipo_tarjeta': '',
             'error_code': 'EXPIRED_CARD',
             'error_message': error,
             'timestamp': datetime.now(),
@@ -159,8 +165,10 @@ def simular_pago(datos_tarjeta, monto):
     valido, error = validar_cvv(datos_tarjeta['cvv'], numero_limpio)
     if not valido:
         return {
-            'success': False,
-            'transaction_id': None,
+            'exitoso': False,
+            'numero_transaccion': None,
+            'numero_tarjeta_enmascarado': '',
+            'tipo_tarjeta': '',
             'error_code': 'INVALID_CVV',
             'error_message': error,
             'timestamp': datetime.now(),
@@ -178,14 +186,20 @@ def simular_pago(datos_tarjeta, monto):
     # Decidir si el pago es exitoso o falla (aleatorio)
     es_exitoso = random.random() < tasa_exito
     
+    # Obtener tipo de tarjeta y enmascarar número
+    tipo_tarjeta = obtener_tipo_tarjeta(numero_limpio)
+    numero_enmascarado = enmascarar_numero_tarjeta(numero_limpio)
+    
     if es_exitoso:
         # Pago exitoso
         numero_transaccion = generar_numero_transaccion()
         logger.info(f"✅ Pago exitoso - Transacción: {numero_transaccion}")
         
         return {
-            'success': True,
-            'transaction_id': numero_transaccion,
+            'exitoso': True,
+            'numero_transaccion': numero_transaccion,
+            'numero_tarjeta_enmascarado': numero_enmascarado,
+            'tipo_tarjeta': tipo_tarjeta,
             'error_code': None,
             'error_message': None,
             'timestamp': datetime.now(),
@@ -205,8 +219,10 @@ def simular_pago(datos_tarjeta, monto):
         logger.warning(f"❌ Pago rechazado - Motivo: {error_message}")
         
         return {
-            'success': False,
-            'transaction_id': None,
+            'exitoso': False,
+            'numero_transaccion': None,
+            'numero_tarjeta_enmascarado': numero_enmascarado,
+            'tipo_tarjeta': tipo_tarjeta,
             'error_code': error_code,
             'error_message': error_message,
             'timestamp': datetime.now(),

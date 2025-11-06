@@ -79,6 +79,10 @@ document.addEventListener("DOMContentLoaded", function () {
                             discountRow.style.display = "none";
                         }
                     }
+
+                    // Actualizar monto en botón de pago
+                    const btnAmount = document.querySelector(".btn-amount");
+                    if (btnAmount) btnAmount.textContent = `$${data.total.toFixed(2)}`;
                 })
                 .catch(error => {
                     console.error("❌ Error en AJAX:", error);
@@ -302,15 +306,33 @@ document.addEventListener("DOMContentLoaded", function() {
             
             // Solo validar pago si la acción es "reservar"
             if (accion === "reservar") {
-                const numeroValido = validarNumeroTarjeta(numeroTarjetaInput.value.replace(/\s/g, ''));
-                const fechaValida = validarFechaExpiracion(fechaExpiracionInput.value);
-                const cvvValido = validarCVV(cvvInput.value);
-                const nombreValido = validarNombreTitular(nombreTitularInput.value);
+                // Verificar si se está usando un método guardado o nueva tarjeta
+                const usandoMetodoGuardado = document.querySelector('input[name="usar_metodo_guardado"]:checked');
+                const pagarConNuevaTarjeta = document.querySelector('#nueva-tarjeta:checked');
+                
+                // Si se está usando un método guardado, validar solo el CVV del método guardado
+                if (usandoMetodoGuardado && !pagarConNuevaTarjeta) {
+                    const cvvGuardadoInput = document.getElementById('saved-method-cvv');
+                    if (cvvGuardadoInput) {
+                        const cvvGuardado = cvvGuardadoInput.value.trim();
+                        if (!cvvGuardado || cvvGuardado.length < 3 || cvvGuardado.length > 4 || !/^\d+$/.test(cvvGuardado)) {
+                            e.preventDefault();
+                            alert("⚠️ Por favor ingresa un CVV válido para tu tarjeta guardada");
+                            return false;
+                        }
+                    }
+                } else {
+                    // Si se está pagando con nueva tarjeta, validar todos los campos
+                    const numeroValido = validarNumeroTarjeta(numeroTarjetaInput.value.replace(/\s/g, ''));
+                    const fechaValida = validarFechaExpiracion(fechaExpiracionInput.value);
+                    const cvvValido = validarCVV(cvvInput.value);
+                    const nombreValido = validarNombreTitular(nombreTitularInput.value);
 
-                if (!numeroValido || !fechaValida || !cvvValido || !nombreValido) {
-                    e.preventDefault();
-                    alert("⚠️ Por favor completa correctamente todos los datos de la tarjeta");
-                    return false;
+                    if (!numeroValido || !fechaValida || !cvvValido || !nombreValido) {
+                        e.preventDefault();
+                        alert("⚠️ Por favor completa correctamente todos los datos de la tarjeta");
+                        return false;
+                    }
                 }
 
                 // Mostrar indicador de procesamiento
@@ -324,4 +346,112 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     console.log("✅ Sistema de validación de pago inicializado");
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TOGGLE DE MÉTODOS DE PAGO (GUARDADOS vs NUEVA TARJETA) - PBI-30
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("🔄 Inicializando toggle de métodos de pago");
+
+    const paymentRadios = document.querySelectorAll('input[name="usar_metodo_guardado"]');
+    const newCardForm = document.getElementById("new-card-form");
+    const savedMethodCvv = document.getElementById("saved-method-cvv");
+    const guardarTarjetaCheckbox = document.getElementById("guardar_tarjeta");
+    const aliasInput = document.getElementById("alias-input");
+
+    if (paymentRadios.length === 0) {
+        console.log("ℹ️ No hay métodos de pago guardados para este usuario");
+        return;
+    }
+
+    // Función para actualizar la visibilidad de los formularios
+    function updatePaymentForms() {
+        const selectedRadio = document.querySelector('input[name="usar_metodo_guardado"]:checked');
+        
+        if (!selectedRadio) {
+            console.warn("⚠️ No hay radio seleccionado");
+            return;
+        }
+
+        const selectedValue = selectedRadio.value;
+        console.log("💳 Método de pago seleccionado:", selectedValue);
+
+        if (selectedValue === "false") {
+            // Mostrar formulario de nueva tarjeta
+            if (newCardForm) {
+                newCardForm.style.display = "block";
+                const inputs = newCardForm.querySelectorAll('input[type="text"]');
+                inputs.forEach(input => input.removeAttribute('disabled'));
+            }
+            if (savedMethodCvv) {
+                savedMethodCvv.style.display = "none";
+                const cvvGuardadoInput = document.getElementById("cvv_guardado");
+                if (cvvGuardadoInput) {
+                    cvvGuardadoInput.setAttribute('disabled', 'disabled');
+                    cvvGuardadoInput.value = '';
+                }
+            }
+        } else {
+            // Mostrar solo campo CVV para método guardado
+            if (newCardForm) {
+                newCardForm.style.display = "none";
+                const inputs = newCardForm.querySelectorAll('input[type="text"]');
+                inputs.forEach(input => input.setAttribute('disabled', 'disabled'));
+            }
+            if (savedMethodCvv) {
+                savedMethodCvv.style.display = "block";
+                const cvvGuardadoInput = document.getElementById("cvv_guardado");
+                if (cvvGuardadoInput) {
+                    cvvGuardadoInput.removeAttribute('disabled');
+                    cvvGuardadoInput.focus();
+                }
+            }
+        }
+    }
+
+    // Agregar event listeners a los radios
+    paymentRadios.forEach(radio => radio.addEventListener("change", updatePaymentForms));
+
+    // Toggle de campo alias al marcar "guardar tarjeta"
+    if (guardarTarjetaCheckbox && aliasInput) {
+        guardarTarjetaCheckbox.addEventListener("change", function() {
+            if (this.checked) {
+                aliasInput.style.display = "block";
+                const aliasInputField = document.getElementById("alias_tarjeta");
+                if (aliasInputField) aliasInputField.focus();
+            } else {
+                aliasInput.style.display = "none";
+                const aliasInputField = document.getElementById("alias_tarjeta");
+                if (aliasInputField) aliasInputField.value = '';
+            }
+        });
+    }
+
+    // Validación del CVV guardado
+    const cvvGuardadoInput = document.getElementById("cvv_guardado");
+    if (cvvGuardadoInput) {
+        cvvGuardadoInput.addEventListener("input", function(e) {
+            this.value = this.value.replace(/\D/g, '');
+            if (this.value.length > 4) this.value = this.value.substring(0, 4);
+
+            const errorSpan = document.getElementById("error-cvv-guardado");
+            if (this.value.length >= 3) {
+                this.classList.remove("error");
+                this.classList.add("valid");
+                if (errorSpan) errorSpan.textContent = "";
+            } else {
+                this.classList.remove("valid");
+                if (this.value.length > 0) {
+                    this.classList.add("error");
+                    if (errorSpan) errorSpan.textContent = "CVV debe tener 3-4 dígitos";
+                }
+            }
+        });
+    }
+
+    // Ejecutar al cargar
+    updatePaymentForms();
+    console.log("✅ Toggle de métodos de pago inicializado");
 });

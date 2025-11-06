@@ -373,7 +373,7 @@ class Pago(models.Model):
         ('CUENTA_DIGITAL', 'Cuenta Digital'),
     ]
     
-    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='pagos')
+    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='pagos', null=True, blank=True)
     monto = models.DecimalField(max_digits=8, decimal_places=2)
     metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES)
     estado_pago = models.CharField(max_length=15, choices=ESTADO_PAGO_CHOICES, default='PENDIENTE')

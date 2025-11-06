@@ -1,9 +1,11 @@
 asgiref==3.10.0
 Brotli==1.1.0
 certifi==2025.10.5
+cffi==1.17.1
 charset-normalizer==3.4.4
 click==8.2.1
 colorama==0.4.6
+cryptography==44.0.0
 dj-database-url==3.0.1
 Django==5.2.7
 et_xmlfile==2.0.0
@@ -19,6 +21,7 @@ plotly==6.3.1
 psycopg==3.2.10
 psycopg-binary==3.2.10
 psycopg2-binary==2.9.10
+pycparser==2.22
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 pytz==2025.2

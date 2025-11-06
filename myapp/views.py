@@ -1015,6 +1015,8 @@ def modificar_cupon(request, pk):
 
 ##################################################################################
 ##################################################################################
+
+
 @csrf_exempt
 def administrar_salas(request):
     peliculas = Pelicula.objects.all()
@@ -1738,37 +1740,6 @@ def administrar_funciones(request):
     funcion_editar = None
 
     # ============================================================
-    # FUNCIÓN AUXILIAR: Validar solapamiento de períodos
-    # ============================================================
-    def hay_solapamiento_periodo(fecha_inicio_nueva, semanas_nueva, pelicula_id, funcion_id_excluir=None):
-        """
-        Verifica si hay solapamiento de períodos para la misma película.
-        Retorna True si hay conflicto, False si está libre.
-        """
-        fecha_fin_nueva = fecha_inicio_nueva + timedelta(weeks=int(semanas_nueva)) - timedelta(days=1)
-        
-        # Buscar funciones activas de la misma película
-        funciones_existentes = Funcion.objects.filter(
-            pelicula_id=pelicula_id,
-            activa=True
-        )
-        
-        if funcion_id_excluir:
-            funciones_existentes = funciones_existentes.exclude(id=funcion_id_excluir)
-        
-        for func in funciones_existentes:
-            fecha_fin_existente = func.fecha_inicio + timedelta(weeks=func.semanas) - timedelta(days=1)
-            
-            # Verificar solapamiento de períodos
-            # Hay solapamiento si:
-            # 1. La nueva empieza antes de que termine la existente Y
-            # 2. La nueva termina después de que empiece la existente
-            if fecha_inicio_nueva <= fecha_fin_existente and fecha_fin_nueva >= func.fecha_inicio:
-                return True, func
-        
-        return False, None
-
-    # ============================================================
     # FUNCIÓN AUXILIAR: Validar conflicto de horario/sala
     # ============================================================
     def hay_conflicto_horario_sala(sala_nombre, horario, fecha_inicio, semanas, funcion_id_excluir=None):
@@ -1828,22 +1799,6 @@ def administrar_funciones(request):
                     messages.error(request, "❌ No puedes crear funciones con fecha pasada.")
                     return redirect("administrar_funciones")
 
-                # ✅ VALIDACIÓN CRÍTICA 1: Verificar solapamiento de períodos
-                hay_conflicto, funcion_conflicto = hay_solapamiento_periodo(
-                    fecha_inicio, semanas, pelicula_id
-                )
-                
-                if hay_conflicto:
-                    fecha_fin_conflicto = funcion_conflicto.fecha_inicio + timedelta(weeks=funcion_conflicto.semanas) - timedelta(days=1)
-                    messages.error(
-                        request, 
-                        f"❌ Ya existen funciones activas para '{pelicula.nombre}' "
-                        f"desde {funcion_conflicto.fecha_inicio.strftime('%d/%m/%Y')} "
-                        f"hasta {fecha_fin_conflicto.strftime('%d/%m/%Y')}. "
-                        f"No puedes agregar funciones que se solapen con este período."
-                    )
-                    return redirect("administrar_funciones")
-
                 funciones_creadas = 0
                 errores = []
 
@@ -1857,7 +1812,7 @@ def administrar_funciones(request):
                             errores.append(f"La sala '{sala_nombre}' no está disponible para esta película")
                             continue
 
-                        # ✅ VALIDACIÓN CRÍTICA 2: Verificar conflicto exacto de horario/sala
+                        # ✅ VALIDACIÓN CRÍTICA: Verificar conflicto exacto de horario/sala
                         hay_conflicto_hs, funcion_conflicto_hs = hay_conflicto_horario_sala(
                             sala_nombre, horario, fecha_inicio, semanas
                         )
@@ -1871,7 +1826,7 @@ def administrar_funciones(request):
                             )
                             continue
 
-                        # ✅ VALIDACIÓN 3: Distancia mínima entre horarios (misma sala, mismo día)
+                        # ✅ VALIDACIÓN: Distancia mínima entre horarios (misma sala, mismo día)
                         funciones_misma_sala = Funcion.objects.filter(
                             sala__icontains=sala_nombre,
                             activa=True
@@ -1879,6 +1834,7 @@ def administrar_funciones(request):
                         
                         fecha_fin_nueva = fecha_inicio + timedelta(weeks=int(semanas)) - timedelta(days=1)
                         
+                        conflicto_distancia = False
                         for func_sala in funciones_misma_sala:
                             fecha_fin_existente = func_sala.fecha_inicio + timedelta(weeks=func_sala.semanas) - timedelta(days=1)
                             
@@ -1892,19 +1848,23 @@ def administrar_funciones(request):
                                         f"⚠️ Horario {horario} en {sala_nombre}: debe haber mínimo 2h30m "
                                         f"con la función de las {func_sala.horario}"
                                     )
+                                    conflicto_distancia = True
                                     break
-                        else:
-                            # Si no hubo conflicto de distancia, crear la función
-                            nueva_funcion = Funcion(
-                                pelicula=pelicula,
-                                sala=sala_nombre,
-                                horario=horario,
-                                fecha_inicio=fecha_inicio,
-                                semanas=int(semanas),
-                                activa=True
-                            )
-                            nueva_funcion.save()
-                            funciones_creadas += 1
+                        
+                        if conflicto_distancia:
+                            continue
+
+                        # Si no hubo conflictos, crear la función
+                        nueva_funcion = Funcion(
+                            pelicula=pelicula,
+                            sala=sala_nombre,
+                            horario=horario,
+                            fecha_inicio=fecha_inicio,
+                            semanas=int(semanas),
+                            activa=True
+                        )
+                        nueva_funcion.save()
+                        funciones_creadas += 1
 
                     except Exception as e:
                         errores.append(f"Error en horario {horario}: {str(e)}")
@@ -1916,12 +1876,18 @@ def administrar_funciones(request):
                     for error in errores:
                         messages.warning(request, f"⚠️ {error}")
                 
+                # ✅ IMPORTANTE: Siempre redirigir después de procesar POST
+                return redirect("administrar_funciones")
+                
             except Pelicula.DoesNotExist:
                 messages.error(request, "❌ La película seleccionada no existe.")
+                return redirect("administrar_funciones")
             except ValueError as e:
                 messages.error(request, f"❌ Error en el formato de fecha: {str(e)}")
+                return redirect("administrar_funciones")
             except Exception as e:
                 messages.error(request, f"❌ Error al agregar funciones: {str(e)}")
+                return redirect("administrar_funciones")
 
         # --- EDITAR FUNCIÓN ---
         elif accion == "editar":
@@ -1955,28 +1921,12 @@ def administrar_funciones(request):
                     messages.error(request, "❌ No puedes programar funciones con fecha pasada.")
                     return redirect("administrar_funciones")
 
-                # ✅ VALIDACIÓN 1: Verificar solapamiento de períodos con la misma película
-                if pelicula.id != funcion.pelicula.id or fecha_inicio != funcion.fecha_inicio or int(semanas) != funcion.semanas:
-                    hay_conflicto, funcion_conflicto = hay_solapamiento_periodo(
-                        fecha_inicio, semanas, pelicula.id, funcion_id_excluir=funcion_id
-                    )
-                    
-                    if hay_conflicto:
-                        fecha_fin_conflicto = funcion_conflicto.fecha_inicio + timedelta(weeks=funcion_conflicto.semanas) - timedelta(days=1)
-                        messages.error(
-                            request,
-                            f"❌ Ya existen funciones activas para '{pelicula.nombre}' "
-                            f"desde {funcion_conflicto.fecha_inicio.strftime('%d/%m/%Y')} "
-                            f"hasta {fecha_fin_conflicto.strftime('%d/%m/%Y')}"
-                        )
-                        return redirect("administrar_funciones")
-
                 salas_pelicula = [sala_tuple[0] for sala_tuple in pelicula.get_salas_con_formato()]
                 if sala_nombre not in salas_pelicula:
                     messages.error(request, f"❌ La sala '{sala_nombre}' no está disponible para esta película")
                     return redirect("administrar_funciones")
 
-                # ✅ VALIDACIÓN 2: Verificar conflicto de horario/sala
+                # ✅ VALIDACIÓN: Verificar conflicto de horario/sala
                 hay_conflicto_hs, funcion_conflicto_hs = hay_conflicto_horario_sala(
                     sala_nombre, horario, fecha_inicio, semanas, funcion_id_excluir=funcion_id
                 )
@@ -1991,7 +1941,7 @@ def administrar_funciones(request):
                     )
                     return redirect("administrar_funciones")
 
-                # ✅ VALIDACIÓN 3: Distancia mínima
+                # ✅ VALIDACIÓN: Distancia mínima
                 funciones_misma_sala = Funcion.objects.filter(
                     sala__icontains=sala_nombre,
                     activa=True
@@ -2044,6 +1994,27 @@ def administrar_funciones(request):
                     funcion.save()
                     
                     messages.success(request, f"🗑️ Función de '{nombre_pelicula}' desactivada correctamente.")
+                    
+                except Funcion.DoesNotExist:
+                    messages.error(request, "La función que intentas eliminar no existe.")
+                except Exception as e:
+                    messages.error(request, f"Error al eliminar la función: {str(e)}")
+            else:
+                messages.error(request, "No se proporcionó ID de función para eliminar.")
+            return redirect("administrar_funciones")
+        
+        # --- ELIMINAR PERMANENTEMENTE (para funciones pasadas) ---
+        elif accion == "eliminar_permanente":
+            funcion_id = request.POST.get("funcion_id")
+            if funcion_id:
+                try:
+                    funcion = Funcion.objects.get(id=funcion_id)
+                    nombre_pelicula = funcion.pelicula.nombre
+                    
+                    # Eliminar permanentemente
+                    funcion.delete()
+                    
+                    messages.success(request, f"🗑️ Función de '{nombre_pelicula}' eliminada permanentemente.")
                     
                 except Funcion.DoesNotExist:
                     messages.error(request, "La función que intentas eliminar no existe.")

@@ -1242,11 +1242,9 @@ def eliminar_valoracion(request, pelicula_id):
 
 ###############################################################################
 
-
 def filtrar_peliculas(request):
     """
-    Muestra SOLO películas con funciones activas vigentes HOY
-    (misma lógica que index para cartelera)
+    Muestra SOLO películas con funciones activas vigentes para la fecha seleccionada
     """
     from django.db.models import Q
     
@@ -1257,12 +1255,57 @@ def filtrar_peliculas(request):
     # ✅ Usar datetime.now() sin zona horaria
     ahora_naive = datetime.now()
     hoy = ahora_naive.date()
+    
+    # ✅ Obtener fecha seleccionada (si existe)
+    fecha_seleccionada_str = request.GET.get('fecha')
+    if fecha_seleccionada_str:
+        try:
+            fecha_seleccionada = datetime.strptime(fecha_seleccionada_str, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_seleccionada = hoy
+    else:
+        fecha_seleccionada = hoy
 
-    # ✅ CARTELERA: Películas CON funciones activas vigentes HOY
+    # ✅ Nombres de meses y días en español
+    nombres_meses_es = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    
+    nombres_dias_es = {
+        'Monday': 'Lunes',
+        'Tuesday': 'Martes', 
+        'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves',
+        'Friday': 'Viernes',
+        'Saturday': 'Sábado',
+        'Sunday': 'Domingo'
+    }
+    
+    # ✅ Generar lista de 5 días (hoy + 4 días siguientes)
+    dias_disponibles = []
+    for i in range(5):
+        dia = hoy + timedelta(days=i)
+        dia_info = {
+            'fecha': dia,
+            'nombre_es': nombres_dias_es[dia.strftime('%A')],
+            'formato_corto': dia.strftime('%d/%m')
+        }
+        dias_disponibles.append(dia_info)
+
+    # ✅ Información de fecha seleccionada en español (FORMATO COMPLETO)
+    nombre_dia_seleccionado = nombres_dias_es[fecha_seleccionada.strftime('%A')]
+    nombre_mes_seleccionado = nombres_meses_es[fecha_seleccionada.month]
+    
+    # Formato: "Lunes 03 de Noviembre"
+    fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
+
+    # ✅ Filtrar funciones vigentes para la fecha seleccionada
     funciones = (
         Funcion.objects.filter(
             activa=True,
-            fecha_inicio__lte=hoy,
+            fecha_inicio__lte=fecha_seleccionada,
         )
         .select_related('pelicula')
         .order_by('-pelicula__id', 'horario')
@@ -1273,13 +1316,17 @@ def filtrar_peliculas(request):
         fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
         
         # Verificar que la función esté en el rango de fechas
-        if funcion.fecha_inicio <= hoy <= fecha_fin_funcion:
-            # Verificar que no haya pasado (margen de 10 minutos)
-            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-            datetime_funcion = datetime.combine(hoy, hora_funcion)
-            
-            margen = timedelta(minutes=10)
-            if datetime_funcion > (ahora_naive - margen):
+        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
+            # Si es hoy, verificar que no haya pasado (margen de 10 minutos)
+            if fecha_seleccionada == hoy:
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                
+                margen = timedelta(minutes=10)
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_filtradas.append(funcion)
+            else:
+                # Para fechas futuras, incluir todas
                 funciones_filtradas.append(funcion)
 
     # ✅ Agrupar funciones por película
@@ -1324,6 +1371,10 @@ def filtrar_peliculas(request):
         'clasificacion': clasificacion,
         'idioma': idioma,
         'GENERO_CHOICES': Pelicula.GENERO_CHOICES,
+        'dias_disponibles': dias_disponibles,
+        'fecha_seleccionada': fecha_seleccionada,
+        'fecha_formateada': fecha_formateada,
+        'hoy': hoy,
     }
 
     return render(request, 'filtrar.html', context)
@@ -1333,19 +1384,63 @@ def filtrar_peliculas(request):
 
 def horarios_por_pelicula(request):
     """
-    Muestra SOLO películas con funciones activas vigentes HOY
+    Muestra SOLO películas con funciones activas vigentes para la fecha seleccionada
     con todos sus horarios y salas disponibles
-    (misma lógica que index para cartelera)
     """
     # ✅ Usar datetime.now() sin zona horaria
     ahora_naive = datetime.now()
     hoy = ahora_naive.date()
 
-    # ✅ CARTELERA: Películas CON funciones activas vigentes HOY
+    # ✅ Obtener fecha seleccionada (si existe)
+    fecha_seleccionada_str = request.GET.get('fecha')
+    if fecha_seleccionada_str:
+        try:
+            fecha_seleccionada = datetime.strptime(fecha_seleccionada_str, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_seleccionada = hoy
+    else:
+        fecha_seleccionada = hoy
+
+    # ✅ Nombres de meses y días en español
+    nombres_meses_es = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    
+    nombres_dias_es = {
+        'Monday': 'Lunes',
+        'Tuesday': 'Martes', 
+        'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves',
+        'Friday': 'Viernes',
+        'Saturday': 'Sábado',
+        'Sunday': 'Domingo'
+    }
+    
+    # ✅ Generar lista de 5 días (hoy + 4 días siguientes)
+    dias_disponibles = []
+    for i in range(5):
+        dia = hoy + timedelta(days=i)
+        dia_info = {
+            'fecha': dia,
+            'nombre_es': nombres_dias_es[dia.strftime('%A')],
+            'formato_corto': dia.strftime('%d/%m')
+        }
+        dias_disponibles.append(dia_info)
+
+    # ✅ Información de fecha seleccionada en español (FORMATO COMPLETO)
+    nombre_dia_seleccionado = nombres_dias_es[fecha_seleccionada.strftime('%A')]
+    nombre_mes_seleccionado = nombres_meses_es[fecha_seleccionada.month]
+    
+    # Formato: "Lunes 03 de Noviembre"
+    fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
+
+    # ✅ Filtrar funciones vigentes para la fecha seleccionada
     funciones = (
         Funcion.objects.filter(
             activa=True,
-            fecha_inicio__lte=hoy,
+            fecha_inicio__lte=fecha_seleccionada,
         )
         .select_related('pelicula')
         .order_by('-pelicula__id', 'horario')
@@ -1356,13 +1451,17 @@ def horarios_por_pelicula(request):
         fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
         
         # Verificar que la función esté en el rango de fechas
-        if funcion.fecha_inicio <= hoy <= fecha_fin_funcion:
-            # Verificar que no haya pasado (margen de 10 minutos)
-            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-            datetime_funcion = datetime.combine(hoy, hora_funcion)
-            
-            margen = timedelta(minutes=10)
-            if datetime_funcion > (ahora_naive - margen):
+        if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
+            # Si es hoy, verificar que no haya pasado (margen de 10 minutos)
+            if fecha_seleccionada == hoy:
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                
+                margen = timedelta(minutes=10)
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_filtradas.append(funcion)
+            else:
+                # Para fechas futuras, incluir todas
                 funciones_filtradas.append(funcion)
 
     # ✅ Agrupar funciones por película (ordenadas por ID descendente)
@@ -1384,7 +1483,10 @@ def horarios_por_pelicula(request):
 
     context = {
         'peliculas': peliculas_cartelera,
-        'fecha': hoy,
+        'dias_disponibles': dias_disponibles,
+        'fecha_seleccionada': fecha_seleccionada,
+        'fecha_formateada': fecha_formateada,
+        'hoy': hoy,
     }
 
     return render(request, 'horarios.html', context)

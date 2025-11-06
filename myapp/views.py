@@ -71,7 +71,9 @@ from datetime import date, datetime, timedelta
 from itertools import groupby
 import pytz
 
-from .models import Pelicula, Funcion
+from .models import Pelicula, Funcion, Pago, MetodoPago
+from .utils.payment_simulator import simular_pago
+from .utils.encryption import encrypt_card_data, encrypt_card_data_full, decrypt_card_data, get_card_type
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -641,12 +643,74 @@ def asientos(request, pelicula_id=None):
         email = request.POST.get("email", "").strip()
         funcion_id = request.POST.get("funcion_id")
 
+        # Detectar si se usa método guardado o nueva tarjeta
+        usar_metodo_guardado = request.POST.get("usar_metodo_guardado", "false")
+        
+        # Variables de pago
+        numero_tarjeta = ""
+        nombre_titular = ""
+        fecha_expiracion = ""
+        cvv = ""
+        guardar_tarjeta = False
+        alias_tarjeta = ""
+
         errores = []
         if not nombre_cliente: errores.append("El nombre es obligatorio")
         if not apellido_cliente: errores.append("El apellido es obligatorio")
         if not email or "@" not in email: errores.append("Ingrese un email válido")
         if not funcion_id: errores.append("Seleccione una función")
         if cantidad_boletos == 0: errores.append("Seleccione al menos un asiento")
+        
+        # Validaciones según tipo de pago
+        if usar_metodo_guardado != "false":
+            # Pago con método guardado
+            try:
+                metodo_id = int(usar_metodo_guardado)
+                metodo = MetodoPago.objects.get(id=metodo_id, usuario=request.user, activo=True)
+                
+                # Validar CVV
+                cvv_guardado = request.POST.get("cvv_guardado", "").strip()
+                if not cvv_guardado:
+                    errores.append("El CVV es obligatorio para usar un método guardado")
+                elif len(cvv_guardado) < 3:
+                    errores.append("El CVV debe tener al menos 3 dígitos")
+                else:
+                    # Desencriptar datos del método guardado
+                    datos_tarjeta = decrypt_card_data(metodo.datos_encriptados)
+                    
+                    numero_tarjeta = datos_tarjeta.get('numero_tarjeta', '').replace(' ', '').replace('-', '')
+                    nombre_titular = datos_tarjeta.get('nombre_titular', '')
+                    
+                    # Reconstruir fecha_expiracion desde el modelo (MM/YY)
+                    anio_corto = str(metodo.anio_expiracion)[-2:] if metodo.anio_expiracion else '00'
+                    mes_formateado = str(metodo.mes_expiracion).zfill(2) if metodo.mes_expiracion else '00'
+                    fecha_expiracion = f"{mes_formateado}/{anio_corto}"
+                    cvv = cvv_guardado  # Usar CVV ingresado por el usuario
+                    
+                    # Validar que la tarjeta no esté expirada
+                    if metodo.esta_expirada():
+                        errores.append("El método de pago seleccionado está expirado. Por favor, actualízalo.")
+                        
+            except (ValueError, MetodoPago.DoesNotExist):
+                errores.append("Método de pago no válido")
+        else:
+            # Pago con nueva tarjeta
+            numero_tarjeta = request.POST.get("numero_tarjeta", "").strip().replace(" ", "")
+            nombre_titular = request.POST.get("nombre_titular", "").strip()
+            fecha_expiracion = request.POST.get("fecha_expiracion", "").strip()
+            cvv = request.POST.get("cvv", "").strip()
+            guardar_tarjeta = request.POST.get("guardar_tarjeta") == "on"
+            alias_tarjeta = request.POST.get("alias_tarjeta", "").strip()
+            
+            # Validaciones de nueva tarjeta
+            if not numero_tarjeta: errores.append("El número de tarjeta es obligatorio")
+            if not nombre_titular: errores.append("El nombre del titular es obligatorio")
+            if not fecha_expiracion: errores.append("La fecha de expiración es obligatoria")
+            if not cvv: errores.append("El CVV es obligatorio")
+            
+            # Si quiere guardar la tarjeta, validar alias
+            if guardar_tarjeta and not alias_tarjeta:
+                errores.append("Debes proporcionar un nombre para guardar la tarjeta")
 
         if not errores:
             try:
@@ -658,65 +722,144 @@ def asientos(request, pelicula_id=None):
                 descuento_monto = subtotal * (descuento_porcentaje / 100)
                 precio_total = subtotal - descuento_monto
 
-                reserva = Reserva(
-                    pelicula=pelicula,
-                    nombre_cliente=nombre_cliente,
-                    apellido_cliente=apellido_cliente,
-                    email=email,
-                    formato=formato_funcion,
-                    sala=str(funcion.sala),
-                    horario=funcion.horario,
-                    fecha_funcion=fecha_seleccionada,
-                    asientos=",".join(asientos_seleccionados),
-                    cantidad_boletos=cantidad_boletos,
-                    precio_total=precio_total,
-                    estado="RESERVADO",
-                    usuario=request.user if request.user.is_authenticated else None
-                )
-                reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                reserva.save()
-
-                # Registrar venta
-                Venta.objects.create(
-                    pelicula=reserva.pelicula,
-                    sala=reserva.sala,
-                    fecha=fecha_seleccionada,
-                    cantidad_boletos=reserva.cantidad_boletos,
-                    total_venta=reserva.precio_total
+                # Procesar pago simulado
+                datos_tarjeta = {
+                    'numero': numero_tarjeta,
+                    'mes_expiracion': int(fecha_expiracion.split('/')[0]),
+                    'anio_expiracion': int('20' + fecha_expiracion.split('/')[1]),
+                    'cvv': cvv,
+                    'nombre_titular': nombre_titular
+                }
+                
+                resultado_pago = simular_pago(
+                    datos_tarjeta=datos_tarjeta,
+                    monto=float(precio_total)
                 )
 
-                # PDF y correo
-                pdf_buffer = generar_pdf_reserva(reserva)
-                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
-                body = (
-                    f"Hola {reserva.nombre_cliente},<br><br>"
-                    f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
-                    f"Código de reserva: {reserva.codigo_reserva}<br>"
-                    f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
-                    f"Horario: {funcion.get_horario_display()}<br>"
-                    f"Sala: {funcion.sala}<br>"
-                    f"Formato: {formato_funcion}<br>"
-                    f"Asientos: {','.join(asientos_seleccionados)}<br>"
-                    f"Subtotal: ${subtotal:.2f}<br>"
-                    f"Descuento: -${descuento_monto:.2f}<br>"
-                    f"Total: ${precio_total:.2f}<br><br>"
-                    "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
-                    "¡Gracias por elegir CineDot!"
+                # Crear registro de pago pendiente
+                pago = Pago(
+                    reserva=None,  # Se asignará después si el pago es exitoso
+                    monto=precio_total,
+                    metodo_pago="TARJETA",
+                    estado_pago="PENDIENTE",
+                    numero_transaccion=resultado_pago.get("numero_transaccion") or "",
+                    detalles_pago={
+                        "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
+                        "nombre_titular": nombre_titular,
+                        "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
+                    }
                 )
-                send_brevo_email(
-                    to_emails=[reserva.email],
-                    subject=subject,
-                    html_content=body,
-                    attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
-                )
+                pago.save()
 
-                request.session["codigo_reserva"] = reserva.codigo_reserva
-                messages.success(request, f"¡Reserva exitosa! Código: {reserva.codigo_reserva}")
-                return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+                if resultado_pago["exitoso"]:
+                    # Pago exitoso: actualizar estado y crear reserva
+                    pago.estado_pago = "APROBADO"
+                    pago.save()
+
+                    # Crear reserva
+                    reserva = Reserva(
+                        pelicula=pelicula,
+                        nombre_cliente=nombre_cliente,
+                        apellido_cliente=apellido_cliente,
+                        email=email,
+                        formato=formato_funcion,
+                        sala=str(funcion.sala),
+                        horario=funcion.horario,
+                        fecha_funcion=fecha_seleccionada,
+                        asientos=",".join(asientos_seleccionados),
+                        cantidad_boletos=cantidad_boletos,
+                        precio_total=precio_total,
+                        estado="RESERVADO",
+                        usuario=request.user if request.user.is_authenticated else None,
+                        pago_completado=True,
+                        fecha_pago=timezone.now()
+                    )
+                    reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    reserva.save()
+
+                    # Asociar pago con reserva
+                    pago.reserva = reserva
+                    pago.save()
+
+                    # Registrar venta
+                    Venta.objects.create(
+                        pelicula=reserva.pelicula,
+                        sala=reserva.sala,
+                        fecha=fecha_seleccionada,
+                        cantidad_boletos=reserva.cantidad_boletos,
+                        total_venta=reserva.precio_total
+                    )
+
+                    # PDF y correo
+                    pdf_buffer = generar_pdf_reserva(reserva)
+                    subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                    body = (
+                        f"Hola {reserva.nombre_cliente},<br><br>"
+                        f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
+                        f"Código de reserva: {reserva.codigo_reserva}<br>"
+                        f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
+                        f"Horario: {funcion.get_horario_display()}<br>"
+                        f"Sala: {funcion.sala}<br>"
+                        f"Formato: {formato_funcion}<br>"
+                        f"Asientos: {','.join(asientos_seleccionados)}<br>"
+                        f"Subtotal: ${subtotal:.2f}<br>"
+                        f"Descuento: -${descuento_monto:.2f}<br>"
+                        f"Total: ${precio_total:.2f}<br>"
+                        f"Transacción: {pago.numero_transaccion}<br><br>"
+                        "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
+                        "¡Gracias por elegir CineDot!"
+                    )
+                    send_brevo_email(
+                        to_emails=[reserva.email],
+                        subject=subject,
+                        html_content=body,
+                        attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
+                    )
+
+                    # Guardar método de pago si se solicitó
+                    if guardar_tarjeta and request.user.is_authenticated:
+                        try:
+                            # Encriptar datos de la tarjeta
+                            datos_encriptados = encrypt_card_data_full(
+                                numero_tarjeta=numero_tarjeta,
+                                nombre_titular=nombre_titular,
+                                fecha_expiracion=fecha_expiracion
+                            )
+                            
+                            # Detectar tipo de tarjeta
+                            tipo_tarjeta = resultado_pago.get("tipo_tarjeta", "OTRA")
+                            
+                            # Crear método de pago
+                            MetodoPago.objects.create(
+                                usuario=request.user,
+                                tipo='TARJETA',
+                                alias=alias_tarjeta,
+                                datos_encriptados=datos_encriptados,
+                                ultimos_4_digitos=numero_tarjeta[-4:],
+                                tipo_tarjeta=tipo_tarjeta,
+                                mes_expiracion=int(fecha_expiracion.split('/')[0]),
+                                anio_expiracion=int('20' + fecha_expiracion.split('/')[1]),
+                                nombre_titular=nombre_titular,
+                                es_predeterminado=False,
+                                activo=True
+                            )
+                            messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado exitosamente")
+                        except Exception as e:
+                            # No fallar la reserva si falla el guardado
+                            messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
+
+                    request.session["codigo_reserva"] = reserva.codigo_reserva
+                    messages.success(request, f"¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}")
+                    return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+                else:
+                    # Pago rechazado
+                    pago.estado_pago = "RECHAZADO"
+                    pago.detalles_pago["mensaje_error"] = resultado_pago.get("mensaje", "Pago rechazado")
+                    pago.save()
+                    
+                    messages.error(request, f"Error en el pago: {resultado_pago.get('mensaje', 'Pago rechazado')}. Por favor, intente nuevamente.")
             except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
-            except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
+                messages.error(request, f"Error al procesar la transacción: {str(e)}")
         else:
             for error in errores:
                 messages.error(request, error)
@@ -731,6 +874,14 @@ def asientos(request, pelicula_id=None):
             "formato": formato,
             "precio": precio
         })
+
+    # Cargar métodos de pago guardados si el usuario está autenticado
+    metodos_guardados = []
+    if request.user.is_authenticated:
+        metodos_guardados = MetodoPago.objects.filter(
+            usuario=request.user,
+            activo=True
+        ).order_by('-es_predeterminado', '-fecha_creacion')
 
     context = {
         "pelicula": pelicula,
@@ -753,6 +904,7 @@ def asientos(request, pelicula_id=None):
         "apellido_cliente": request.POST.get("apellido_cliente", ""),
         "email": request.POST.get("email", ""),
         "codigo_cupon": codigo_cupon,
+        "metodos_guardados": metodos_guardados,
     }
     return render(request, "asientos.html", context)
        
@@ -2181,3 +2333,276 @@ def cancelar_reserva(request, pk):
         
     # Si es GET, simplemente se redirige o se pide confirmación
    # return redirect('mis_reservaciones_cancelables')
+
+
+#################################################################
+# GESTIÓN DE MÉTODOS DE PAGO (PBI-27)
+#################################################################
+
+@login_required
+def mis_metodos_pago(request):
+    """
+    Vista para listar los métodos de pago guardados del usuario
+    """
+    metodos_pago = MetodoPago.objects.filter(
+        usuario=request.user,
+        activo=True
+    ).order_by('-es_predeterminado', '-fecha_creacion')
+    
+    context = {
+        'metodos_pago': metodos_pago
+    }
+    
+    return render(request, 'mis_metodos_pago.html', context)
+
+
+@login_required
+def agregar_metodo_pago(request):
+    """
+    Vista para agregar un nuevo método de pago
+    """
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        tipo = request.POST.get('tipo')
+        alias = request.POST.get('alias', '').strip()
+        es_predeterminado = request.POST.get('es_predeterminado') == 'true'
+        
+        errores = []
+        
+        # Validaciones comunes
+        if not alias:
+            errores.append("El alias es obligatorio")
+        
+        # Verificar que el alias no esté duplicado para este usuario
+        if MetodoPago.objects.filter(usuario=request.user, alias=alias, activo=True).exists():
+            errores.append(f"Ya tienes un método con el alias '{alias}'")
+        
+        if tipo == 'TARJETA':
+            numero_tarjeta = request.POST.get('numero_tarjeta', '').replace(' ', '')
+            mes_expiracion = request.POST.get('mes_expiracion')
+            anio_expiracion = request.POST.get('anio_expiracion')
+            nombre_titular = request.POST.get('nombre_titular', '').strip()
+            
+            # Validaciones de tarjeta
+            if not numero_tarjeta or len(numero_tarjeta) < 13:
+                errores.append("Número de tarjeta inválido")
+            if not mes_expiracion or not anio_expiracion:
+                errores.append("Fecha de expiración incompleta")
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+            
+            # Validar que la tarjeta no esté expirada
+            if mes_expiracion and anio_expiracion:
+                hoy = datetime.now()
+                if int(anio_expiracion) < hoy.year or \
+                   (int(anio_expiracion) == hoy.year and int(mes_expiracion) < hoy.month):
+                    errores.append("La tarjeta está expirada")
+            
+            if not errores:
+                # Procesar datos de tarjeta
+                tipo_tarjeta = get_card_type(numero_tarjeta)
+                
+                # Encriptar datos completos de la tarjeta
+                fecha_expiracion = f"{int(mes_expiracion):02d}/{str(anio_expiracion)[-2:]}"
+                datos_encriptados = encrypt_card_data_full(
+                    numero_tarjeta=numero_tarjeta,
+                    nombre_titular=nombre_titular,
+                    fecha_expiracion=fecha_expiracion
+                )
+                
+                # Crear método de pago
+                metodo = MetodoPago(
+                    usuario=request.user,
+                    tipo='TARJETA',
+                    alias=alias,
+                    es_predeterminado=es_predeterminado,
+                    ultimos_4_digitos=numero_tarjeta[-4:],
+                    tipo_tarjeta=tipo_tarjeta,
+                    mes_expiracion=int(mes_expiracion),
+                    anio_expiracion=int(anio_expiracion),
+                    nombre_titular=nombre_titular.upper(),
+                    datos_encriptados=datos_encriptados
+                )
+                metodo.save()
+                
+                messages.success(request, f"Método de pago '{alias}' guardado exitosamente")
+                return redirect('mis_metodos_pago')
+                
+        elif tipo == 'CUENTA_DIGITAL':
+            tipo_cuenta = request.POST.get('tipo_cuenta')
+            email_cuenta = request.POST.get('email_cuenta', '').strip()
+            
+            # Validaciones de cuenta digital
+            if not tipo_cuenta:
+                errores.append("Selecciona el tipo de cuenta")
+            if not email_cuenta or '@' not in email_cuenta:
+                errores.append("Email de cuenta inválido")
+            
+            if not errores:
+                # Crear método de pago
+                metodo = MetodoPago(
+                    usuario=request.user,
+                    tipo='CUENTA_DIGITAL',
+                    alias=alias,
+                    es_predeterminado=es_predeterminado,
+                    tipo_cuenta=tipo_cuenta,
+                    email_cuenta=email_cuenta
+                )
+                metodo.save()
+                
+                messages.success(request, f"Método de pago '{alias}' guardado exitosamente")
+                return redirect('mis_metodos_pago')
+        
+        # Si hay errores, mostrarlos
+        for error in errores:
+            messages.error(request, error)
+    
+    # Contexto para el template
+    context = {
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'agregar_metodo_pago.html', context)
+
+
+@login_required
+def editar_metodo_pago(request, metodo_id):
+    """
+    Vista para editar un método de pago existente
+    """
+    from datetime import datetime
+    
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        alias = request.POST.get('alias', '').strip()
+        es_predeterminado = request.POST.get('es_predeterminado') == 'true'
+        
+        errores = []
+        
+        # Validar alias
+        if not alias:
+            errores.append("El alias es obligatorio")
+        
+        # Verificar que el alias no esté duplicado (excepto el actual)
+        if MetodoPago.objects.filter(
+            usuario=request.user, 
+            alias=alias, 
+            activo=True
+        ).exclude(id=metodo_id).exists():
+            errores.append(f"Ya tienes otro método con el alias '{alias}'")
+        
+        if metodo.tipo == 'TARJETA':
+            mes_expiracion = request.POST.get('mes_expiracion')
+            anio_expiracion = request.POST.get('anio_expiracion')
+            nombre_titular = request.POST.get('nombre_titular', '').strip()
+            
+            if not mes_expiracion or not anio_expiracion:
+                errores.append("Fecha de expiración incompleta")
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+            
+            # Validar que la tarjeta no esté expirada
+            if mes_expiracion and anio_expiracion:
+                hoy = datetime.now()
+                if int(anio_expiracion) < hoy.year or \
+                   (int(anio_expiracion) == hoy.year and int(mes_expiracion) < hoy.month):
+                    errores.append("La tarjeta está expirada")
+            
+            if not errores:
+                metodo.alias = alias
+                metodo.es_predeterminado = es_predeterminado
+                metodo.mes_expiracion = int(mes_expiracion)
+                metodo.anio_expiracion = int(anio_expiracion)
+                metodo.nombre_titular = nombre_titular.upper()
+                metodo.save()
+                
+                messages.success(request, f"Método '{alias}' actualizado exitosamente")
+                return redirect('mis_metodos_pago')
+                
+        elif metodo.tipo == 'CUENTA_DIGITAL':
+            email_cuenta = request.POST.get('email_cuenta', '').strip()
+            
+            if not email_cuenta or '@' not in email_cuenta:
+                errores.append("Email de cuenta inválido")
+            
+            if not errores:
+                metodo.alias = alias
+                metodo.es_predeterminado = es_predeterminado
+                metodo.email_cuenta = email_cuenta
+                metodo.save()
+                
+                messages.success(request, f"Método '{alias}' actualizado exitosamente")
+                return redirect('mis_metodos_pago')
+        
+        # Mostrar errores
+        for error in errores:
+            messages.error(request, error)
+    
+    # Contexto para el template
+    context = {
+        'metodo': metodo,
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'editar_metodo_pago.html', context)
+
+
+@login_required
+def eliminar_metodo_pago(request, metodo_id):
+    """
+    Vista para eliminar (soft delete) un método de pago
+    """
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        alias_eliminado = metodo.alias
+        era_predeterminado = metodo.es_predeterminado
+        
+        # Soft delete: marcar como inactivo
+        metodo.activo = False
+        metodo.save()
+        
+        # Si era predeterminado, marcar otro como predeterminado
+        if era_predeterminado:
+            siguiente_metodo = MetodoPago.objects.filter(
+                usuario=request.user,
+                activo=True
+            ).order_by('-fecha_creacion').first()
+            
+            if siguiente_metodo:
+                siguiente_metodo.es_predeterminado = True
+                siguiente_metodo.save()
+        
+        messages.success(request, f"Método '{alias_eliminado}' eliminado exitosamente")
+        return redirect('mis_metodos_pago')
+    
+    # Si es GET, redirigir a la lista
+    return redirect('mis_metodos_pago')
+
+
+@login_required
+def marcar_predeterminado(request, metodo_id):
+    """
+    Vista para marcar un método como predeterminado
+    """
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        # Desmarcar todos los métodos del usuario
+        MetodoPago.objects.filter(
+            usuario=request.user,
+            activo=True
+        ).update(es_predeterminado=False)
+        
+        # Marcar el seleccionado
+        metodo.es_predeterminado = True
+        metodo.save()
+        
+        messages.success(request, f"'{metodo.alias}' marcado como predeterminado")
+    
+    return redirect('mis_metodos_pago')

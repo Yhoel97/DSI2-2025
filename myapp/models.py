@@ -263,6 +263,10 @@ class Reserva(models.Model):
     codigo_reserva = models.CharField(max_length=10, unique=True)
     usado = models.BooleanField(default=False)
     fecha_funcion = models.DateField(null=True, blank=True, help_text="Fecha de la función reservada")
+    
+    # Campos de pago - PBI-30
+    pago_completado = models.BooleanField(default=False, null=True, blank=True, help_text="Indica si el pago fue completado")
+    fecha_pago = models.DateTimeField(null=True, blank=True, help_text="Fecha y hora en que se completó el pago")
 
     def __str__(self):
         return f"Reserva #{self.codigo_reserva} - {self.pelicula.nombre}"
@@ -348,3 +352,141 @@ class Venta(models.Model):
 
     def __str__(self):
         return f"{self.pelicula.nombre} - {self.fecha}"
+
+
+#################################################################
+# MODELOS PARA SISTEMA DE PAGO - PBI-27 y PBI-30
+#################################################################
+
+class Pago(models.Model):
+    """Modelo para registrar pagos de reservas"""
+    
+    ESTADO_PAGO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('APROBADO', 'Aprobado'),
+        ('RECHAZADO', 'Rechazado'),
+        ('REEMBOLSADO', 'Reembolsado'),
+    ]
+    
+    METODO_PAGO_CHOICES = [
+        ('TARJETA', 'Tarjeta de Crédito/Débito'),
+        ('CUENTA_DIGITAL', 'Cuenta Digital'),
+    ]
+    
+    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name='pagos', null=True, blank=True)
+    monto = models.DecimalField(max_digits=8, decimal_places=2)
+    metodo_pago = models.CharField(max_length=20, choices=METODO_PAGO_CHOICES)
+    estado_pago = models.CharField(max_length=15, choices=ESTADO_PAGO_CHOICES, default='PENDIENTE')
+    fecha_pago = models.DateTimeField(auto_now_add=True)
+    numero_transaccion = models.CharField(max_length=50, unique=True, help_text="Número único de transacción")
+    detalles_pago = models.JSONField(null=True, blank=True, help_text="Información adicional del pago")
+    # metodo_pago_guardado se agregará en migración posterior (Fase 2)
+    # metodo_pago_guardado = models.ForeignKey('MetodoPago', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    def __str__(self):
+        return f"Pago {self.numero_transaccion} - {self.get_estado_pago_display()}"
+    
+    class Meta:
+        db_table = 'pagos'
+        verbose_name = 'Pago'
+        verbose_name_plural = 'Pagos'
+        ordering = ['-fecha_pago']
+
+
+class MetodoPago(models.Model):
+    """Modelo para almacenar métodos de pago guardados de usuarios"""
+    
+    TIPO_CHOICES = [
+        ('TARJETA', 'Tarjeta de Crédito/Débito'),
+        ('CUENTA_DIGITAL', 'Cuenta Digital'),
+    ]
+    
+    TIPO_TARJETA_CHOICES = [
+        ('VISA', 'Visa'),
+        ('MASTERCARD', 'Mastercard'),
+        ('AMEX', 'American Express'),
+        ('DISCOVER', 'Discover'),
+        ('OTRO', 'Otro'),
+    ]
+    
+    TIPO_CUENTA_CHOICES = [
+        ('PAYPAL', 'PayPal'),
+        ('STRIPE', 'Stripe'),
+        ('OTRO', 'Otro'),
+    ]
+    
+    # Campos comunes
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='metodos_pago')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    alias = models.CharField(max_length=50, help_text="Nombre personalizado para este método (ej: 'Visa Personal')")
+    es_predeterminado = models.BooleanField(default=False, help_text="Método de pago predeterminado")
+    activo = models.BooleanField(default=True, help_text="Si el método está activo o fue eliminado")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    
+    # Campos específicos para tarjetas
+    ultimos_4_digitos = models.CharField(max_length=4, null=True, blank=True, help_text="Últimos 4 dígitos de la tarjeta")
+    tipo_tarjeta = models.CharField(max_length=15, choices=TIPO_TARJETA_CHOICES, null=True, blank=True)
+    mes_expiracion = models.IntegerField(null=True, blank=True, help_text="Mes de expiración (1-12)")
+    anio_expiracion = models.IntegerField(null=True, blank=True, help_text="Año de expiración (YYYY)")
+    nombre_titular = models.CharField(max_length=100, null=True, blank=True)
+    
+    # Campos específicos para cuentas digitales
+    tipo_cuenta = models.CharField(max_length=20, choices=TIPO_CUENTA_CHOICES, null=True, blank=True)
+    email_cuenta = models.EmailField(null=True, blank=True)
+    
+    # Datos encriptados (para información sensible adicional si es necesario)
+    datos_encriptados = models.TextField(null=True, blank=True, help_text="Datos sensibles encriptados")
+    
+    def __str__(self):
+        if self.tipo == 'TARJETA':
+            return f"{self.alias} - {self.tipo_tarjeta} ****{self.ultimos_4_digitos}"
+        else:
+            return f"{self.alias} - {self.tipo_cuenta} ({self.email_cuenta})"
+    
+    def esta_expirada(self):
+        """Verifica si la tarjeta está expirada"""
+        if self.tipo != 'TARJETA' or not self.mes_expiracion or not self.anio_expiracion:
+            return False
+        
+        from datetime import datetime
+        hoy = datetime.now()
+        # La tarjeta expira al final del mes indicado
+        if self.anio_expiracion < hoy.year:
+            return True
+        if self.anio_expiracion == hoy.year and self.mes_expiracion < hoy.month:
+            return True
+        return False
+    
+    def get_datos_resumidos(self):
+        """Retorna datos resumidos para mostrar en templates"""
+        if self.tipo == 'TARJETA':
+            return {
+                'tipo': self.get_tipo_tarjeta_display(),
+                'numero': f"****{self.ultimos_4_digitos}",
+                'expiracion': f"{self.mes_expiracion:02d}/{self.anio_expiracion}",
+                'titular': self.nombre_titular,
+                'expirada': self.esta_expirada()
+            }
+        else:
+            return {
+                'tipo': self.get_tipo_cuenta_display(),
+                'email': self.email_cuenta
+            }
+    
+    def save(self, *args, **kwargs):
+        # Si se marca como predeterminado, desmarcar otros métodos del usuario
+        if self.es_predeterminado:
+            MetodoPago.objects.filter(
+                usuario=self.usuario, 
+                es_predeterminado=True
+            ).exclude(pk=self.pk).update(es_predeterminado=False)
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        db_table = 'metodos_pago'
+        verbose_name = 'Método de Pago'
+        verbose_name_plural = 'Métodos de Pago'
+        unique_together = ['usuario', 'alias']
+        ordering = ['-es_predeterminado', '-fecha_creacion']
+

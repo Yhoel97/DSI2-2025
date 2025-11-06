@@ -1,0 +1,156 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agregar Método de Pago - CineDot</title>
+    <link rel="stylesheet" href="{% static 'styles/metodos_pago.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1><i class="fas fa-plus-circle"></i> Agregar Método de Pago</h1>
+            <a href="{% url 'mis_metodos_pago' %}" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </header>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-container">
+            <form method="POST" id="formMetodoPago">
+                {% csrf_token %}
+                
+                <div class="form-section">
+                    <h3>Tipo de Método</h3>
+                    <div class="tipo-selector">
+                        <label class="tipo-option">
+                            <input type="radio" name="tipo" value="TARJETA" checked onchange="toggleCampos()">
+                            <div class="tipo-card">
+                                <i class="fas fa-credit-card"></i>
+                                <span>Tarjeta</span>
+                            </div>
+                        </label>
+                        <label class="tipo-option">
+                            <input type="radio" name="tipo" value="CUENTA_DIGITAL" onchange="toggleCampos()">
+                            <div class="tipo-card">
+                                <i class="fas fa-wallet"></i>
+                                <span>Cuenta Digital</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Información Básica</h3>
+                    <div class="form-group">
+                        <label for="alias">Alias / Nombre <span class="required">*</span></label>
+                        <input type="text" id="alias" name="alias" 
+                               placeholder="Ej: Visa Personal, PayPal Principal" 
+                               required maxlength="50">
+                        <small>Nombre para identificar este método</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="es_predeterminado" value="true">
+                            Marcar como método predeterminado
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Campos para Tarjeta -->
+                <div id="camposTarjeta" class="form-section">
+                    <h3>Datos de la Tarjeta</h3>
+                    
+                    <div class="form-group">
+                        <label for="numero_tarjeta">Número de Tarjeta <span class="required">*</span></label>
+                        <input type="text" id="numero_tarjeta" name="numero_tarjeta" 
+                               placeholder="1234 5678 9012 3456" 
+                               maxlength="19">
+                        <small>Solo se guardarán los últimos 4 dígitos</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mes_expiracion">Mes Expiración <span class="required">*</span></label>
+                            <select id="mes_expiracion" name="mes_expiracion">
+                                <option value="">Mes</option>
+                                {% for i in "123456789012" %}
+                                <option value="{{ forloop.counter }}">{{ forloop.counter|stringformat:"02d" }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="anio_expiracion">Año Expiración <span class="required">*</span></label>
+                            <select id="anio_expiracion" name="anio_expiracion">
+                                <option value="">Año</option>
+                                {% for i in "12345678910" %}
+                                <option value="{{ current_year|add:forloop.counter0 }}">{{ current_year|add:forloop.counter0 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nombre_titular">Nombre del Titular <span class="required">*</span></label>
+                        <input type="text" id="nombre_titular" name="nombre_titular" 
+                               placeholder="NOMBRE COMO APARECE EN LA TARJETA"
+                               style="text-transform: uppercase;">
+                    </div>
+                </div>
+
+                <!-- Campos para Cuenta Digital -->
+                <div id="camposCuentaDigital" class="form-section" style="display: none;">
+                    <h3>Datos de Cuenta Digital</h3>
+                    
+                    <div class="form-group">
+                        <label for="tipo_cuenta">Tipo de Cuenta <span class="required">*</span></label>
+                        <select id="tipo_cuenta" name="tipo_cuenta">
+                            <option value="">Seleccione...</option>
+                            <option value="PAYPAL">PayPal</option>
+                            <option value="STRIPE">Stripe</option>
+                            <option value="OTRO">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email_cuenta">Email de la Cuenta <span class="required">*</span></label>
+                        <input type="email" id="email_cuenta" name="email_cuenta" 
+                               placeholder="correo@ejemplo.com">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{% url 'mis_metodos_pago' %}" class="btn-cancelar">Cancelar</a>
+                    <button type="submit" class="btn-guardar">
+                        <i class="fas fa-save"></i> Guardar Método
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="info-seguridad">
+            <i class="fas fa-shield-alt"></i>
+            <div>
+                <strong>Seguridad de tus datos</strong>
+                <p>Por seguridad, solo guardamos los últimos 4 dígitos de tu tarjeta. 
+                   Nunca almacenamos el CVV ni el número completo.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/metodos_pago.js' %}"></script>
+</body>
+</html>

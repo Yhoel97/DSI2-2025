@@ -380,8 +380,8 @@ class Pago(models.Model):
     fecha_pago = models.DateTimeField(auto_now_add=True)
     numero_transaccion = models.CharField(max_length=50, unique=True, help_text="Número único de transacción")
     detalles_pago = models.JSONField(null=True, blank=True, help_text="Información adicional del pago")
-    # metodo_pago_guardado se agregará en migración posterior (Fase 2)
-    # metodo_pago_guardado = models.ForeignKey('MetodoPago', on_delete=models.SET_NULL, null=True, blank=True)
+    # Referencia al método de pago guardado si se usó uno
+    metodo_pago_guardado = models.ForeignKey('MetodoPago', on_delete=models.SET_NULL, null=True, blank=True, related_name='pagos_realizados')
     
     def __str__(self):
         return f"Pago {self.numero_transaccion} - {self.get_estado_pago_display()}"

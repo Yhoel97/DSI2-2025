@@ -51,6 +51,7 @@ from django.db.models import Q
 
 from datetime import date
 from django.contrib import messages
+from django.db import transaction
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from .models import Pelicula, Funcion, Reserva
@@ -679,12 +680,16 @@ def asientos(request, pelicula_id=None):
         if not funcion_id: errores.append("Seleccione una función")
         if cantidad_boletos == 0: errores.append("Seleccione al menos un asiento")
         
+        # Variable para almacenar el método guardado usado
+        metodo_guardado_usado = None
+        
         # Validaciones según tipo de pago
         if usar_metodo_guardado != "false":
             # Pago con método guardado
             try:
                 metodo_id = int(usar_metodo_guardado)
                 metodo = MetodoPago.objects.get(id=metodo_id, usuario=request.user, activo=True)
+                metodo_guardado_usado = metodo  # Guardar referencia
                 
                 # Validar CVV
                 cvv_guardado = request.POST.get("cvv_guardado", "").strip()
@@ -774,7 +779,8 @@ def asientos(request, pelicula_id=None):
                             "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
                             "nombre_titular": nombre_titular,
                             "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
-                        }
+                        },
+                        metodo_pago_guardado=metodo_guardado_usado  # Asociar método guardado si se usó
                     )
                     pago.save()
 

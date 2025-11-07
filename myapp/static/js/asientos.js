@@ -309,6 +309,9 @@ document.addEventListener("DOMContentLoaded", function() {
         return true;
     }
 
+    // Flag para prevenir doble submit
+    let isSubmitting = false;
+
     // Validación completa del formulario al enviar
     if (form) {
         form.addEventListener("submit", function(e) {
@@ -316,6 +319,12 @@ document.addEventListener("DOMContentLoaded", function() {
             
             // Solo validar pago si la acción es "reservar"
             if (accion === "reservar") {
+                // Prevenir doble submit
+                if (isSubmitting) {
+                    e.preventDefault();
+                    console.log("⚠️ Ya hay un pago en proceso, por favor espera...");
+                    return false;
+                }
                 // Verificar si se está usando un método guardado o nueva tarjeta
                 const usandoMetodoGuardado = document.querySelector('input[name="usar_metodo_guardado"]:checked');
                 const pagarConNuevaTarjeta = document.querySelector('#nueva-tarjeta:checked');
@@ -327,6 +336,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         const cvvGuardado = cvvGuardadoInput.value.trim();
                         if (!cvvGuardado || cvvGuardado.length < 3 || cvvGuardado.length > 4 || !/^\d+$/.test(cvvGuardado)) {
                             e.preventDefault();
+                            isSubmitting = false;  // Resetear flag si hay error
                             alert("⚠️ Por favor ingresa un CVV válido para tu tarjeta guardada");
                             return false;
                         }
@@ -340,10 +350,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     if (!numeroValido || !fechaValida || !cvvValido || !nombreValido) {
                         e.preventDefault();
+                        isSubmitting = false;  // Resetear flag si hay error
                         alert("⚠️ Por favor completa correctamente todos los datos de la tarjeta");
                         return false;
                     }
                 }
+
+                // Marcar como procesando
+                isSubmitting = true;
 
                 // Mostrar indicador de procesamiento
                 if (btnConfirmPayment && processingIndicator) {
@@ -351,6 +365,18 @@ document.addEventListener("DOMContentLoaded", function() {
                     btnConfirmPayment.textContent = "Procesando...";
                     processingIndicator.style.display = "flex";
                 }
+                
+                // Si por alguna razón no se envía, resetear después de 30 segundos
+                setTimeout(function() {
+                    isSubmitting = false;
+                    if (btnConfirmPayment) {
+                        btnConfirmPayment.disabled = false;
+                        btnConfirmPayment.innerHTML = '<span class="btn-icon">🎟️</span><span class="btn-text">Confirmar Reserva y Pagar</span><span class="btn-amount">$' + document.getElementById('total-price').textContent.split('$')[1] + '</span>';
+                    }
+                    if (processingIndicator) {
+                        processingIndicator.style.display = "none";
+                    }
+                }, 30000);
             }
         });
     }

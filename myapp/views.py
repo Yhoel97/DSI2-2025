@@ -732,46 +732,50 @@ def asientos(request, pelicula_id=None):
 
         if not errores:
             try:
-                funcion = get_object_or_404(Funcion, id=funcion_id)
-                formato_funcion = funcion.get_formato_sala()
-                precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
+                # Usar transacción atómica: todo o nada
+                with transaction.atomic():
+                    funcion = get_object_or_404(Funcion, id=funcion_id)
+                    formato_funcion = funcion.get_formato_sala()
+                    precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
-                subtotal = cantidad_boletos * precio_por_boleto
-                descuento_monto = subtotal * (float(descuento_porcentaje / 100))
-                precio_total = subtotal - descuento_monto
+                    subtotal = cantidad_boletos * precio_por_boleto
+                    descuento_monto = subtotal * (float(descuento_porcentaje / 100))
+                    precio_total = subtotal - descuento_monto
 
-                # Procesar pago simulado
-                datos_tarjeta = {
-                    'numero': numero_tarjeta,
-                    'mes_expiracion': int(fecha_expiracion.split('/')[0]),
-                    'anio_expiracion': int('20' + fecha_expiracion.split('/')[1]),
-                    'cvv': cvv,
-                    'nombre_titular': nombre_titular
-                }
-                
-                resultado_pago = simular_pago(
-                    datos_tarjeta=datos_tarjeta,
-                    monto=float(precio_total)
-                )
-
-                # Crear registro de pago pendiente
-                pago = Pago(
-                    reserva=None,  # Se asignará después si el pago es exitoso
-                    monto=precio_total,
-                    metodo_pago="TARJETA",
-                    estado_pago="PENDIENTE",
-                    numero_transaccion=resultado_pago.get("numero_transaccion") or "",
-                    detalles_pago={
-                        "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
-                        "nombre_titular": nombre_titular,
-                        "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
+                    # Procesar pago simulado
+                    datos_tarjeta = {
+                        'numero': numero_tarjeta,
+                        'mes_expiracion': int(fecha_expiracion.split('/')[0]),
+                        'anio_expiracion': int('20' + fecha_expiracion.split('/')[1]),
+                        'cvv': cvv,
+                        'nombre_titular': nombre_titular
                     }
-                )
-                pago.save()
+                    
+                    resultado_pago = simular_pago(
+                        datos_tarjeta=datos_tarjeta,
+                        monto=float(precio_total)
+                    )
 
-                if resultado_pago["exitoso"]:
-                    # Pago exitoso: actualizar estado y crear reserva
-                    pago.estado_pago = "APROBADO"
+                    # Solo proceder si el pago fue exitoso
+                    if not resultado_pago["exitoso"]:
+                        # Pago rechazado: no crear nada, solo mostrar error
+                        messages.error(request, f"Error en el pago: {resultado_pago.get('error_message', 'Pago rechazado')}. Por favor, intente nuevamente.")
+                        # No usar return aquí para que caiga al render normal
+                        raise Exception("Pago rechazado")  # Esto hará rollback de la transacción
+
+                    # Pago exitoso: crear registro de pago
+                    pago = Pago(
+                        reserva=None,  # Se asignará después
+                        monto=precio_total,
+                        metodo_pago="TARJETA",
+                        estado_pago="APROBADO",
+                        numero_transaccion=resultado_pago.get("numero_transaccion") or "",
+                        detalles_pago={
+                            "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
+                            "nombre_titular": nombre_titular,
+                            "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
+                        }
+                    )
                     pago.save()
 
                     # Crear reserva
@@ -847,21 +851,39 @@ def asientos(request, pelicula_id=None):
                             # Detectar tipo de tarjeta
                             tipo_tarjeta = resultado_pago.get("tipo_tarjeta", "OTRA")
                             
-                            # Crear método de pago
-                            MetodoPago.objects.create(
+                            # Verificar si ya existe un método con este alias
+                            metodo_existente = MetodoPago.objects.filter(
                                 usuario=request.user,
-                                tipo='TARJETA',
-                                alias=alias_tarjeta,
-                                datos_encriptados=datos_encriptados,
-                                ultimos_4_digitos=numero_tarjeta[-4:],
-                                tipo_tarjeta=tipo_tarjeta,
-                                mes_expiracion=int(fecha_expiracion.split('/')[0]),
-                                anio_expiracion=int('20' + fecha_expiracion.split('/')[1]),
-                                nombre_titular=nombre_titular,
-                                es_predeterminado=False,
-                                activo=True
-                            )
-                            messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado exitosamente")
+                                alias=alias_tarjeta
+                            ).first()
+                            
+                            if metodo_existente:
+                                # Actualizar el método existente
+                                metodo_existente.datos_encriptados = datos_encriptados
+                                metodo_existente.ultimos_4_digitos = numero_tarjeta[-4:]
+                                metodo_existente.tipo_tarjeta = tipo_tarjeta
+                                metodo_existente.mes_expiracion = int(fecha_expiracion.split('/')[0])
+                                metodo_existente.anio_expiracion = int('20' + fecha_expiracion.split('/')[1])
+                                metodo_existente.nombre_titular = nombre_titular
+                                metodo_existente.activo = True
+                                metodo_existente.save()
+                                messages.success(request, f"✓ Método de pago '{alias_tarjeta}' actualizado exitosamente")
+                            else:
+                                # Crear nuevo método de pago
+                                MetodoPago.objects.create(
+                                    usuario=request.user,
+                                    tipo='TARJETA',
+                                    alias=alias_tarjeta,
+                                    datos_encriptados=datos_encriptados,
+                                    ultimos_4_digitos=numero_tarjeta[-4:],
+                                    tipo_tarjeta=tipo_tarjeta,
+                                    mes_expiracion=int(fecha_expiracion.split('/')[0]),
+                                    anio_expiracion=int('20' + fecha_expiracion.split('/')[1]),
+                                    nombre_titular=nombre_titular,
+                                    es_predeterminado=False,
+                                    activo=True
+                                )
+                                messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado exitosamente")
                         except Exception as e:
                             # No fallar la reserva si falla el guardado
                             messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
@@ -869,15 +891,12 @@ def asientos(request, pelicula_id=None):
                     request.session["codigo_reserva"] = reserva.codigo_reserva
                     messages.success(request, f"¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}")
                     return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
-                else:
-                    # Pago rechazado
-                    pago.estado_pago = "RECHAZADO"
-                    pago.detalles_pago["mensaje_error"] = resultado_pago.get("mensaje", "Pago rechazado")
-                    pago.save()
                     
-                    messages.error(request, f"Error en el pago: {resultado_pago.get('mensaje', 'Pago rechazado')}. Por favor, intente nuevamente.")
             except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
+                # Si es un error de pago rechazado, ya mostramos el mensaje
+                if "Pago rechazado" not in str(e):
+                    messages.error(request, f"Error al procesar la reserva: {str(e)}")
+                # La transacción se revierte automáticamente
         else:
             for error in errores:
                 messages.error(request, error)

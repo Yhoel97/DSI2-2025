@@ -39,7 +39,7 @@
 
       {% if user.is_authenticated %}
         {% if user.is_staff %}
-          <li><a href="{% url 'peliculas' %}"><i class="fas fa-cog"></i> Panel Admin</a></li>
+          <li><a href="{% url 'panelAdmin' %}"><i class="fas fa-cog"></i> Panel Admin</a></li>
           <li><a href="{% url 'registrar_cupon' %}"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
         {% endif %}
         <li><a href="{% url 'mis_reservaciones_cancelables' %}"><i class="fas fa-times-circle"></i> Cancelar Reservas</a></li>

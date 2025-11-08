@@ -459,6 +459,16 @@ def index(request):
 
 ################################################################################
 
+
+
+@staff_member_required
+def panel_admin(request):
+    """Vista del panel de administración"""
+    return render(request, 'panelAdmin.html')
+
+
+##################################################################
+
 def my_login(request):
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -474,10 +484,10 @@ def my_login(request):
                 request.session.set_expiry(settings.SESSION_COOKIE_AGE)
             else:
                 request.session.set_expiry(0)
-                
-            # Redirigir según el tipo de usuario - SIEMPRE basado en privilegios
-            if user.is_superuser:
-                return redirect('/peliculas/')
+            
+            # Redirigir según el tipo de usuario
+            if user.is_superuser or user.is_staff:
+                return redirect('panelAdmin')  # ✅ Sin barra
             else:
                 return redirect('index')
         else:

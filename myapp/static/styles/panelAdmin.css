@@ -1,0 +1,327 @@
+/* panelAdmin.css - ULTRA MEJORADO CON ANIMACIONES 3D */ 
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow-x: hidden;
+}
+
+/* ===== ANIMACIÓN DE CARGA ===== */
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes borderAnimation {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* ===== CONTENEDOR CON BORDE ANIMADO ===== */
+.admin-panel-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 50px 40px;
+    max-width: 900px;
+    width: 100%;
+    position: relative;
+    animation: fadeInScale 0.8s ease-out;
+    
+    /* Borde animado con gradiente */
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* Borde animado exterior */
+.admin-panel-container::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    background: linear-gradient(
+        45deg,
+        #ff0080, #ff8c00, #40e0d0, #ff0080, #ff8c00, #40e0d0
+    );
+    background-size: 400% 400%;
+    border-radius: 20px;
+    z-index: -1;
+    animation: borderAnimation 4s ease infinite;
+    filter: blur(5px);
+}
+
+/* ===== HEADER CON ANIMACIÓN ===== */
+.panel-header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fadeInScale 1s ease-out 0.2s both;
+}
+
+.panel-header h1 {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    animation: float 3s ease-in-out infinite;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.panel-header h1 i {
+    animation: float 3s ease-in-out infinite;
+    animation-delay: 0.2s;
+    filter: drop-shadow(0 4px 6px rgba(102, 126, 234, 0.3));
+}
+
+.panel-header p {
+    color: #666;
+    font-size: 1.1rem;
+    animation: fadeInScale 1s ease-out 0.4s both;
+}
+
+/* ===== GRID DE BOTONES CON ANIMACIÓN ESCALONADA ===== */
+.buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* ===== BOTONES 3D CON HOVER ESPECTACULAR ===== */
+.btn-nav {
+    background: #fff;
+    color: #000;
+    border: 2px solid #000;
+    border-radius: 15px;
+    padding: 20px 28px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    
+    /* Animación de entrada escalonada */
+    opacity: 0;
+    animation: fadeInScale 0.6s ease-out forwards;
+}
+
+/* Animación escalonada para cada botón */
+.btn-nav:nth-child(1) { animation-delay: 0.1s; }
+.btn-nav:nth-child(2) { animation-delay: 0.2s; }
+.btn-nav:nth-child(3) { animation-delay: 0.3s; }
+.btn-nav:nth-child(4) { animation-delay: 0.4s; }
+.btn-nav:nth-child(5) { animation-delay: 0.5s; }
+.btn-nav:nth-child(6) { animation-delay: 0.6s; }
+.btn-nav:nth-child(7) { animation-delay: 0.7s; }
+.btn-nav:nth-child(8) { animation-delay: 0.8s; }
+
+/* Efecto shimmer al cargar */
+.btn-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(0, 0, 0, 0.1),
+        transparent
+    );
+    transition: left 0.5s;
+}
+
+.btn-nav:hover::before {
+    left: 100%;
+}
+
+/* Borde brillante animado en hover */
+.btn-nav::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 15px;
+    padding: 2px;
+    background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #ff0080);
+    background-size: 300% 300%;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
+.btn-nav:hover::after {
+    opacity: 1;
+    animation: borderAnimation 2s linear infinite;
+}
+
+.btn-nav i {
+    font-size: 1.5rem;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    color: #000;
+}
+
+/* ===== HOVER 3D ESPECTACULAR ===== */
+.btn-nav:hover {
+    transform: translateY(-8px) scale(1.05) rotateX(5deg);
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(255, 255, 255, 0.3),
+        inset 0 2px 10px rgba(255, 255, 255, 0.5);
+    background: #f8f8f8;
+    border-color: #000;
+    color: #000;
+}
+
+.btn-nav:hover i {
+    transform: scale(1.3) rotate(10deg);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+/* ===== EFECTO DE PRESIÓN (ACTIVE) ===== */
+.btn-nav:active {
+    transform: translateY(-2px) scale(0.98);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== EFECTO DE ONDA AL HACER CLIC ===== */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+.btn-nav:active::before {
+    animation: ripple 0.6s ease-out;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .admin-panel-container {
+        padding: 30px 20px;
+    }
+
+    .panel-header h1 {
+        font-size: 2rem;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .buttons-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .btn-nav {
+        padding: 18px 24px;
+    }
+
+    .btn-nav:hover {
+        transform: translateY(-5px) scale(1.02);
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-panel-container {
+        padding: 25px 15px;
+        border-radius: 15px;
+    }
+
+    .panel-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .btn-nav {
+        font-size: 1rem;
+        padding: 16px 20px;
+    }
+}
+
+/* ===== MEJORAS DE ACCESIBILIDAD ===== */
+.btn-nav:focus {
+    outline: 3px solid rgba(102, 126, 234, 0.5);
+    outline-offset: 3px;
+}
+
+.btn-nav:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ===== ANIMACIÓN DE LOADING INICIAL ===== */
+@keyframes pageLoad {
+    0% {
+        opacity: 0;
+        filter: blur(10px);
+    }
+    100% {
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+
+body {
+    animation: pageLoad 0.5s ease-out;
+}

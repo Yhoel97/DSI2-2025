@@ -32,7 +32,7 @@
 
             <form method="POST" action="{% url 'login' %}">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{% url 'peliculas' %}" />
+                <input type="hidden" name="next" value="{% url 'panelAdmin' %}" />
                 
                 <div class="input-group">
                     <label for="id_username">Usuario</label>

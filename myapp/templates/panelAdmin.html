@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'styles/panelAdmin.css' %}">
+</head>
+<body>
+    <div class="admin-panel-container">
+        <div class="panel-header">
+            <h1><i class="fas fa-user-shield"></i> Panel de Administración</h1>
+            <p>Gestiona todas las funciones del sistema</p>
+        </div>
+
+        <div class="buttons-grid">
+            <a href="{% url 'index' %}" class="btn-nav">
+                <i class="fas fa-home"></i>
+                <span>Inicio</span>
+            </a>
+
+            <a href="{% url 'administrar_salas' %}" class="btn-nav">
+                <i class="fas fa-door-open"></i>
+                <span>Administrar Salas</span>
+            </a>
+
+            <a href="{% url 'administrar_funciones' %}" class="btn-nav">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Administrar Funciones</span>
+            </a>
+
+            <a href="{% url 'administrar_usuarios' %}" class="btn-nav">
+                <i class="fas fa-user"></i>
+                <span>Administrar Usuarios</span>
+            </a>
+
+            <a href="{% url 'reportes_admin' %}" class="btn-nav">
+                <i class="fas fa-chart-line"></i>
+                <span>Reportes Administrativos</span>
+            </a>
+
+            <a href="{% url 'dashboard_admin' %}" class="btn-nav">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard Administrativo</span>
+            </a>
+
+            <a href="{% url 'registrar_cupon' %}" class="btn-nav">
+                <i class="fas fa-ticket-alt"></i>
+                <span>Cupones</span>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

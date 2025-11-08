@@ -1872,7 +1872,8 @@ def reportes_admin(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    reservas = Reserva.objects.all()
+    # Filtrar solo reservas con formato válido
+    reservas = Reserva.objects.filter(formato__in=['2D', '3D', 'IMAX'])
 
     # --- Filtros por fecha y película ---
     if fecha_inicio and fecha_fin:
@@ -1888,7 +1889,7 @@ def reportes_admin(request):
             total_boletos=Sum('cantidad_boletos'),
             total_venta=Sum('precio_total')
         )
-        .order_by('-total_boletos')  # 👈 Orden descendente por boletos vendidos
+        .order_by('-total_boletos')
     )
 
     # --- Calcular boletos por formato (por película) ---
@@ -2221,10 +2222,10 @@ class CustomPasswordResetView(PasswordResetView):
 
 import json
 
-
-
+@admin_required
 def dashboard_admin(request):
-    reservas = Reserva.objects.all()
+    # Filtrar solo reservas con formato válido
+    reservas = Reserva.objects.filter(formato__in=['2D', '3D', 'IMAX'])
 
     top_peliculas = list(
         reservas.values('pelicula__nombre')
@@ -2251,8 +2252,8 @@ def dashboard_admin(request):
 
     context = {
         "resumen_general": resumen_general,
-        "top_peliculas": top_peliculas,   # para tablas
-        "formatos": formatos,             # para tablas
+        "top_peliculas": top_peliculas,
+        "formatos": formatos,
         "top_peliculas_json": json.dumps(top_peliculas, default=str),
         "formatos_json": json.dumps(formatos, default=str),
     }

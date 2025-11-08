@@ -1,0 +1,159 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Métodos de Pago - CineDot</title>
+    <link rel="stylesheet" href="{% static 'styles/metodos_pago.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1><i class="fas fa-credit-card"></i> Mis Métodos de Pago</h1>
+            <a href="{% url 'index' %}" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Volver al Inicio
+            </a>
+        </header>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="metodos-container">
+            <div class="metodos-header">
+                <h2>Métodos Guardados</h2>
+                <a href="{% url 'agregar_metodo_pago' %}" class="btn-agregar">
+                    <i class="fas fa-plus"></i> Agregar Método
+                </a>
+            </div>
+
+            {% if metodos_pago %}
+            <div class="metodos-grid">
+                {% for metodo in metodos_pago %}
+                <div class="metodo-card {% if metodo.esta_expirada %}expirada{% endif %}">
+                    <div class="metodo-header">
+                        <div class="metodo-tipo">
+                            {% if metodo.tipo == 'TARJETA' %}
+                                {% if metodo.tipo_tarjeta == 'VISA' %}
+                                <i class="fab fa-cc-visa"></i>
+                                {% elif metodo.tipo_tarjeta == 'MASTERCARD' %}
+                                <i class="fab fa-cc-mastercard"></i>
+                                {% elif metodo.tipo_tarjeta == 'AMEX' %}
+                                <i class="fab fa-cc-amex"></i>
+                                {% else %}
+                                <i class="fas fa-credit-card"></i>
+                                {% endif %}
+                            {% else %}
+                                <i class="fas fa-wallet"></i>
+                            {% endif %}
+                        </div>
+                        {% if metodo.es_predeterminado %}
+                        <span class="badge-predeterminado">
+                            <i class="fas fa-star"></i> Predeterminado
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="metodo-body">
+                        <h3 class="metodo-alias">{{ metodo.alias }}</h3>
+                        
+                        {% if metodo.tipo == 'TARJETA' %}
+                        <p class="metodo-numero">
+                            {{ metodo.get_tipo_tarjeta_display }} •••• {{ metodo.ultimos_4_digitos }}
+                        </p>
+                        <p class="metodo-titular">{{ metodo.nombre_titular }}</p>
+                        <p class="metodo-expiracion">
+                            Expira: {{ metodo.mes_expiracion|stringformat:"02d" }}/{{ metodo.anio_expiracion }}
+                            {% if metodo.esta_expirada %}
+                            <span class="badge-expirada">Expirada</span>
+                            {% endif %}
+                        </p>
+                        {% else %}
+                        <p class="metodo-cuenta">
+                            {{ metodo.get_tipo_cuenta_display }}
+                        </p>
+                        <p class="metodo-email">{{ metodo.email_cuenta }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="metodo-actions">
+                        {% if not metodo.es_predeterminado %}
+                        <form method="POST" action="{% url 'marcar_predeterminado' metodo.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-action btn-predeterminado" title="Marcar como predeterminado">
+                                <i class="fas fa-star"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        <a href="{% url 'editar_metodo_pago' metodo.id %}" class="btn-action btn-editar" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        
+                        <button type="button" class="btn-action btn-eliminar" 
+                                onclick="confirmarEliminacion({{ metodo.id }}, '{{ metodo.alias }}')" 
+                                title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-credit-card"></i>
+                <h3>No tienes métodos de pago guardados</h3>
+                <p>Agrega un método de pago para realizar compras más rápido</p>
+                <a href="{% url 'agregar_metodo_pago' %}" class="btn-agregar-grande">
+                    <i class="fas fa-plus"></i> Agregar Primer Método
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal de confirmación de eliminación -->
+    <div id="modalEliminar" class="modal">
+        <div class="modal-content">
+            <h3>¿Eliminar método de pago?</h3>
+            <p>¿Estás seguro de que deseas eliminar <strong id="metodoNombre"></strong>?</p>
+            <p class="warning-text">Esta acción no se puede deshacer.</p>
+            <div class="modal-actions">
+                <button onclick="cerrarModal()" class="btn-cancelar">Cancelar</button>
+                <form id="formEliminar" method="POST" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-confirmar-eliminar">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function confirmarEliminacion(metodoId, metodoNombre) {
+            document.getElementById('metodoNombre').textContent = metodoNombre;
+            document.getElementById('formEliminar').action = `/metodos-pago/eliminar/${metodoId}/`;
+            document.getElementById('modalEliminar').style.display = 'flex';
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalEliminar').style.display = 'none';
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            const modal = document.getElementById('modalEliminar');
+            if (event.target === modal) {
+                cerrarModal();
+            }
+        }
+    </script>
+</body>
+</html>

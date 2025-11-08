@@ -51,6 +51,7 @@ from django.db.models import Q
 
 from datetime import date
 from django.contrib import messages
+from django.db import transaction
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from .models import Pelicula, Funcion, Reserva
@@ -71,8 +72,11 @@ from django.utils import timezone
 from datetime import date, datetime, timedelta
 from itertools import groupby
 import pytz
+from decimal import Decimal
 
-from .models import Pelicula, Funcion
+from .models import Pelicula, Funcion, Pago, MetodoPago
+from .utils.payment_simulator import simular_pago
+from .utils.encryption import encrypt_card_data, encrypt_card_data_full, decrypt_card_data, get_card_type
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -636,7 +640,7 @@ def asientos(request, pelicula_id=None):
     descuento_porcentaje = 0
     mensaje_cupon = ""
     if codigo_cupon:
-        cupon = Cupon.objects.filter(codigo__iexact=codigo_cupon, activo=True).first()
+        cupon = CodigoDescuento.objects.filter(codigo__iexact=codigo_cupon, estado=True).first()
         if cupon:
             descuento_porcentaje = cupon.porcentaje
             mensaje_cupon = f"Cupón aplicado: {descuento_porcentaje}%"
@@ -644,7 +648,7 @@ def asientos(request, pelicula_id=None):
             mensaje_cupon = "Código inválido o inactivo"
 
     subtotal = cantidad_boletos * precio_funcion_actual
-    descuento_monto = subtotal * (descuento_porcentaje / 100)
+    descuento_monto = subtotal * (float(descuento_porcentaje / 100))
     total = subtotal - descuento_monto
 
     # --- AJAX: devolver JSON dinámico ---
@@ -668,80 +672,247 @@ def asientos(request, pelicula_id=None):
         email = request.POST.get("email", "").strip()
         funcion_id = request.POST.get("funcion_id")
 
+        # Detectar si se usa método guardado o nueva tarjeta
+        usar_metodo_guardado = request.POST.get("usar_metodo_guardado", "false")
+        
+        # Variables de pago
+        numero_tarjeta = ""
+        nombre_titular = ""
+        fecha_expiracion = ""
+        cvv = ""
+        guardar_tarjeta = False
+        alias_tarjeta = ""
+
         errores = []
         if not nombre_cliente: errores.append("El nombre es obligatorio")
         if not apellido_cliente: errores.append("El apellido es obligatorio")
         if not email or "@" not in email: errores.append("Ingrese un email válido")
         if not funcion_id: errores.append("Seleccione una función")
         if cantidad_boletos == 0: errores.append("Seleccione al menos un asiento")
+        
+        # Variable para almacenar el método guardado usado
+        metodo_guardado_usado = None
+        
+        # Validaciones según tipo de pago
+        if usar_metodo_guardado != "false":
+            # Pago con método guardado
+            try:
+                metodo_id = int(usar_metodo_guardado)
+                metodo = MetodoPago.objects.get(id=metodo_id, usuario=request.user, activo=True)
+                metodo_guardado_usado = metodo  # Guardar referencia
+                
+                # Validar CVV
+                cvv_guardado = request.POST.get("cvv_guardado", "").strip()
+                if not cvv_guardado:
+                    errores.append("El CVV es obligatorio para usar un método guardado")
+                elif len(cvv_guardado) < 3:
+                    errores.append("El CVV debe tener al menos 3 dígitos")
+                else:
+                    # Desencriptar datos del método guardado
+                    datos_tarjeta = decrypt_card_data(metodo.datos_encriptados)
+                    
+                    numero_tarjeta = datos_tarjeta.get('numero_tarjeta', '').replace(' ', '').replace('-', '')
+                    nombre_titular = datos_tarjeta.get('nombre_titular', '')
+                    
+                    # Reconstruir fecha_expiracion desde el modelo (MM/YY)
+                    anio_corto = str(metodo.anio_expiracion)[-2:] if metodo.anio_expiracion else '00'
+                    mes_formateado = str(metodo.mes_expiracion).zfill(2) if metodo.mes_expiracion else '00'
+                    fecha_expiracion = f"{mes_formateado}/{anio_corto}"
+                    cvv = cvv_guardado  # Usar CVV ingresado por el usuario
+                    
+                    # Validar que la tarjeta no esté expirada
+                    if metodo.esta_expirada():
+                        errores.append("El método de pago seleccionado está expirado. Por favor, actualízalo.")
+                        
+            except (ValueError, MetodoPago.DoesNotExist):
+                errores.append("Método de pago no válido")
+        else:
+            # Pago con nueva tarjeta
+            numero_tarjeta = request.POST.get("numero_tarjeta", "").strip().replace(" ", "")
+            nombre_titular = request.POST.get("nombre_titular", "").strip()
+            fecha_expiracion = request.POST.get("fecha_expiracion", "").strip()
+            cvv = request.POST.get("cvv", "").strip()
+            guardar_tarjeta = request.POST.get("guardar_tarjeta") == "on"
+            alias_tarjeta = request.POST.get("alias_tarjeta", "").strip()
+            
+            # Validaciones de nueva tarjeta
+            if not numero_tarjeta: errores.append("El número de tarjeta es obligatorio")
+            if not nombre_titular: errores.append("El nombre del titular es obligatorio")
+            if not fecha_expiracion: errores.append("La fecha de expiración es obligatoria")
+            if not cvv: errores.append("El CVV es obligatorio")
+            
+            # Si quiere guardar la tarjeta, validar alias
+            if guardar_tarjeta and not alias_tarjeta:
+                errores.append("Debes proporcionar un nombre para guardar la tarjeta")
 
         if not errores:
             try:
-                funcion = get_object_or_404(Funcion, id=funcion_id)
-                formato_funcion = funcion.get_formato_sala()
-                precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
+                # Usar transacción atómica: todo o nada
+                with transaction.atomic():
+                    funcion = get_object_or_404(Funcion, id=funcion_id)
+                    formato_funcion = funcion.get_formato_sala()
+                    precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
-                subtotal = cantidad_boletos * precio_por_boleto
-                descuento_monto = subtotal * (descuento_porcentaje / 100)
-                precio_total = subtotal - descuento_monto
+                    subtotal = cantidad_boletos * precio_por_boleto
+                    descuento_monto = subtotal * (float(descuento_porcentaje / 100))
+                    precio_total = subtotal - descuento_monto
 
-                reserva = Reserva(
-                    pelicula=pelicula,
-                    nombre_cliente=nombre_cliente,
-                    apellido_cliente=apellido_cliente,
-                    email=email,
-                    formato=formato_funcion,
-                    sala=str(funcion.sala),
-                    horario=funcion.horario,
-                    fecha_funcion=fecha_seleccionada,
-                    asientos=",".join(asientos_seleccionados),
-                    cantidad_boletos=cantidad_boletos,
-                    precio_total=precio_total,
-                    estado="RESERVADO",
-                    usuario=request.user if request.user.is_authenticated else None
-                )
-                reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                reserva.save()
+                    # Procesar pago simulado
+                    datos_tarjeta = {
+                        'numero': numero_tarjeta,
+                        'mes_expiracion': int(fecha_expiracion.split('/')[0]),
+                        'anio_expiracion': int('20' + fecha_expiracion.split('/')[1]),
+                        'cvv': cvv,
+                        'nombre_titular': nombre_titular
+                    }
+                    
+                    resultado_pago = simular_pago(
+                        datos_tarjeta=datos_tarjeta,
+                        monto=float(precio_total)
+                    )
 
-                # Registrar venta
-                Venta.objects.create(
-                    pelicula=reserva.pelicula,
-                    sala=reserva.sala,
-                    fecha=fecha_seleccionada,
-                    cantidad_boletos=reserva.cantidad_boletos,
-                    total_venta=reserva.precio_total
-                )
+                    # Solo proceder si el pago fue exitoso
+                    if not resultado_pago["exitoso"]:
+                        # Pago rechazado: no crear nada, solo mostrar error
+                        messages.error(request, f"Error en el pago: {resultado_pago.get('error_message', 'Pago rechazado')}. Por favor, intente nuevamente.")
+                        # No usar return aquí para que caiga al render normal
+                        raise Exception("Pago rechazado")  # Esto hará rollback de la transacción
 
-                # PDF y correo
-                pdf_buffer = generar_pdf_reserva(reserva)
-                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
-                body = (
-                    f"Hola {reserva.nombre_cliente},<br><br>"
-                    f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
-                    f"Código de reserva: {reserva.codigo_reserva}<br>"
-                    f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
-                    f"Horario: {funcion.get_horario_display()}<br>"
-                    f"Sala: {funcion.sala}<br>"
-                    f"Formato: {formato_funcion}<br>"
-                    f"Asientos: {','.join(asientos_seleccionados)}<br>"
-                    f"Subtotal: ${subtotal:.2f}<br>"
-                    f"Descuento: -${descuento_monto:.2f}<br>"
-                    f"Total: ${precio_total:.2f}<br><br>"
-                    "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
-                    "¡Gracias por elegir CineDot!"
-                )
-                send_brevo_email(
-                    to_emails=[reserva.email],
-                    subject=subject,
-                    html_content=body,
-                    attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
-                )
+                    # Pago exitoso: crear registro de pago
+                    pago = Pago(
+                        reserva=None,  # Se asignará después
+                        monto=precio_total,
+                        metodo_pago="TARJETA",
+                        estado_pago="APROBADO",
+                        numero_transaccion=resultado_pago.get("numero_transaccion") or "",
+                        detalles_pago={
+                            "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
+                            "nombre_titular": nombre_titular,
+                            "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
+                        },
+                        metodo_pago_guardado=metodo_guardado_usado  # Asociar método guardado si se usó
+                    )
+                    pago.save()
 
-                request.session["codigo_reserva"] = reserva.codigo_reserva
-                messages.success(request, f"¡Reserva exitosa! Código: {reserva.codigo_reserva}")
-                return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+                    # Crear reserva
+                    reserva = Reserva(
+                        pelicula=pelicula,
+                        nombre_cliente=nombre_cliente,
+                        apellido_cliente=apellido_cliente,
+                        email=email,
+                        formato=formato_funcion,
+                        sala=str(funcion.sala),
+                        horario=funcion.horario,
+                        fecha_funcion=fecha_seleccionada,
+                        asientos=",".join(asientos_seleccionados),
+                        cantidad_boletos=cantidad_boletos,
+                        precio_total=precio_total,
+                        estado="RESERVADO",
+                        usuario=request.user if request.user.is_authenticated else None,
+                        pago_completado=True,
+                        fecha_pago=timezone.now()
+                    )
+                    reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    reserva.save()
+
+                    # Asociar pago con reserva
+                    pago.reserva = reserva
+                    pago.save()
+
+                    # Registrar venta
+                    Venta.objects.create(
+                        pelicula=reserva.pelicula,
+                        sala=reserva.sala,
+                        fecha=fecha_seleccionada,
+                        cantidad_boletos=reserva.cantidad_boletos,
+                        total_venta=reserva.precio_total
+                    )
+
+                    # PDF y correo
+                    pdf_buffer = generar_pdf_reserva(reserva)
+                    subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                    body = (
+                        f"Hola {reserva.nombre_cliente},<br><br>"
+                        f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
+                        f"Código de reserva: {reserva.codigo_reserva}<br>"
+                        f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
+                        f"Horario: {funcion.get_horario_display()}<br>"
+                        f"Sala: {funcion.sala}<br>"
+                        f"Formato: {formato_funcion}<br>"
+                        f"Asientos: {','.join(asientos_seleccionados)}<br>"
+                        f"Subtotal: ${subtotal:.2f}<br>"
+                        f"Descuento: -${descuento_monto:.2f}<br>"
+                        f"Total: ${precio_total:.2f}<br>"
+                        f"Transacción: {pago.numero_transaccion}<br><br>"
+                        "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
+                        "¡Gracias por elegir CineDot!"
+                    )
+                    send_brevo_email(
+                        to_emails=[reserva.email],
+                        subject=subject,
+                        html_content=body,
+                        attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
+                    )
+
+                    # Guardar método de pago si se solicitó
+                    if guardar_tarjeta and request.user.is_authenticated:
+                        try:
+                            # Encriptar datos de la tarjeta
+                            datos_encriptados = encrypt_card_data_full(
+                                numero_tarjeta=numero_tarjeta,
+                                nombre_titular=nombre_titular,
+                                fecha_expiracion=fecha_expiracion
+                            )
+                            
+                            # Detectar tipo de tarjeta
+                            tipo_tarjeta = resultado_pago.get("tipo_tarjeta", "OTRA")
+                            
+                            # Verificar si ya existe un método con este alias
+                            metodo_existente = MetodoPago.objects.filter(
+                                usuario=request.user,
+                                alias=alias_tarjeta
+                            ).first()
+                            
+                            if metodo_existente:
+                                # Actualizar el método existente
+                                metodo_existente.datos_encriptados = datos_encriptados
+                                metodo_existente.ultimos_4_digitos = numero_tarjeta[-4:]
+                                metodo_existente.tipo_tarjeta = tipo_tarjeta
+                                metodo_existente.mes_expiracion = int(fecha_expiracion.split('/')[0])
+                                metodo_existente.anio_expiracion = int('20' + fecha_expiracion.split('/')[1])
+                                metodo_existente.nombre_titular = nombre_titular
+                                metodo_existente.activo = True
+                                metodo_existente.save()
+                                messages.success(request, f"✓ Método de pago '{alias_tarjeta}' actualizado exitosamente")
+                            else:
+                                # Crear nuevo método de pago
+                                MetodoPago.objects.create(
+                                    usuario=request.user,
+                                    tipo='TARJETA',
+                                    alias=alias_tarjeta,
+                                    datos_encriptados=datos_encriptados,
+                                    ultimos_4_digitos=numero_tarjeta[-4:],
+                                    tipo_tarjeta=tipo_tarjeta,
+                                    mes_expiracion=int(fecha_expiracion.split('/')[0]),
+                                    anio_expiracion=int('20' + fecha_expiracion.split('/')[1]),
+                                    nombre_titular=nombre_titular,
+                                    es_predeterminado=False,
+                                    activo=True
+                                )
+                                messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado exitosamente")
+                        except Exception as e:
+                            # No fallar la reserva si falla el guardado
+                            messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
+
+                    request.session["codigo_reserva"] = reserva.codigo_reserva
+                    messages.success(request, f"¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}")
+                    return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
+                    
             except Exception as e:
-                messages.error(request, f"Error al crear la reserva: {str(e)}")
+                # Si es un error de pago rechazado, ya mostramos el mensaje
+                if "Pago rechazado" not in str(e):
+                    messages.error(request, f"Error al procesar la reserva: {str(e)}")
+                # La transacción se revierte automáticamente
         else:
             for error in errores:
                 messages.error(request, error)
@@ -756,6 +927,14 @@ def asientos(request, pelicula_id=None):
             "formato": formato,
             "precio": precio
         })
+
+    # Cargar métodos de pago guardados si el usuario está autenticado
+    metodos_guardados = []
+    if request.user.is_authenticated:
+        metodos_guardados = MetodoPago.objects.filter(
+            usuario=request.user,
+            activo=True
+        ).order_by('-es_predeterminado', '-fecha_creacion')
 
     context = {
         "pelicula": pelicula,
@@ -778,6 +957,7 @@ def asientos(request, pelicula_id=None):
         "apellido_cliente": request.POST.get("apellido_cliente", ""),
         "email": request.POST.get("email", ""),
         "codigo_cupon": codigo_cupon,
+        "metodos_guardados": metodos_guardados,
     }
     return render(request, "asientos.html", context)
 
@@ -871,6 +1051,8 @@ def modificar_cupon(request, pk):
 
 ##################################################################################
 ##################################################################################
+
+
 @csrf_exempt
 def administrar_salas(request):
     peliculas = Pelicula.objects.all()
@@ -1538,10 +1720,10 @@ def hay_conflicto_distancia(hora, existentes):
 def administrar_funciones(request):
     hoy_es = _ahora_es().date()
 
-    # ✅ Extraer TODAS las películas de la BD (ordenadas: última agregada primero)
+    # Extraer TODAS las películas de la BD (ordenadas: última agregada primero)
     peliculas = Pelicula.objects.all().order_by('-id')
 
-    # ✅ Enriquecer cada película con sus datos asociados
+    # Enriquecer cada película con sus datos asociados
     generos_choices = dict(Pelicula.GENERO_CHOICES)
     peliculas_con_pares = []
     
@@ -1556,7 +1738,7 @@ def administrar_funciones(request):
             'idioma': p.idioma
         })
 
-    # ✅ Para el dropdown de películas
+    # Para el dropdown de películas
     for pelicula in peliculas:
         pelicula.generos_list = pelicula.get_generos_list()
         pelicula.salas_con_formato = pelicula.get_salas_con_formato()
@@ -1566,7 +1748,7 @@ def administrar_funciones(request):
             else {'llenas': 0, 'media': False}
         )
 
-    # ✅ CORRECCIÓN: Filtrar funciones según su fecha_fin calculada
+    # Filtrar funciones según su fecha_fin calculada
     todas_funciones_activas = Funcion.objects.filter(
         activa=True
     ).select_related('pelicula').order_by('pelicula__id', 'horario')
@@ -1593,6 +1775,38 @@ def administrar_funciones(request):
 
     funcion_editar = None
 
+    # ============================================================
+    # FUNCIÓN AUXILIAR: Validar conflicto de horario/sala
+    # ============================================================
+    def hay_conflicto_horario_sala(sala_nombre, horario, fecha_inicio, semanas, funcion_id_excluir=None):
+        """
+        Verifica si hay conflicto de horario en la misma sala durante el período.
+        Retorna True si hay conflicto, False si está libre.
+        """
+        fecha_fin_nueva = fecha_inicio + timedelta(weeks=int(semanas)) - timedelta(days=1)
+        
+        # Buscar funciones activas en la misma sala y horario
+        funciones_existentes = Funcion.objects.filter(
+            sala__icontains=sala_nombre,
+            horario=horario,
+            activa=True
+        )
+        
+        if funcion_id_excluir:
+            funciones_existentes = funciones_existentes.exclude(id=funcion_id_excluir)
+        
+        for func in funciones_existentes:
+            fecha_fin_existente = func.fecha_inicio + timedelta(weeks=func.semanas) - timedelta(days=1)
+            
+            # Verificar solapamiento de períodos
+            if fecha_inicio <= fecha_fin_existente and fecha_fin_nueva >= func.fecha_inicio:
+                return True, func
+        
+        return False, None
+
+    # ============================================================
+    # PROCESAR FORMULARIOS
+    # ============================================================
     if request.method == "POST":
         accion = request.POST.get("accion")
 
@@ -1634,30 +1848,49 @@ def administrar_funciones(request):
                             errores.append(f"La sala '{sala_nombre}' no está disponible para esta película")
                             continue
 
-                        conflicto_exacto = Funcion.objects.filter(
-                            sala__icontains=sala_nombre,
-                            horario=horario,
-                            fecha_inicio=fecha_inicio,
-                            activa=True
-                        ).exists()
+                        # ✅ VALIDACIÓN CRÍTICA: Verificar conflicto exacto de horario/sala
+                        hay_conflicto_hs, funcion_conflicto_hs = hay_conflicto_horario_sala(
+                            sala_nombre, horario, fecha_inicio, semanas
+                        )
                         
-                        if conflicto_exacto:
-                            errores.append(f"❌ Ya existe una función en {sala_nombre} a las {horario} el {fecha_inicio.strftime('%d/%m/%Y')}")
+                        if hay_conflicto_hs:
+                            fecha_fin_conflicto = funcion_conflicto_hs.fecha_inicio + timedelta(weeks=funcion_conflicto_hs.semanas) - timedelta(days=1)
+                            errores.append(
+                                f"❌ Ya existe '{funcion_conflicto_hs.pelicula.nombre}' en {sala_nombre} "
+                                f"a las {horario} desde {funcion_conflicto_hs.fecha_inicio.strftime('%d/%m/%Y')} "
+                                f"hasta {fecha_fin_conflicto.strftime('%d/%m/%Y')}"
+                            )
                             continue
 
-                        funciones_existentes = Funcion.objects.filter(
+                        # ✅ VALIDACIÓN: Distancia mínima entre horarios (misma sala, mismo día)
+                        funciones_misma_sala = Funcion.objects.filter(
                             sala__icontains=sala_nombre,
-                            fecha_inicio=fecha_inicio,
                             activa=True
                         ).exclude(horario=horario)
                         
-                        horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
-                        nuevo_horario = parse_hora(horario)
-
-                        if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
-                            errores.append(f"⚠️ Horario {horario} en {sala_nombre}: debe haber mínimo 2h30m con funciones existentes")
+                        fecha_fin_nueva = fecha_inicio + timedelta(weeks=int(semanas)) - timedelta(days=1)
+                        
+                        conflicto_distancia = False
+                        for func_sala in funciones_misma_sala:
+                            fecha_fin_existente = func_sala.fecha_inicio + timedelta(weeks=func_sala.semanas) - timedelta(days=1)
+                            
+                            # Solo validar si los períodos se solapan
+                            if fecha_inicio <= fecha_fin_existente and fecha_fin_nueva >= func_sala.fecha_inicio:
+                                horarios_existentes = [parse_hora(func_sala.horario)]
+                                nuevo_horario = parse_hora(horario)
+                                
+                                if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
+                                    errores.append(
+                                        f"⚠️ Horario {horario} en {sala_nombre}: debe haber mínimo 2h30m "
+                                        f"con la función de las {func_sala.horario}"
+                                    )
+                                    conflicto_distancia = True
+                                    break
+                        
+                        if conflicto_distancia:
                             continue
 
+                        # Si no hubo conflictos, crear la función
                         nueva_funcion = Funcion(
                             pelicula=pelicula,
                             sala=sala_nombre,
@@ -1679,57 +1912,18 @@ def administrar_funciones(request):
                     for error in errores:
                         messages.warning(request, f"⚠️ {error}")
                 
+                # ✅ IMPORTANTE: Siempre redirigir después de procesar POST
+                return redirect("administrar_funciones")
+                
             except Pelicula.DoesNotExist:
                 messages.error(request, "❌ La película seleccionada no existe.")
+                return redirect("administrar_funciones")
             except ValueError as e:
                 messages.error(request, f"❌ Error en el formato de fecha: {str(e)}")
+                return redirect("administrar_funciones")
             except Exception as e:
                 messages.error(request, f"❌ Error al agregar funciones: {str(e)}")
-
-        # --- REACTIVAR FUNCIÓN ---
-        elif accion == "reactivar":
-            funcion_id = request.POST.get("funcion_id")
-            if funcion_id:
-                try:
-                    funcion = Funcion.objects.get(id=funcion_id)
-                    if funcion.fecha_inicio < hoy_es:
-                        funcion.fecha_inicio = hoy_es
-                    
-                    funcion.activa = True
-                    funcion.fecha_eliminacion = None
-                    funcion.save()
-                    
-                    messages.success(request, f"✅ Función de '{funcion.pelicula.nombre}' reactivada correctamente.")
-                    
-                except Funcion.DoesNotExist:
-                    messages.error(request, "La función que intentas reactivar no existe.")
-                except Exception as e:
-                    messages.error(request, f"Error al reactivar la función: {str(e)}")
-            else:
-                messages.error(request, "No se proporcionó ID de función para reactivar.")
-            return redirect("administrar_funciones")
-
-        # --- ELIMINAR ---
-        elif accion == "eliminar":
-            funcion_id = request.POST.get("funcion_id")
-            if funcion_id:
-                try:
-                    funcion = Funcion.objects.get(id=funcion_id)
-                    nombre_pelicula = funcion.pelicula.nombre
-                    
-                    funcion.activa = False
-                    funcion.fecha_eliminacion = hoy_es
-                    funcion.save()
-                    
-                    messages.success(request, f"🗑️ Función de '{nombre_pelicula}' desactivada correctamente.")
-                    
-                except Funcion.DoesNotExist:
-                    messages.error(request, "La función que intentas eliminar no existe.")
-                except Exception as e:
-                    messages.error(request, f"Error al eliminar la función: {str(e)}")
-            else:
-                messages.error(request, "No se proporcionó ID de función para eliminar.")
-            return redirect("administrar_funciones")
+                return redirect("administrar_funciones")
 
         # --- EDITAR FUNCIÓN ---
         elif accion == "editar":
@@ -1768,30 +1962,45 @@ def administrar_funciones(request):
                     messages.error(request, f"❌ La sala '{sala_nombre}' no está disponible para esta película")
                     return redirect("administrar_funciones")
 
-                conflicto_exacto = Funcion.objects.filter(
-                    sala__icontains=sala_nombre,
-                    horario=horario,
-                    fecha_inicio=fecha_inicio,
-                    activa=True
-                ).exclude(id=funcion_id).exists()
+                # ✅ VALIDACIÓN: Verificar conflicto de horario/sala
+                hay_conflicto_hs, funcion_conflicto_hs = hay_conflicto_horario_sala(
+                    sala_nombre, horario, fecha_inicio, semanas, funcion_id_excluir=funcion_id
+                )
                 
-                if conflicto_exacto:
-                    messages.error(request, f"❌ Ya existe otra función en {sala_nombre} a las {horario} el {fecha_inicio.strftime('%d/%m/%Y')}")
+                if hay_conflicto_hs:
+                    fecha_fin_conflicto = funcion_conflicto_hs.fecha_inicio + timedelta(weeks=funcion_conflicto_hs.semanas) - timedelta(days=1)
+                    messages.error(
+                        request,
+                        f"❌ Ya existe '{funcion_conflicto_hs.pelicula.nombre}' en {sala_nombre} "
+                        f"a las {horario} desde {funcion_conflicto_hs.fecha_inicio.strftime('%d/%m/%Y')} "
+                        f"hasta {fecha_fin_conflicto.strftime('%d/%m/%Y')}"
+                    )
                     return redirect("administrar_funciones")
 
-                funciones_existentes = Funcion.objects.filter(
+                # ✅ VALIDACIÓN: Distancia mínima
+                funciones_misma_sala = Funcion.objects.filter(
                     sala__icontains=sala_nombre,
-                    fecha_inicio=fecha_inicio,
                     activa=True
                 ).exclude(id=funcion_id).exclude(horario=horario)
                 
-                horarios_existentes = [parse_hora(func.horario) for func in funciones_existentes]
-                nuevo_horario = parse_hora(horario)
+                fecha_fin_nueva = fecha_inicio + timedelta(weeks=int(semanas)) - timedelta(days=1)
+                
+                for func_sala in funciones_misma_sala:
+                    fecha_fin_existente = func_sala.fecha_inicio + timedelta(weeks=func_sala.semanas) - timedelta(days=1)
+                    
+                    if fecha_inicio <= fecha_fin_existente and fecha_fin_nueva >= func_sala.fecha_inicio:
+                        horarios_existentes = [parse_hora(func_sala.horario)]
+                        nuevo_horario = parse_hora(horario)
+                        
+                        if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
+                            messages.error(
+                                request,
+                                f"❌ Horario {horario} en {sala_nombre}: debe haber mínimo 2h30m "
+                                f"con la función de las {func_sala.horario}"
+                            )
+                            return redirect("administrar_funciones")
 
-                if hay_conflicto_distancia(nuevo_horario, horarios_existentes):
-                    messages.error(request, f"❌ Conflicto de horarios: debe haber mínimo 2h30m con funciones existentes en la misma sala.")
-                    return redirect("administrar_funciones")
-
+                # Si pasó todas las validaciones, actualizar
                 funcion.pelicula = pelicula
                 funcion.sala = sala_nombre
                 funcion.horario = horario
@@ -1800,6 +2009,7 @@ def administrar_funciones(request):
                 funcion.save()
 
                 messages.success(request, f"✏️ Función editada correctamente: {pelicula.nombre} - {sala_nombre} - {horario}")
+                return redirect("administrar_funciones")
                 
             except Funcion.DoesNotExist:
                 messages.error(request, "❌ La función que intentas editar no existe.")
@@ -1807,6 +2017,72 @@ def administrar_funciones(request):
                 messages.error(request, "❌ La película seleccionada no existe.")
             except Exception as e:
                 messages.error(request, f"❌ Error al editar función: {str(e)}")
+
+        # --- ELIMINAR ---
+        elif accion == "eliminar":
+            funcion_id = request.POST.get("funcion_id")
+            if funcion_id:
+                try:
+                    funcion = Funcion.objects.get(id=funcion_id)
+                    nombre_pelicula = funcion.pelicula.nombre
+                    
+                    funcion.activa = False
+                    funcion.fecha_eliminacion = hoy_es
+                    funcion.save()
+                    
+                    messages.success(request, f"🗑️ Función de '{nombre_pelicula}' desactivada correctamente.")
+                    
+                except Funcion.DoesNotExist:
+                    messages.error(request, "La función que intentas eliminar no existe.")
+                except Exception as e:
+                    messages.error(request, f"Error al eliminar la función: {str(e)}")
+            else:
+                messages.error(request, "No se proporcionó ID de función para eliminar.")
+            return redirect("administrar_funciones")
+        
+        # --- ELIMINAR PERMANENTEMENTE (para funciones pasadas) ---
+        elif accion == "eliminar_permanente":
+            funcion_id = request.POST.get("funcion_id")
+            if funcion_id:
+                try:
+                    funcion = Funcion.objects.get(id=funcion_id)
+                    nombre_pelicula = funcion.pelicula.nombre
+                    
+                    # Eliminar permanentemente
+                    funcion.delete()
+                    
+                    messages.success(request, f"🗑️ Función de '{nombre_pelicula}' eliminada permanentemente.")
+                    
+                except Funcion.DoesNotExist:
+                    messages.error(request, "La función que intentas eliminar no existe.")
+                except Exception as e:
+                    messages.error(request, f"Error al eliminar la función: {str(e)}")
+            else:
+                messages.error(request, "No se proporcionó ID de función para eliminar.")
+            return redirect("administrar_funciones")
+
+        # --- REACTIVAR FUNCIÓN ---
+        elif accion == "reactivar":
+            funcion_id = request.POST.get("funcion_id")
+            if funcion_id:
+                try:
+                    funcion = Funcion.objects.get(id=funcion_id)
+                    if funcion.fecha_inicio < hoy_es:
+                        funcion.fecha_inicio = hoy_es
+                    
+                    funcion.activa = True
+                    funcion.fecha_eliminacion = None
+                    funcion.save()
+                    
+                    messages.success(request, f"✅ Función de '{funcion.pelicula.nombre}' reactivada correctamente.")
+                    
+                except Funcion.DoesNotExist:
+                    messages.error(request, "La función que intentas reactivar no existe.")
+                except Exception as e:
+                    messages.error(request, f"Error al reactivar la función: {str(e)}")
+            else:
+                messages.error(request, "No se proporcionó ID de función para reactivar.")
+            return redirect("administrar_funciones")
 
     elif request.method == "GET" and "editar" in request.GET:
         funcion_id = request.GET.get("editar")
@@ -1818,7 +2094,7 @@ def administrar_funciones(request):
         else:
             messages.error(request, "No se proporcionó ID de función para editar.")
 
-    # ✅ CORRECCIÓN CRÍTICA: Agrupar funciones por película Y fecha_inicio
+    # Agrupar funciones por película Y fecha_inicio
     funciones_actuales_sorted = sorted(funciones_actuales, key=lambda f: (f.pelicula.id, f.fecha_inicio))
     funciones_actuales_agrupadas = []
     
@@ -1845,8 +2121,8 @@ def administrar_funciones(request):
     return render(request, "administrar_funciones.html", {
         "peliculas": peliculas,
         "peliculas_con_pares": peliculas_con_pares,
-        "funciones_actuales_agrupadas": funciones_actuales_agrupadas,  # ← Nuevo
-        "funciones_pasadas_agrupadas": funciones_pasadas_agrupadas,    # ← Nuevo
+        "funciones_actuales_agrupadas": funciones_actuales_agrupadas,
+        "funciones_pasadas_agrupadas": funciones_pasadas_agrupadas,
         "funcion_editar": funcion_editar,
         "HORARIOS_DISPONIBLES": Funcion.HORARIOS_DISPONIBLES,
         "hoy_es": hoy_es,
@@ -2263,11 +2539,14 @@ def dashboard_admin(request):
 def mis_reservaciones_cancelables(request):
     #Define el limite de tiempo 24 horas
     tiempo_limite = timezone.now() - timedelta(hours=24)
+    #la reserva solo se podra cancelar 3 horas antes de la funcion
+    tiempo_limite_proyeccion = timezone.now() + timedelta(hours=3)
     
     # Filtra las reservas solo de usuarios logueados
     reservas_validas = Reserva.objects.filter(
         usuario=request.user,                 # Solo las del usuario logueado
         fecha_reserva__gte=tiempo_limite,     # Filtrar: Hechas en las últimas 24h
+        horario__gte=tiempo_limite_proyeccion,
         estado__in=['RESERVADO', 'CONFIRMADO']                      
     ).order_by('-fecha_reserva') 
     
@@ -2284,13 +2563,19 @@ def cancelar_reserva(request, pk):
     
     #tiempo_limite = timezone.now() - timedelta(hours=24)
     TIEMPO_MAXIMO_CANCELACION = timedelta(hours=24)
+    TIEMPO_MINIMO_CANCELACION_PROYECCION = timedelta(hours=3)
     tiempo_transcurrido = timezone.now() - reserva.fecha_reserva
+    tiempo_hasta_proyeccion = reserva.horario - timezone.now()
 
     
     if request.method == 'POST':
         #  Verifica si la reserva ya pasó el límite o ya está cancelada
         if tiempo_transcurrido > TIEMPO_MAXIMO_CANCELACION:
             messages.error(request, 'Esta reserva ya no puede ser cancelada.')
+            return redirect('mis_reservaciones_cancelables')
+        
+        if tiempo_hasta_proyeccion < TIEMPO_MINIMO_CANCELACION_PROYECCION:
+            messages.error(request, 'Esta reserva ya no puede ser cancelada: la función inicia en menos de 3 horas.')
             return redirect('mis_reservaciones_cancelables')
             
         #  Cancelar la reserva y invalidar el codigo qr del ticket generado en la reservacion
@@ -2332,71 +2617,362 @@ def cancelar_reserva(request, pk):
    # return redirect('mis_reservaciones_cancelables')
 
 
+#################################################################
+# GESTIÓN DE MÉTODOS DE PAGO (PBI-27)
+#################################################################
 
-#**************************************
-   #PBI-29 -- Gestionar Usuarios
-   #*****************************
+@login_required
+def mis_metodos_pago(request):
+    """
+    Vista para listar los métodos de pago guardados del usuario
+    """
+    metodos_pago = MetodoPago.objects.filter(
+        usuario=request.user,
+        activo=True
+    ).order_by('-es_predeterminado', '-fecha_creacion')
+    
+    context = {
+        'metodos_pago': metodos_pago
+    }
+    
+    return render(request, 'mis_metodos_pago.html', context)
 
 
+@login_required
+def agregar_metodo_pago(request):
+    """
+    Vista para agregar un nuevo método de pago
+    """
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        tipo = request.POST.get('tipo')
+        alias = request.POST.get('alias', '').strip()
+        es_predeterminado = request.POST.get('es_predeterminado') == 'true'
+        
+        errores = []
+        
+        # Validaciones comunes
+        if not alias:
+            errores.append("El alias es obligatorio")
+        
+        # Verificar que el alias no esté duplicado para este usuario
+        if MetodoPago.objects.filter(usuario=request.user, alias=alias, activo=True).exists():
+            errores.append(f"Ya tienes un método con el alias '{alias}'")
+        
+        if tipo == 'TARJETA':
+            numero_tarjeta = request.POST.get('numero_tarjeta', '').replace(' ', '')
+            mes_expiracion = request.POST.get('mes_expiracion')
+            anio_expiracion = request.POST.get('anio_expiracion')
+            nombre_titular = request.POST.get('nombre_titular', '').strip()
+            
+            # Validaciones de tarjeta
+            if not numero_tarjeta or len(numero_tarjeta) < 13:
+                errores.append("Número de tarjeta inválido")
+            if not mes_expiracion or not anio_expiracion:
+                errores.append("Fecha de expiración incompleta")
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+            
+            # Validar que la tarjeta no esté expirada
+            if mes_expiracion and anio_expiracion:
+                hoy = datetime.now()
+                if int(anio_expiracion) < hoy.year or \
+                   (int(anio_expiracion) == hoy.year and int(mes_expiracion) < hoy.month):
+                    errores.append("La tarjeta está expirada")
+            
+            if not errores:
+                # Procesar datos de tarjeta
+                tipo_tarjeta = get_card_type(numero_tarjeta)
+                
+                # Encriptar datos completos de la tarjeta
+                fecha_expiracion = f"{int(mes_expiracion):02d}/{str(anio_expiracion)[-2:]}"
+                datos_encriptados = encrypt_card_data_full(
+                    numero_tarjeta=numero_tarjeta,
+                    nombre_titular=nombre_titular,
+                    fecha_expiracion=fecha_expiracion
+                )
+                
+                # Crear método de pago
+                metodo = MetodoPago(
+                    usuario=request.user,
+                    tipo='TARJETA',
+                    alias=alias,
+                    es_predeterminado=es_predeterminado,
+                    ultimos_4_digitos=numero_tarjeta[-4:],
+                    tipo_tarjeta=tipo_tarjeta,
+                    mes_expiracion=int(mes_expiracion),
+                    anio_expiracion=int(anio_expiracion),
+                    nombre_titular=nombre_titular.upper(),
+                    datos_encriptados=datos_encriptados
+                )
+                metodo.save()
+                
+                messages.success(request, f"Método de pago '{alias}' guardado exitosamente")
+                return redirect('mis_metodos_pago')
+                
+        elif tipo == 'CUENTA_DIGITAL':
+            tipo_cuenta = request.POST.get('tipo_cuenta')
+            email_cuenta = request.POST.get('email_cuenta', '').strip()
+            
+            # Validaciones de cuenta digital
+            if not tipo_cuenta:
+                errores.append("Selecciona el tipo de cuenta")
+            if not email_cuenta or '@' not in email_cuenta:
+                errores.append("Email de cuenta inválido")
+            
+            if not errores:
+                # Crear método de pago
+                metodo = MetodoPago(
+                    usuario=request.user,
+                    tipo='CUENTA_DIGITAL',
+                    alias=alias,
+                    es_predeterminado=es_predeterminado,
+                    tipo_cuenta=tipo_cuenta,
+                    email_cuenta=email_cuenta
+                )
+                metodo.save()
+                
+                messages.success(request, f"Método de pago '{alias}' guardado exitosamente")
+                return redirect('mis_metodos_pago')
+        
+        # Si hay errores, mostrarlos
+        for error in errores:
+            messages.error(request, error)
+    
+    # Contexto para el template
+    context = {
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'agregar_metodo_pago.html', context)
+
+
+@login_required
+def editar_metodo_pago(request, metodo_id):
+    """
+    Vista para editar un método de pago existente
+    """
+    from datetime import datetime
+    
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        alias = request.POST.get('alias', '').strip()
+        es_predeterminado = request.POST.get('es_predeterminado') == 'true'
+        
+        errores = []
+        
+        # Validar alias
+        if not alias:
+            errores.append("El alias es obligatorio")
+        
+        # Verificar que el alias no esté duplicado (excepto el actual)
+        if MetodoPago.objects.filter(
+            usuario=request.user, 
+            alias=alias, 
+            activo=True
+        ).exclude(id=metodo_id).exists():
+            errores.append(f"Ya tienes otro método con el alias '{alias}'")
+        
+        if metodo.tipo == 'TARJETA':
+            mes_expiracion = request.POST.get('mes_expiracion')
+            anio_expiracion = request.POST.get('anio_expiracion')
+            nombre_titular = request.POST.get('nombre_titular', '').strip()
+            
+            if not mes_expiracion or not anio_expiracion:
+                errores.append("Fecha de expiración incompleta")
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+            
+            # Validar que la tarjeta no esté expirada
+            if mes_expiracion and anio_expiracion:
+                hoy = datetime.now()
+                if int(anio_expiracion) < hoy.year or \
+                   (int(anio_expiracion) == hoy.year and int(mes_expiracion) < hoy.month):
+                    errores.append("La tarjeta está expirada")
+            
+            if not errores:
+                metodo.alias = alias
+                metodo.es_predeterminado = es_predeterminado
+                metodo.mes_expiracion = int(mes_expiracion)
+                metodo.anio_expiracion = int(anio_expiracion)
+                metodo.nombre_titular = nombre_titular.upper()
+                metodo.save()
+                
+                messages.success(request, f"Método '{alias}' actualizado exitosamente")
+                return redirect('mis_metodos_pago')
+                
+        elif metodo.tipo == 'CUENTA_DIGITAL':
+            email_cuenta = request.POST.get('email_cuenta', '').strip()
+            
+            if not email_cuenta or '@' not in email_cuenta:
+                errores.append("Email de cuenta inválido")
+            
+            if not errores:
+                metodo.alias = alias
+                metodo.es_predeterminado = es_predeterminado
+                metodo.email_cuenta = email_cuenta
+                metodo.save()
+                
+                messages.success(request, f"Método '{alias}' actualizado exitosamente")
+                return redirect('mis_metodos_pago')
+        
+        # Mostrar errores
+        for error in errores:
+            messages.error(request, error)
+    
+    # Contexto para el template
+    context = {
+        'metodo': metodo,
+        'current_year': datetime.now().year
+    }
+    
+    return render(request, 'editar_metodo_pago.html', context)
+
+
+@login_required
+def eliminar_metodo_pago(request, metodo_id):
+    """
+    Vista para eliminar (soft delete) un método de pago
+    """
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        alias_eliminado = metodo.alias
+        era_predeterminado = metodo.es_predeterminado
+        
+        # Soft delete: marcar como inactivo
+        metodo.activo = False
+        metodo.save()
+        
+        # Si era predeterminado, marcar otro como predeterminado
+        if era_predeterminado:
+            siguiente_metodo = MetodoPago.objects.filter(
+                usuario=request.user,
+                activo=True
+            ).order_by('-fecha_creacion').first()
+            
+            if siguiente_metodo:
+                siguiente_metodo.es_predeterminado = True
+                siguiente_metodo.save()
+        
+        messages.success(request, f"Método '{alias_eliminado}' eliminado exitosamente")
+        return redirect('mis_metodos_pago')
+    
+    # Si es GET, redirigir a la lista
+    return redirect('mis_metodos_pago')
+
+
+@login_required
+def marcar_predeterminado(request, metodo_id):
+    """
+    Vista para marcar un método como predeterminado
+    """
+    # Verificar que el método pertenece al usuario
+    metodo = get_object_or_404(MetodoPago, id=metodo_id, usuario=request.user, activo=True)
+    
+    if request.method == 'POST':
+        # Desmarcar todos los métodos del usuario
+        MetodoPago.objects.filter(
+            usuario=request.user,
+            activo=True
+        ).update(es_predeterminado=False)
+        
+        # Marcar el seleccionado
+        metodo.es_predeterminado = True
+        metodo.save()
+        
+        messages.success(request, f"'{metodo.alias}' marcado como predeterminado")
+    
+    return redirect('mis_metodos_pago')
+
+
+# ═══════════════════════════════════════════════════════════════
+# PBI-29: GESTIÓN DE USUARIOS
+# ═══════════════════════════════════════════════════════════════
+
+@login_required
 @user_passes_test(lambda u: u.is_staff)
 def administrar_usuarios(request):
-    usuarios = User.objects.all().order_by('username')
-    usuario_editar = None  # 🧩 Para identificar si estamos en modo edición
+    """
+    Vista para administrar usuarios del sistema (solo para staff)
+    """
+    usuarios = User.objects.all().order_by('-is_staff', 'username')
+    usuario_editar = None
 
+    # --- CREAR / EDITAR / ELIMINAR ---
     if request.method == "POST":
         accion = request.POST.get("accion")
-        user_id = request.POST.get("user_id")
 
-        # 🔄 Restablecer contraseña
-        if accion == "reset_password":
-            nueva_pass = request.POST.get("nueva_password")
-            usuario = get_object_or_404(User, id=user_id)
-            usuario.set_password(nueva_pass)
-            usuario.save()
-            messages.success(request, f"🔑 Contraseña de '{usuario.username}' restablecida correctamente.")
-            return redirect("administrar_usuarios")
+        # Crear usuario
+        if accion == "crear":
+            username = request.POST.get("username", "").strip()
+            email = request.POST.get("email", "").strip()
+            password = request.POST.get("password", "").strip()
+            es_admin = request.POST.get("es_admin") == "on"
 
-        # 🗑️ Eliminar usuario
-        elif accion == "eliminar":
-            usuario = get_object_or_404(User, id=user_id)
-            usuario.delete()
-            messages.success(request, f"🗑️ Usuario '{usuario.username}' eliminado correctamente.")
-            return redirect("administrar_usuarios")
-
-        # ✏️ Editar usuario
-        elif accion == "editar":
-            usuario = get_object_or_404(User, id=user_id)
-            usuario.username = request.POST.get("username")
-            usuario.email = request.POST.get("email")
-            usuario.is_active = request.POST.get("is_active") == "True"
-            usuario.is_staff = request.POST.get("is_staff") == "True"
-            usuario.save()
-            messages.success(request, f"✅ Usuario '{usuario.username}' actualizado correctamente.")
-            return redirect("administrar_usuarios")
-
-        # ➕ Crear usuario
-        elif accion == "crear":
-            username = request.POST.get("username")
-            email = request.POST.get("email")
-            password = request.POST.get("password")
-            is_staff = request.POST.get("is_staff") == "True"
-
-            # Evitar duplicados sin importar mayúsculas/minúsculas
+            # Validación: evitar nombres duplicados sin importar mayúsculas/minúsculas
             if User.objects.filter(username__iexact=username).exists():
-                messages.error(request, "❌ Ya existe un usuario con ese nombre (sin importar mayúsculas o minúsculas).")
+                messages.error(request, f"⚠️ El nombre de usuario '{username}' ya está registrado (sin importar mayúsculas).")
                 return redirect("administrar_usuarios")
 
-            User.objects.create_user(username=username, email=email, password=password, is_staff=is_staff)
-            messages.success(request, f"👤 Usuario '{username}' creado exitosamente.")
+            # Convertir explícitamente el string a booleano
+            is_staff = request.POST.get("is_staff") == "True"
+
+            if not (username and email and password):
+                messages.error(request, "⚠️ Todos los campos son obligatorios.")
+                return redirect("administrar_usuarios")
+
+            if User.objects.filter(username=username).exists():
+                messages.warning(request, "⚠️ El nombre de usuario ya existe.")
+                return redirect("administrar_usuarios")
+
+            # Por defecto el usuario recién creado estará activo
+            new_user = User.objects.create_user(
+                username=username, email=email, password=password, is_staff=is_staff
+            )
+            new_user.is_active = True
+            new_user.save()
+
+            messages.success(request, "✅ Usuario creado correctamente.")
             return redirect("administrar_usuarios")
 
-    # 🟡 Si viene ?editar=ID → cargar datos del usuario
-    elif request.method == "GET" and "editar" in request.GET:
+        # Editar usuario
+        elif accion == "editar":
+            user_id = request.POST.get("user_id")
+            user = get_object_or_404(User, id=user_id)
+
+            user.username = request.POST.get("username", user.username)
+            user.email = request.POST.get("email", user.email)
+
+            # Convertir explícitamente los flags a booleanos
+            user.is_staff = request.POST.get("is_staff") == "True"
+            # Si el select no se envía por alguna razón, conservar el valor actual
+            is_active_post = request.POST.get("is_active")
+            if is_active_post is not None:
+                user.is_active = is_active_post == "True"
+
+            user.save()
+            messages.success(request, "✏️ Usuario actualizado correctamente.")
+            return redirect("administrar_usuarios")
+
+        # Eliminar usuario
+        elif accion == "eliminar":
+            user_id = request.POST.get("user_id")
+            user = get_object_or_404(User, id=user_id)
+            user.delete()
+            messages.success(request, "🗑️ Usuario eliminado correctamente.")
+            return redirect("administrar_usuarios")
+
+    # --- MODO EDICIÓN ---
+    if request.method == "GET" and "editar" in request.GET:
         usuario_id = request.GET.get("editar")
         usuario_editar = get_object_or_404(User, id=usuario_id)
 
     return render(request, "administrar_usuarios.html", {
         "usuarios": usuarios,
-        "usuario_editar": usuario_editar  # <-- Ahora el HTML mostrará modo edición
+        "usuario_editar": usuario_editar,
     })
-

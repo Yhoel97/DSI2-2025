@@ -176,11 +176,176 @@
                     <div class="total-price" id="total-price">
                         Total: ${{ total|floatformat:2 }}
                     </div>
+                </div>
 
-                    <!-- Botón de confirmación -->
-                    <button type="submit" name="accion" value="reservar" class="btn-confirm">
-                        Confirmar Reserva
+                <!-- Sección de Método de Pago - PBI-30 y PBI-27 -->
+                <div class="payment-section">
+                    <h3>💳 Método de Pago</h3>
+                    
+                    <div class="payment-method-selector">
+                        {% if user.is_authenticated and metodos_guardados %}
+                        <!-- Opciones de métodos guardados -->
+                        {% for metodo in metodos_guardados %}
+                        <label class="payment-option saved-method">
+                            <input type="radio" 
+                                   name="usar_metodo_guardado" 
+                                   value="{{ metodo.id }}" 
+                                   {% if metodo.es_predeterminado %}checked{% endif %}
+                                   class="payment-radio"
+                                   data-tipo="{{ metodo.tipo }}">
+                            <div class="payment-option-content">
+                                <span class="payment-icon">
+                                    {% if metodo.tipo == 'TARJETA' %}
+                                        {% if metodo.tipo_tarjeta == 'VISA' %}💳{% elif metodo.tipo_tarjeta == 'MASTERCARD' %}💳{% elif metodo.tipo_tarjeta == 'AMEX' %}💳{% else %}💳{% endif %}
+                                    {% else %}💰{% endif %}
+                                </span>
+                                <div class="payment-details">
+                                    <span class="payment-label">{{ metodo.alias }}</span>
+                                    <span class="payment-info">
+                                        {% if metodo.tipo == 'TARJETA' %}
+                                            {{ metodo.get_tipo_tarjeta_display }} •••• {{ metodo.ultimos_4_digitos }}
+                                            {% if metodo.esta_expirada %}
+                                                <span class="badge-expirada">Expirada</span>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ metodo.email_cuenta }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% if metodo.es_predeterminado %}
+                                <span class="badge-default">Predeterminado</span>
+                                {% endif %}
+                            </div>
+                        </label>
+                        {% endfor %}
+                        {% endif %}
+                        
+                        <!-- Opción de nueva tarjeta -->
+                        <label class="payment-option">
+                            <input type="radio" 
+                                   name="usar_metodo_guardado" 
+                                   value="false" 
+                                   {% if not user.is_authenticated or not metodos_guardados %}checked{% endif %}
+                                   class="payment-radio">
+                            <div class="payment-option-content">
+                                <span class="payment-icon">💳</span>
+                                <span class="payment-label">Pagar con nueva tarjeta</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    {% if user.is_authenticated and metodos_guardados %}
+                    <!-- Link para administrar métodos -->
+                    <div class="manage-methods-link">
+                        <a href="{% url 'mis_metodos_pago' %}" target="_blank">
+                            ⚙️ Administrar mis métodos de pago
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Campo CVV para métodos guardados -->
+                    <div id="saved-method-cvv" class="saved-method-cvv" style="display: none;">
+                        <div class="form-group">
+                            <label for="cvv_guardado">CVV de Seguridad *</label>
+                            <input type="text" 
+                                   id="cvv_guardado" 
+                                   name="cvv_guardado" 
+                                   placeholder="123"
+                                   maxlength="4">
+                            <small>Por seguridad, necesitamos el CVV de tu tarjeta guardada</small>
+                            <span class="field-error" id="error-cvv-guardado"></span>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de nueva tarjeta -->
+                    <div id="new-card-form" class="new-card-form">
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="numero_tarjeta">Número de Tarjeta *</label>
+                                <div class="card-number-input">
+                                    <input type="text" 
+                                           id="numero_tarjeta" 
+                                           name="numero_tarjeta" 
+                                           placeholder="1234 5678 9012 3456"
+                                           maxlength="19">
+                                    <span class="card-icon" id="card-icon">💳</span>
+                                </div>
+                                <span class="field-error" id="error-numero-tarjeta"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nombre_titular">Nombre del Titular *</label>
+                                <input type="text" 
+                                       id="nombre_titular" 
+                                       name="nombre_titular" 
+                                       placeholder="Como aparece en la tarjeta">
+                                <span class="field-error" id="error-nombre-titular"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fecha_expiracion">Fecha de Expiración *</label>
+                                <input type="text" 
+                                       id="fecha_expiracion" 
+                                       name="fecha_expiracion" 
+                                       placeholder="MM/YY"
+                                       maxlength="5">
+                                <span class="field-error" id="error-fecha-expiracion"></span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cvv">CVV *</label>
+                                <input type="text" 
+                                       id="cvv" 
+                                       name="cvv" 
+                                       placeholder="123"
+                                       maxlength="4">
+                                <span class="field-error" id="error-cvv"></span>
+                            </div>
+                        </div>
+
+                        {% if user.is_authenticated %}
+                        <div class="save-card-option">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="guardar_tarjeta" id="guardar_tarjeta">
+                                <span>💾 Guardar esta tarjeta para futuras compras</span>
+                            </label>
+                            <div id="alias-input" style="display: none; margin-top: 10px;">
+                                <input type="text" 
+                                       name="alias_tarjeta" 
+                                       id="alias_tarjeta"
+                                       placeholder="Ej: Visa Personal, Tarjeta Principal"
+                                       maxlength="50"
+                                       style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                                <small style="color: #666;">Dale un nombre para identificar esta tarjeta</small>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="login-suggestion">
+                            <p>💡 <a href="{% url 'login' %}?next={{ request.path }}">Inicia sesión</a> para guardar tus métodos de pago</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="payment-security-note">
+                        <small>🔒 Tu información está protegida. Este es un sistema de simulación - no se procesarán cargos reales.</small>
+                    </div>
+                </div>
+
+                <!-- Botón de confirmación y pago -->
+                <div class="confirm-payment-section">
+                    <button type="submit" name="accion" value="reservar" class="btn-confirm-payment" id="btn-confirm-payment">
+                        <span class="btn-icon">🎟️</span>
+                        <span class="btn-text">Confirmar Reserva y Pagar</span>
+                        <span class="btn-amount">${{ total|floatformat:2 }}</span>
                     </button>
+                    <div class="processing-indicator" id="processing-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Procesando pago, por favor espera...</span>
+                    </div>
                 </div>
 
                 <!-- Hidden fields -->

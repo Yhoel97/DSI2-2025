@@ -158,6 +158,20 @@ DEFAULT_FROM_NAME = "CineDot"
 PASSWORD_RESET_TIMEOUT = 3600 * 5
 
 
+# -----------------------------
+# Configuración de Sistema de Pagos - PBI-27 y PBI-30
+# -----------------------------
+
+# Modo de pago: 'SIMULATION' (no procesa pagos reales)
+PAYMENT_MODE = 'SIMULATION'
+
+# Tasa de éxito en simulación de pagos (0.9 = 90% éxito, 10% fallo)
+PAYMENT_SUCCESS_RATE = 0.9
+
+# Nota: Este sistema usa simulación de pagos para propósitos de demostración.
+# No se procesan pagos reales ni se conecta a pasarelas de pago externas.
+
+
 # This production code might break development mode, so we check whether we're in DEBUG mode
 if not DEBUG:
     # Tell Django to copy static assets into a path called `staticfiles` (this is specific to Render)

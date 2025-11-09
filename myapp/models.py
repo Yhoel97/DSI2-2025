@@ -192,9 +192,29 @@ class Funcion(models.Model):
     def get_formato_sala(self):
             """Obtiene SOLO el formato de la sala (2D, 3D, IMAX)"""
             try:
-                return self.pelicula.SALAS_DISPONIBLES.get(self.sala, "")
+                # Intentar primero con el valor directo
+                formato = self.pelicula.SALAS_DISPONIBLES.get(self.sala, None)
+                if formato:
+                    return formato
+                
+                # Limpiar el nombre de la sala (remover formato si está incluido)
+                # Ejemplo: "Sala 1 (2D)" -> "Sala 1"
+                import re
+                sala_limpia = re.sub(r'\s*\([^)]*\)\s*', '', self.sala).strip()
+                
+                # Intentar con la sala limpia
+                formato = self.pelicula.SALAS_DISPONIBLES.get(sala_limpia, None)
+                if formato:
+                    return formato
+                
+                # Si no se encuentra y no tiene "Sala" al inicio, agregarlo
+                if not sala_limpia.startswith('Sala'):
+                    sala_completa = f"Sala {sala_limpia}"
+                    return self.pelicula.SALAS_DISPONIBLES.get(sala_completa, "2D")
+                
+                return "2D"  # Por defecto
             except:
-                return ""
+                return "2D"
     
     def get_info_completa(self):
         """Retorna el string formateado completo: horario - sala - formato"""
@@ -242,9 +262,9 @@ class Funcion(models.Model):
 #################################################################
 class Reserva(models.Model):
     FORMATO_CHOICES = [
-        ('2D', '2D - $3.50'),
-        ('3D', '3D - $4.50'),
-        ('IMAX', 'IMAX - $6.00'),
+        ('2D', '2D - $4.00'),
+        ('3D', '3D - $6.00'),
+        ('IMAX', 'IMAX - $8.00'),
     ]
     
     ESTADO_CHOICES = [

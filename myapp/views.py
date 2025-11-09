@@ -491,6 +491,7 @@ def my_login(request):
             else:
                 request.session.set_expiry(0)
             
+            
             # Redirigir según el tipo de usuario
             if user.is_superuser or user.is_staff:
                 return redirect('panelAdmin')  # ✅ Sin barra

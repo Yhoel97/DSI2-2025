@@ -190,3 +190,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 print(f"🔍 Django está usando:")
 print(f"   Host: {DATABASES['default'].get('HOST', 'SQLite local')}")
 print(f"   Database: {DATABASES['default'].get('NAME', 'db.sqlite3')}")
+
+# ✅ Configuración de URLs de autenticación
+#LOGIN_URL = 'login'  # Nombre de tu URL de login personalizada
+#LOGIN_REDIRECT_URL = 'index'  # A dónde va después de login exitoso
+#LOGOUT_REDIRECT_URL = 'index'  # A dónde va después de logout

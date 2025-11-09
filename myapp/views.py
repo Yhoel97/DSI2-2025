@@ -564,27 +564,6 @@ def registro_usuario(request):
 
 #######################################################################
 
-
-PRECIOS_FORMATO = {
-    '2D': 4.00,
-    '3D': 6.00,
-    'IMAX': 8.00
-}
-import random
-import string
-from datetime import datetime, timedelta
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.db import transaction
-from django.urls import reverse
-from django.utils import timezone
-
-# Importa tus modelos
-# from .models import Pelicula, Funcion, Reserva, Venta, Pago, CodigoDescuento, MetodoPago
-# from .utils import generar_pdf_reserva, send_brevo_email, simular_pago, encrypt_card_data_full, decrypt_card_data
-
 PRECIOS_FORMATO = {
     '2D': 4.00,
     '3D': 6.00,
@@ -594,7 +573,6 @@ PRECIOS_FORMATO = {
 @csrf_exempt
 def asientos(request, pelicula_id=None):
 
-    
     # ========== VALIDACIÓN INICIAL ==========
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
     if not pelicula:
@@ -624,17 +602,14 @@ def asientos(request, pelicula_id=None):
         
         if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
             if fecha_seleccionada == ahora_naive.date():
-                # Si es hoy, solo mostrar funciones futuras (con 10 min de gracia)
                 try:
                     hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
                     datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
                     if datetime_funcion > (ahora_naive - timedelta(minutes=10)):
                         funciones_vigentes.append(funcion)
                 except ValueError:
-                    # Si hay error parseando la hora, incluir la función
                     funciones_vigentes.append(funcion)
             else:
-                # Para fechas futuras, mostrar todas
                 funciones_vigentes.append(funcion)
 
     if not funciones_vigentes:
@@ -654,7 +629,6 @@ def asientos(request, pelicula_id=None):
             None
         )
     
-    # Si no hay función seleccionada, usar la primera disponible
     if not funcion_actual and funciones_vigentes:
         funcion_actual = funciones_vigentes[0]
 
@@ -672,9 +646,7 @@ def asientos(request, pelicula_id=None):
         for reserva in reservas_existentes:
             asientos_ocupados.extend(reserva.get_asientos_list())
         
-        # Eliminar duplicados
         asientos_ocupados = list(set(asientos_ocupados))
-        
         print(f"🎬 Asientos ocupados para Sala {funcion_actual.sala}, Horario {funcion_actual.horario}, Fecha {fecha_seleccionada}: {asientos_ocupados}")
 
     # ========== DATOS DE SELECCIÓN ==========
@@ -721,7 +693,7 @@ def asientos(request, pelicula_id=None):
             "descuento": descuento_porcentaje,
             "descuento_monto": float(descuento_monto),
             "total": float(total),
-            "asientos_ocupados": asientos_ocupados,  # ✅ CRÍTICO: devolver asientos ocupados
+            "asientos_ocupados": asientos_ocupados,
             "funcion_id": funcion_actual.id if funcion_actual else None,
             "sala": str(funcion_actual.sala) if funcion_actual else '',
             "horario": funcion_actual.horario if funcion_actual else ''
@@ -730,6 +702,7 @@ def asientos(request, pelicula_id=None):
     # ========== CONFIRMAR RESERVA Y PAGO ==========
     if request.method == "POST" and request.POST.get("accion") == "reservar":
         print("💳 Iniciando proceso de reserva y pago...")
+        print(f"📋 Asientos seleccionados recibidos: {asientos_seleccionados}")
         
         # Datos del cliente
         nombre_cliente = request.POST.get("nombre_cliente", "").strip()
@@ -762,6 +735,11 @@ def asientos(request, pelicula_id=None):
         if cantidad_boletos == 0:
             errores.append("Seleccione al menos un asiento")
         
+        # ⚠️ CRÍTICO: Validar que asientos_seleccionados no esté vacío
+        if not asientos_seleccionados:
+            errores.append("No se recibieron asientos seleccionados. Por favor, seleccione sus asientos nuevamente.")
+            print("❌ ERROR: asientos_seleccionados está vacío!")
+        
         # Validar que los asientos seleccionados no estén ocupados
         asientos_ya_ocupados = [a for a in asientos_seleccionados if a in asientos_ocupados]
         if asientos_ya_ocupados:
@@ -771,7 +749,6 @@ def asientos(request, pelicula_id=None):
         
         # ========== VALIDACIÓN DE MÉTODO DE PAGO ==========
         if usar_metodo_guardado != "false":
-            # ===== PAGO CON MÉTODO GUARDADO =====
             try:
                 metodo_id = int(usar_metodo_guardado)
                 metodo = MetodoPago.objects.get(
@@ -781,26 +758,22 @@ def asientos(request, pelicula_id=None):
                 )
                 metodo_guardado_usado = metodo
                 
-                # Validar CVV
                 cvv_guardado = request.POST.get("cvv_guardado", "").strip()
                 if not cvv_guardado:
                     errores.append("El CVV es obligatorio para usar un método guardado")
                 elif len(cvv_guardado) < 3:
                     errores.append("El CVV debe tener al menos 3 dígitos")
                 else:
-                    # Desencriptar datos del método guardado
                     datos_tarjeta = decrypt_card_data(metodo.datos_encriptados)
                     
                     numero_tarjeta = datos_tarjeta.get('numero_tarjeta', '').replace(' ', '').replace('-', '')
                     nombre_titular = datos_tarjeta.get('nombre_titular', '')
                     
-                    # Reconstruir fecha_expiracion (MM/YY)
                     anio_corto = str(metodo.anio_expiracion)[-2:] if metodo.anio_expiracion else '00'
                     mes_formateado = str(metodo.mes_expiracion).zfill(2) if metodo.mes_expiracion else '00'
                     fecha_expiracion = f"{mes_formateado}/{anio_corto}"
                     cvv = cvv_guardado
                     
-                    # Validar expiración
                     if metodo.esta_expirada():
                         errores.append("El método de pago seleccionado está expirado. Por favor, actualízalo.")
                         
@@ -808,7 +781,6 @@ def asientos(request, pelicula_id=None):
                 errores.append("Método de pago no válido")
         
         else:
-            # ===== PAGO CON NUEVA TARJETA =====
             numero_tarjeta = request.POST.get("numero_tarjeta", "").strip().replace(" ", "")
             nombre_titular = request.POST.get("nombre_titular", "").strip()
             fecha_expiracion = request.POST.get("fecha_expiracion", "").strip()
@@ -816,7 +788,6 @@ def asientos(request, pelicula_id=None):
             guardar_tarjeta = request.POST.get("guardar_tarjeta") == "on"
             alias_tarjeta = request.POST.get("alias_tarjeta", "").strip()
             
-            # Validaciones
             if not numero_tarjeta:
                 errores.append("El número de tarjeta es obligatorio")
             elif len(numero_tarjeta) < 13:
@@ -835,7 +806,6 @@ def asientos(request, pelicula_id=None):
             elif len(cvv) < 3:
                 errores.append("El CVV debe tener al menos 3 dígitos")
             
-            # Si quiere guardar la tarjeta, validar alias
             if guardar_tarjeta and not alias_tarjeta:
                 errores.append("Debes proporcionar un nombre para guardar la tarjeta")
 
@@ -844,7 +814,6 @@ def asientos(request, pelicula_id=None):
             for error in errores:
                 messages.error(request, error)
             
-            # Preparar contexto y renderizar
             funciones_con_precios = []
             for funcion in funciones_vigentes:
                 formato = funcion.get_formato_sala()
@@ -889,26 +858,27 @@ def asientos(request, pelicula_id=None):
 
         # ========== PROCESAR PAGO Y RESERVA ==========
         try:
+            print("🔄 Iniciando transacción atómica...")
+            print(f"📍 Asientos a guardar: {asientos_seleccionados}")
+            
+            funcion = get_object_or_404(Funcion, id=funcion_id)
+            formato_funcion = funcion.get_formato_sala()
+            precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
+
+            # Recalcular totales
+            subtotal = cantidad_boletos * precio_por_boleto
+            descuento_monto = subtotal * (float(descuento_porcentaje) / 100)
+            precio_total = subtotal - descuento_monto
+
+            # ========== VALIDAR DISPONIBILIDAD FINAL ==========
             with transaction.atomic():
-                print("🔄 Iniciando transacción atómica...")
-                
-                funcion = get_object_or_404(Funcion, id=funcion_id)
-                formato_funcion = funcion.get_formato_sala()
-                precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
-
-                # Recalcular totales
-                subtotal = cantidad_boletos * precio_por_boleto
-                descuento_monto = subtotal * (float(descuento_porcentaje) / 100)
-                precio_total = subtotal - descuento_monto
-
-                # ========== VALIDAR DISPONIBILIDAD FINAL ==========
                 reservas_conflicto = Reserva.objects.filter(
                     pelicula=pelicula,
                     sala=str(funcion.sala),
                     horario=funcion.horario,
                     fecha_funcion=fecha_seleccionada,
                     estado__in=['RESERVADO', 'CONFIRMADO']
-                )
+                ).select_for_update()  # ⚠️ Bloquear para evitar race conditions
                 
                 asientos_conflicto = []
                 for res in reservas_conflicto:
@@ -940,9 +910,38 @@ def asientos(request, pelicula_id=None):
 
                 print("✅ Pago aprobado!")
 
+                # ========== CREAR CÓDIGO DE RESERVA ==========
+                codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                
+                # ========== CREAR RESERVA ==========
+                asientos_str = ",".join(asientos_seleccionados)
+                print(f"💾 Guardando reserva con asientos: '{asientos_str}'")
+                
+                reserva = Reserva(
+                    pelicula=pelicula,
+                    nombre_cliente=nombre_cliente,
+                    apellido_cliente=apellido_cliente,
+                    email=email,
+                    formato=formato_funcion,
+                    sala=str(funcion.sala),
+                    horario=funcion.horario,
+                    fecha_funcion=fecha_seleccionada,
+                    asientos=asientos_str,  # ✅ String separado por comas
+                    cantidad_boletos=cantidad_boletos,
+                    precio_total=precio_total,
+                    estado="CONFIRMADO",
+                    usuario=request.user if request.user.is_authenticated else None,
+                    pago_completado=True,
+                    fecha_pago=timezone.now(),
+                    codigo_reserva=codigo_reserva
+                )
+                reserva.save()
+                print(f"✅ Reserva guardada - ID: {reserva.id}, Código: {codigo_reserva}")
+                print(f"✅ Asientos en BD: '{reserva.asientos}'")
+
                 # ========== CREAR REGISTRO DE PAGO ==========
                 pago = Pago(
-                    reserva=None,  # Se asignará después
+                    reserva=reserva,  # ✅ Ahora sí existe la reserva
                     monto=precio_total,
                     metodo_pago="TARJETA",
                     estado_pago="APROBADO",
@@ -957,34 +956,6 @@ def asientos(request, pelicula_id=None):
                 pago.save()
                 print(f"💾 Pago guardado - ID: {pago.id}")
 
-                # ========== CREAR RESERVA ==========
-                codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                
-                reserva = Reserva(
-                    pelicula=pelicula,
-                    nombre_cliente=nombre_cliente,
-                    apellido_cliente=apellido_cliente,
-                    email=email,
-                    formato=formato_funcion,
-                    sala=str(funcion.sala),
-                    horario=funcion.horario,
-                    fecha_funcion=fecha_seleccionada,
-                    asientos=",".join(asientos_seleccionados),
-                    cantidad_boletos=cantidad_boletos,
-                    precio_total=precio_total,
-                    estado="CONFIRMADO",  # Ya está pagado
-                    usuario=request.user if request.user.is_authenticated else None,
-                    pago_completado=True,
-                    fecha_pago=timezone.now(),
-                    codigo_reserva=codigo_reserva
-                )
-                reserva.save()
-                print(f"🎟️ Reserva creada - Código: {codigo_reserva}")
-
-                # Asociar pago con reserva
-                pago.reserva = reserva
-                pago.save()
-
                 # ========== REGISTRAR VENTA ==========
                 Venta.objects.create(
                     pelicula=reserva.pelicula,
@@ -994,44 +965,6 @@ def asientos(request, pelicula_id=None):
                     total_venta=reserva.precio_total
                 )
                 print("📊 Venta registrada")
-
-                # ========== GENERAR PDF Y ENVIAR EMAIL ==========
-                try:
-                    pdf_buffer = generar_pdf_reserva(reserva)
-                    subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
-                    body = (
-                        f"Hola {reserva.nombre_cliente},<br><br>"
-                        f"Tu reserva para la película '<strong>{reserva.pelicula.nombre}</strong>' ha sido confirmada.<br><br>"
-                        f"<strong>Detalles de tu reserva:</strong><br>"
-                        f"🎫 Código de reserva: <strong>{reserva.codigo_reserva}</strong><br>"
-                        f"📅 Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
-                        f"🕐 Horario: {funcion.get_horario_display()}<br>"
-                        f"🎬 Sala: {funcion.sala}<br>"
-                        f"📽️ Formato: {formato_funcion}<br>"
-                        f"💺 Asientos: {', '.join(asientos_seleccionados)}<br><br>"
-                        f"<strong>Resumen de pago:</strong><br>"
-                        f"Subtotal: ${subtotal:.2f}<br>"
-                        f"Descuento: -${descuento_monto:.2f}<br>"
-                        f"<strong>Total: ${precio_total:.2f}</strong><br>"
-                        f"💳 Transacción: {pago.numero_transaccion}<br><br>"
-                        "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
-                        "¡Gracias por elegir CineDot! 🎬🍿"
-                    )
-                    
-                    send_brevo_email(
-                        to_emails=[reserva.email],
-                        subject=subject,
-                        html_content=body,
-                        attachments=[(
-                            f"ticket_{reserva.codigo_reserva}.pdf", 
-                            pdf_buffer.getvalue(), 
-                            "application/pdf"
-                        )]
-                    )
-                    print("📧 Email enviado con éxito")
-                except Exception as e:
-                    print(f"⚠️ Error al enviar email: {str(e)}")
-                    # No fallar la reserva si falla el email
 
                 # ========== GUARDAR MÉTODO DE PAGO (SI SE SOLICITÓ) ==========
                 if guardar_tarjeta and request.user.is_authenticated:
@@ -1050,7 +983,6 @@ def asientos(request, pelicula_id=None):
                         ).first()
                         
                         if metodo_existente:
-                            # Actualizar
                             metodo_existente.datos_encriptados = datos_encriptados
                             metodo_existente.ultimos_4_digitos = numero_tarjeta[-4:]
                             metodo_existente.tipo_tarjeta = tipo_tarjeta
@@ -1061,7 +993,6 @@ def asientos(request, pelicula_id=None):
                             metodo_existente.save()
                             messages.success(request, f"✓ Método de pago '{alias_tarjeta}' actualizado")
                         else:
-                            # Crear nuevo
                             MetodoPago.objects.create(
                                 usuario=request.user,
                                 tipo='TARJETA',
@@ -1077,23 +1008,69 @@ def asientos(request, pelicula_id=None):
                             )
                             messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado")
                     except Exception as e:
+                        print(f"⚠️ Error guardando método de pago: {str(e)}")
                         messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
 
-                # ========== ÉXITO ==========
-                request.session["codigo_reserva"] = reserva.codigo_reserva
-                messages.success(
-                    request, 
-                    f"🎉 ¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}"
+            # ========== GENERAR PDF Y ENVIAR EMAIL (FUERA DE TRANSACCIÓN) ==========
+            # ⚠️ IMPORTANTE: Esto va DESPUÉS del commit de la transacción
+            try:
+                print("📧 Generando PDF y enviando email...")
+                pdf_buffer = generar_pdf_reserva(reserva)
+                subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
+                body = (
+                    f"Hola {reserva.nombre_cliente},<br><br>"
+                    f"Tu reserva para la película '<strong>{reserva.pelicula.nombre}</strong>' ha sido confirmada.<br><br>"
+                    f"<strong>Detalles de tu reserva:</strong><br>"
+                    f"🎫 Código de reserva: <strong>{reserva.codigo_reserva}</strong><br>"
+                    f"📅 Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
+                    f"🕐 Horario: {funcion.get_horario_display()}<br>"
+                    f"🎬 Sala: {funcion.sala}<br>"
+                    f"📽️ Formato: {formato_funcion}<br>"
+                    f"💺 Asientos: {', '.join(asientos_seleccionados)}<br><br>"
+                    f"<strong>Resumen de pago:</strong><br>"
+                    f"Subtotal: ${subtotal:.2f}<br>"
+                    f"Descuento: -${descuento_monto:.2f}<br>"
+                    f"<strong>Total: ${precio_total:.2f}</strong><br>"
+                    f"💳 Transacción: {pago.numero_transaccion}<br><br>"
+                    "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
+                    "¡Gracias por elegir CineDot! 🎬🍿"
                 )
                 
-                print(f"✅ Proceso completado exitosamente - Código: {codigo_reserva}")
-                
-                return redirect(
-                    f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}"
+                send_brevo_email(
+                    to_emails=[reserva.email],
+                    subject=subject,
+                    html_content=body,
+                    attachments=[(
+                        f"ticket_{reserva.codigo_reserva}.pdf", 
+                        pdf_buffer.getvalue(), 
+                        "application/pdf"
+                    )]
                 )
+                print("✅ Email enviado con éxito")
+            except Exception as e:
+                print(f"⚠️ Error al enviar email (no afecta la reserva): {str(e)}")
+                import traceback
+                traceback.print_exc()
+                # No fallar la reserva si falla el email
+
+            # ========== ÉXITO ==========
+            request.session["codigo_reserva"] = reserva.codigo_reserva
+            messages.success(
+                request, 
+                f"🎉 ¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}. Revisa tu email para obtener tu ticket."
+            )
+            
+            print(f"✅ Proceso completado exitosamente - Código: {codigo_reserva}")
+            
+            return redirect(
+                f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}"
+            )
                 
         except Exception as e:
-            print(f"❌ Error en transacción: {str(e)}")
+            print(f"❌ ERROR GENERAL en transacción: {str(e)}")
+            import traceback
+            traceback.print_exc()  # ⚠️ Ver traceback completo
+            
             if "Pago rechazado" in str(e):
                 messages.error(request, str(e))
             else:
@@ -1110,7 +1087,6 @@ def asientos(request, pelicula_id=None):
             "precio": precio
         })
 
-    # Cargar métodos de pago guardados
     metodos_guardados = []
     if request.user.is_authenticated:
         metodos_guardados = MetodoPago.objects.filter(
@@ -1143,7 +1119,6 @@ def asientos(request, pelicula_id=None):
     }
     
     return render(request, "asientos.html", context)
-
 #################################################################
 #################################################################
 @csrf_exempt

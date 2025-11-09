@@ -568,54 +568,95 @@ PRECIOS_FORMATO = {
     '3D': 6.00,
     'IMAX': 8.00
 }
+import random
+import string
+from datetime import datetime, timedelta
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
+from django.urls import reverse
+from django.utils import timezone
+
+# Importa tus modelos
+# from .models import Pelicula, Funcion, Reserva, Venta, Pago, CodigoDescuento, MetodoPago
+# from .utils import generar_pdf_reserva, send_brevo_email, simular_pago, encrypt_card_data_full, decrypt_card_data
+
+PRECIOS_FORMATO = {
+    '2D': 4.00,
+    '3D': 6.00,
+    'IMAX': 8.00
+}
 
 @csrf_exempt
 def asientos(request, pelicula_id=None):
+
+    
+    # ========== VALIDACIÓN INICIAL ==========
     pelicula = get_object_or_404(Pelicula, pk=pelicula_id) if pelicula_id else None
     if not pelicula:
         messages.error(request, "No se ha seleccionado ninguna película")
         return redirect('index')
 
-    # Fecha seleccionada
+    # ========== MANEJO DE FECHA ==========
     fecha_str = request.GET.get('fecha', '') or request.POST.get('fecha', '')
     ahora_naive = datetime.now()
+    
     try:
         fecha_seleccionada = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else ahora_naive.date()
     except ValueError:
         fecha_seleccionada = ahora_naive.date()
 
-    # Funciones vigentes
+    # ========== FUNCIONES DISPONIBLES ==========
     funciones = Funcion.objects.filter(
         pelicula=pelicula,
         activa=True,
         fecha_inicio__lte=fecha_seleccionada
     ).order_by('horario')
 
+    # Filtrar funciones vigentes considerando duración y hora actual
     funciones_vigentes = []
     for funcion in funciones:
         fecha_fin_funcion = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        
         if funcion.fecha_inicio <= fecha_seleccionada <= fecha_fin_funcion:
             if fecha_seleccionada == ahora_naive.date():
-                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
-                if datetime_funcion > (ahora_naive - timedelta(minutes=10)):
+                # Si es hoy, solo mostrar funciones futuras (con 10 min de gracia)
+                try:
+                    hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                    datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                    if datetime_funcion > (ahora_naive - timedelta(minutes=10)):
+                        funciones_vigentes.append(funcion)
+                except ValueError:
+                    # Si hay error parseando la hora, incluir la función
                     funciones_vigentes.append(funcion)
             else:
+                # Para fechas futuras, mostrar todas
                 funciones_vigentes.append(funcion)
 
     if not funciones_vigentes:
-        messages.error(request, f"No hay funciones disponibles para esta película el {fecha_seleccionada.strftime('%d/%m/%Y')}")
+        messages.error(
+            request, 
+            f"No hay funciones disponibles para esta película el {fecha_seleccionada.strftime('%d/%m/%Y')}"
+        )
         return redirect('index')
 
-    # Función actual
+    # ========== FUNCIÓN ACTUAL ==========
     funcion_actual_id = request.POST.get('funcion_id') or request.GET.get('funcion_id')
     funcion_actual = None
+    
     if funcion_actual_id:
-        funcion_actual = next((f for f in funciones_vigentes if str(f.id) == str(funcion_actual_id)), None)
+        funcion_actual = next(
+            (f for f in funciones_vigentes if str(f.id) == str(funcion_actual_id)), 
+            None
+        )
+    
+    # Si no hay función seleccionada, usar la primera disponible
     if not funcion_actual and funciones_vigentes:
         funcion_actual = funciones_vigentes[0]
 
-    # Asientos ocupados
+    # ========== ASIENTOS OCUPADOS (POR SALA + HORARIO + FECHA) ==========
     asientos_ocupados = []
     if funcion_actual:
         reservas_existentes = Reserva.objects.filter(
@@ -625,54 +666,76 @@ def asientos(request, pelicula_id=None):
             fecha_funcion=fecha_seleccionada,
             estado__in=['RESERVADO', 'CONFIRMADO']
         )
-        for r in reservas_existentes:
-            asientos_ocupados.extend(r.get_asientos_list())
+        
+        for reserva in reservas_existentes:
+            asientos_ocupados.extend(reserva.get_asientos_list())
+        
+        # Eliminar duplicados
+        asientos_ocupados = list(set(asientos_ocupados))
+        
+        print(f"🎬 Asientos ocupados para Sala {funcion_actual.sala}, Horario {funcion_actual.horario}, Fecha {fecha_seleccionada}: {asientos_ocupados}")
 
-    # Datos de cálculo
+    # ========== DATOS DE SELECCIÓN ==========
     asientos_seleccionados = request.POST.getlist("asientos_list")
     cantidad_boletos = len(asientos_seleccionados)
 
+    # Formato y precio de la función actual
     formato_actual = funcion_actual.get_formato_sala() if funcion_actual else '2D'
     precio_funcion_actual = PRECIOS_FORMATO.get(formato_actual, 4.00)
 
-    # Cupón
+    # ========== APLICAR CUPÓN ==========
     codigo_cupon = request.POST.get("codigo_cupon", "").strip()
     descuento_porcentaje = 0
     mensaje_cupon = ""
+    
     if codigo_cupon:
-        cupon = CodigoDescuento.objects.filter(codigo__iexact=codigo_cupon, estado=True).first()
+        cupon = CodigoDescuento.objects.filter(
+            codigo__iexact=codigo_cupon, 
+            estado=True
+        ).first()
+        
         if cupon:
             descuento_porcentaje = cupon.porcentaje
-            mensaje_cupon = f"Cupón aplicado: {descuento_porcentaje}%"
+            mensaje_cupon = f"✅ Cupón aplicado: {descuento_porcentaje}% de descuento"
         else:
-            mensaje_cupon = "Código inválido o inactivo"
+            mensaje_cupon = "❌ Código inválido o inactivo"
 
+    # ========== CÁLCULOS DE PRECIO ==========
     subtotal = cantidad_boletos * precio_funcion_actual
-    descuento_monto = subtotal * (float(descuento_porcentaje / 100))
+    descuento_monto = subtotal * (float(descuento_porcentaje) / 100)
     total = subtotal - descuento_monto
 
-    # --- AJAX: devolver JSON dinámico ---
+    # ========== RESPUESTA AJAX ==========
     if request.method == "POST" and request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        print(f"📡 AJAX Request - Función: {funcion_actual.id if funcion_actual else 'None'}")
+        print(f"📡 Asientos ocupados: {asientos_ocupados}")
+        
         return JsonResponse({
             "asientos": asientos_seleccionados,
             "cantidad_boletos": cantidad_boletos,
             "formato": formato_actual,
             "precio_boleto": precio_funcion_actual,
-            "subtotal": subtotal,
+            "subtotal": float(subtotal),
             "descuento": descuento_porcentaje,
-            "descuento_monto": descuento_monto,
-            "total": total,
-            "asientos_ocupados": asientos_ocupados,  # ← AGREGADO: enviar asientos ocupados
+            "descuento_monto": float(descuento_monto),
+            "total": float(total),
+            "asientos_ocupados": asientos_ocupados,  # ✅ CRÍTICO: devolver asientos ocupados
+            "funcion_id": funcion_actual.id if funcion_actual else None,
+            "sala": str(funcion_actual.sala) if funcion_actual else '',
+            "horario": funcion_actual.horario if funcion_actual else ''
         })
 
-    # --- Confirmar reserva ---
+    # ========== CONFIRMAR RESERVA Y PAGO ==========
     if request.method == "POST" and request.POST.get("accion") == "reservar":
+        print("💳 Iniciando proceso de reserva y pago...")
+        
+        # Datos del cliente
         nombre_cliente = request.POST.get("nombre_cliente", "").strip()
         apellido_cliente = request.POST.get("apellido_cliente", "").strip()
         email = request.POST.get("email", "").strip()
         funcion_id = request.POST.get("funcion_id")
 
-        # Detectar si se usa método guardado o nueva tarjeta
+        # Detectar tipo de pago
         usar_metodo_guardado = request.POST.get("usar_metodo_guardado", "false")
         
         # Variables de pago
@@ -683,23 +746,38 @@ def asientos(request, pelicula_id=None):
         guardar_tarjeta = False
         alias_tarjeta = ""
 
+        # ========== VALIDACIONES ==========
         errores = []
-        if not nombre_cliente: errores.append("El nombre es obligatorio")
-        if not apellido_cliente: errores.append("El apellido es obligatorio")
-        if not email or "@" not in email: errores.append("Ingrese un email válido")
-        if not funcion_id: errores.append("Seleccione una función")
-        if cantidad_boletos == 0: errores.append("Seleccione al menos un asiento")
         
-        # Variable para almacenar el método guardado usado
+        if not nombre_cliente:
+            errores.append("El nombre es obligatorio")
+        if not apellido_cliente:
+            errores.append("El apellido es obligatorio")
+        if not email or "@" not in email:
+            errores.append("Ingrese un email válido")
+        if not funcion_id:
+            errores.append("Seleccione una función")
+        if cantidad_boletos == 0:
+            errores.append("Seleccione al menos un asiento")
+        
+        # Validar que los asientos seleccionados no estén ocupados
+        asientos_ya_ocupados = [a for a in asientos_seleccionados if a in asientos_ocupados]
+        if asientos_ya_ocupados:
+            errores.append(f"Los siguientes asientos ya están ocupados: {', '.join(asientos_ya_ocupados)}")
+        
         metodo_guardado_usado = None
         
-        # Validaciones según tipo de pago
+        # ========== VALIDACIÓN DE MÉTODO DE PAGO ==========
         if usar_metodo_guardado != "false":
-            # Pago con método guardado
+            # ===== PAGO CON MÉTODO GUARDADO =====
             try:
                 metodo_id = int(usar_metodo_guardado)
-                metodo = MetodoPago.objects.get(id=metodo_id, usuario=request.user, activo=True)
-                metodo_guardado_usado = metodo  # Guardar referencia
+                metodo = MetodoPago.objects.get(
+                    id=metodo_id, 
+                    usuario=request.user, 
+                    activo=True
+                )
+                metodo_guardado_usado = metodo
                 
                 # Validar CVV
                 cvv_guardado = request.POST.get("cvv_guardado", "").strip()
@@ -714,20 +792,21 @@ def asientos(request, pelicula_id=None):
                     numero_tarjeta = datos_tarjeta.get('numero_tarjeta', '').replace(' ', '').replace('-', '')
                     nombre_titular = datos_tarjeta.get('nombre_titular', '')
                     
-                    # Reconstruir fecha_expiracion desde el modelo (MM/YY)
+                    # Reconstruir fecha_expiracion (MM/YY)
                     anio_corto = str(metodo.anio_expiracion)[-2:] if metodo.anio_expiracion else '00'
                     mes_formateado = str(metodo.mes_expiracion).zfill(2) if metodo.mes_expiracion else '00'
                     fecha_expiracion = f"{mes_formateado}/{anio_corto}"
-                    cvv = cvv_guardado  # Usar CVV ingresado por el usuario
+                    cvv = cvv_guardado
                     
-                    # Validar que la tarjeta no esté expirada
+                    # Validar expiración
                     if metodo.esta_expirada():
                         errores.append("El método de pago seleccionado está expirado. Por favor, actualízalo.")
                         
             except (ValueError, MetodoPago.DoesNotExist):
                 errores.append("Método de pago no válido")
+        
         else:
-            # Pago con nueva tarjeta
+            # ===== PAGO CON NUEVA TARJETA =====
             numero_tarjeta = request.POST.get("numero_tarjeta", "").strip().replace(" ", "")
             nombre_titular = request.POST.get("nombre_titular", "").strip()
             fecha_expiracion = request.POST.get("fecha_expiracion", "").strip()
@@ -735,189 +814,290 @@ def asientos(request, pelicula_id=None):
             guardar_tarjeta = request.POST.get("guardar_tarjeta") == "on"
             alias_tarjeta = request.POST.get("alias_tarjeta", "").strip()
             
-            # Validaciones de nueva tarjeta
-            if not numero_tarjeta: errores.append("El número de tarjeta es obligatorio")
-            if not nombre_titular: errores.append("El nombre del titular es obligatorio")
-            if not fecha_expiracion: errores.append("La fecha de expiración es obligatoria")
-            if not cvv: errores.append("El CVV es obligatorio")
+            # Validaciones
+            if not numero_tarjeta:
+                errores.append("El número de tarjeta es obligatorio")
+            elif len(numero_tarjeta) < 13:
+                errores.append("El número de tarjeta es inválido")
+                
+            if not nombre_titular:
+                errores.append("El nombre del titular es obligatorio")
+                
+            if not fecha_expiracion:
+                errores.append("La fecha de expiración es obligatoria")
+            elif '/' not in fecha_expiracion:
+                errores.append("Formato de fecha de expiración inválido (use MM/YY)")
+                
+            if not cvv:
+                errores.append("El CVV es obligatorio")
+            elif len(cvv) < 3:
+                errores.append("El CVV debe tener al menos 3 dígitos")
             
             # Si quiere guardar la tarjeta, validar alias
             if guardar_tarjeta and not alias_tarjeta:
                 errores.append("Debes proporcionar un nombre para guardar la tarjeta")
 
-        if not errores:
-            try:
-                # Usar transacción atómica: todo o nada
-                with transaction.atomic():
-                    funcion = get_object_or_404(Funcion, id=funcion_id)
-                    formato_funcion = funcion.get_formato_sala()
-                    precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
+        # ========== SI HAY ERRORES, MOSTRARLOS ==========
+        if errores:
+            for error in errores:
+                messages.error(request, error)
+            
+            # Preparar contexto y renderizar
+            funciones_con_precios = []
+            for funcion in funciones_vigentes:
+                formato = funcion.get_formato_sala()
+                precio = PRECIOS_FORMATO.get(formato, 4.00)
+                funciones_con_precios.append({
+                    "funcion": funcion,
+                    "formato": formato,
+                    "precio": precio
+                })
 
-                    subtotal = cantidad_boletos * precio_por_boleto
-                    descuento_monto = subtotal * (float(descuento_porcentaje / 100))
-                    precio_total = subtotal - descuento_monto
+            metodos_guardados = []
+            if request.user.is_authenticated:
+                metodos_guardados = MetodoPago.objects.filter(
+                    usuario=request.user,
+                    activo=True
+                ).order_by('-es_predeterminado', '-fecha_creacion')
 
-                    # Procesar pago simulado
-                    datos_tarjeta = {
-                        'numero': numero_tarjeta,
-                        'mes_expiracion': int(fecha_expiracion.split('/')[0]),
-                        'anio_expiracion': int('20' + fecha_expiracion.split('/')[1]),
-                        'cvv': cvv,
-                        'nombre_titular': nombre_titular
-                    }
-                    
-                    resultado_pago = simular_pago(
-                        datos_tarjeta=datos_tarjeta,
-                        monto=float(precio_total)
-                    )
+            context = {
+                "pelicula": pelicula,
+                "asientos_ocupados": asientos_ocupados,
+                "funciones_vigentes": funciones_vigentes,
+                "funciones_con_precios": funciones_con_precios,
+                "funcion_actual": funcion_actual,
+                "fecha_seleccionada": fecha_seleccionada,
+                "codigo_reserva": request.session.get("codigo_reserva"),
+                "precio_funcion_actual": precio_funcion_actual,
+                "formato_actual": formato_actual,
+                "asientos_seleccionados": asientos_seleccionados,
+                "cantidad_boletos": cantidad_boletos,
+                "subtotal": subtotal,
+                "descuento_porcentaje": descuento_porcentaje,
+                "descuento_monto": descuento_monto,
+                "total": total,
+                "mensaje_cupon": mensaje_cupon,
+                "nombre_cliente": nombre_cliente,
+                "apellido_cliente": apellido_cliente,
+                "email": email,
+                "codigo_cupon": codigo_cupon,
+                "metodos_guardados": metodos_guardados,
+            }
+            return render(request, "asientos.html", context)
 
-                    # Solo proceder si el pago fue exitoso
-                    if not resultado_pago["exitoso"]:
-                        # Pago rechazado: no crear nada, solo mostrar error
-                        messages.error(request, f"Error en el pago: {resultado_pago.get('error_message', 'Pago rechazado')}. Por favor, intente nuevamente.")
-                        # No usar return aquí para que caiga al render normal
-                        raise Exception("Pago rechazado")  # Esto hará rollback de la transacción
+        # ========== PROCESAR PAGO Y RESERVA ==========
+        try:
+            with transaction.atomic():
+                print("🔄 Iniciando transacción atómica...")
+                
+                funcion = get_object_or_404(Funcion, id=funcion_id)
+                formato_funcion = funcion.get_formato_sala()
+                precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
-                    # Pago exitoso: crear registro de pago
-                    pago = Pago(
-                        reserva=None,  # Se asignará después
-                        monto=precio_total,
-                        metodo_pago="TARJETA",
-                        estado_pago="APROBADO",
-                        numero_transaccion=resultado_pago.get("numero_transaccion") or "",
-                        detalles_pago={
-                            "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
-                            "nombre_titular": nombre_titular,
-                            "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
-                        },
-                        metodo_pago_guardado=metodo_guardado_usado  # Asociar método guardado si se usó
-                    )
-                    pago.save()
+                # Recalcular totales
+                subtotal = cantidad_boletos * precio_por_boleto
+                descuento_monto = subtotal * (float(descuento_porcentaje) / 100)
+                precio_total = subtotal - descuento_monto
 
-                    # Crear reserva
-                    reserva = Reserva(
-                        pelicula=pelicula,
-                        nombre_cliente=nombre_cliente,
-                        apellido_cliente=apellido_cliente,
-                        email=email,
-                        formato=formato_funcion,
-                        sala=str(funcion.sala),
-                        horario=funcion.horario,
-                        fecha_funcion=fecha_seleccionada,
-                        asientos=",".join(asientos_seleccionados),
-                        cantidad_boletos=cantidad_boletos,
-                        precio_total=precio_total,
-                        estado="RESERVADO",
-                        usuario=request.user if request.user.is_authenticated else None,
-                        pago_completado=True,
-                        fecha_pago=timezone.now()
-                    )
-                    reserva.codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                    reserva.save()
+                # ========== VALIDAR DISPONIBILIDAD FINAL ==========
+                reservas_conflicto = Reserva.objects.filter(
+                    pelicula=pelicula,
+                    sala=str(funcion.sala),
+                    horario=funcion.horario,
+                    fecha_funcion=fecha_seleccionada,
+                    estado__in=['RESERVADO', 'CONFIRMADO']
+                )
+                
+                asientos_conflicto = []
+                for res in reservas_conflicto:
+                    asientos_conflicto.extend(res.get_asientos_list())
+                
+                asientos_duplicados = [a for a in asientos_seleccionados if a in asientos_conflicto]
+                if asientos_duplicados:
+                    raise Exception(f"Los asientos {', '.join(asientos_duplicados)} ya fueron reservados por otro usuario")
 
-                    # Asociar pago con reserva
-                    pago.reserva = reserva
-                    pago.save()
+                # ========== PROCESAR PAGO SIMULADO ==========
+                datos_tarjeta = {
+                    'numero': numero_tarjeta,
+                    'mes_expiracion': int(fecha_expiracion.split('/')[0]),
+                    'anio_expiracion': int('20' + fecha_expiracion.split('/')[1]),
+                    'cvv': cvv,
+                    'nombre_titular': nombre_titular
+                }
+                
+                print(f"💳 Procesando pago de ${precio_total:.2f}...")
+                resultado_pago = simular_pago(
+                    datos_tarjeta=datos_tarjeta,
+                    monto=float(precio_total)
+                )
 
-                    # Registrar venta
-                    Venta.objects.create(
-                        pelicula=reserva.pelicula,
-                        sala=reserva.sala,
-                        fecha=fecha_seleccionada,
-                        cantidad_boletos=reserva.cantidad_boletos,
-                        total_venta=reserva.precio_total
-                    )
+                if not resultado_pago["exitoso"]:
+                    error_msg = resultado_pago.get('error_message', 'Pago rechazado')
+                    print(f"❌ Pago rechazado: {error_msg}")
+                    raise Exception(f"Pago rechazado: {error_msg}")
 
-                    # PDF y correo
+                print("✅ Pago aprobado!")
+
+                # ========== CREAR REGISTRO DE PAGO ==========
+                pago = Pago(
+                    reserva=None,  # Se asignará después
+                    monto=precio_total,
+                    metodo_pago="TARJETA",
+                    estado_pago="APROBADO",
+                    numero_transaccion=resultado_pago.get("numero_transaccion") or "",
+                    detalles_pago={
+                        "numero_tarjeta_enmascarado": resultado_pago.get("numero_tarjeta_enmascarado", ""),
+                        "nombre_titular": nombre_titular,
+                        "tipo_tarjeta": resultado_pago.get("tipo_tarjeta", ""),
+                    },
+                    metodo_pago_guardado=metodo_guardado_usado
+                )
+                pago.save()
+                print(f"💾 Pago guardado - ID: {pago.id}")
+
+                # ========== CREAR RESERVA ==========
+                codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                
+                reserva = Reserva(
+                    pelicula=pelicula,
+                    nombre_cliente=nombre_cliente,
+                    apellido_cliente=apellido_cliente,
+                    email=email,
+                    formato=formato_funcion,
+                    sala=str(funcion.sala),
+                    horario=funcion.horario,
+                    fecha_funcion=fecha_seleccionada,
+                    asientos=",".join(asientos_seleccionados),
+                    cantidad_boletos=cantidad_boletos,
+                    precio_total=precio_total,
+                    estado="CONFIRMADO",  # Ya está pagado
+                    usuario=request.user if request.user.is_authenticated else None,
+                    pago_completado=True,
+                    fecha_pago=timezone.now(),
+                    codigo_reserva=codigo_reserva
+                )
+                reserva.save()
+                print(f"🎟️ Reserva creada - Código: {codigo_reserva}")
+
+                # Asociar pago con reserva
+                pago.reserva = reserva
+                pago.save()
+
+                # ========== REGISTRAR VENTA ==========
+                Venta.objects.create(
+                    pelicula=reserva.pelicula,
+                    sala=reserva.sala,
+                    fecha=fecha_seleccionada,
+                    cantidad_boletos=reserva.cantidad_boletos,
+                    total_venta=reserva.precio_total
+                )
+                print("📊 Venta registrada")
+
+                # ========== GENERAR PDF Y ENVIAR EMAIL ==========
+                try:
                     pdf_buffer = generar_pdf_reserva(reserva)
                     subject = f"Confirmación de Reserva - Código {reserva.codigo_reserva}"
                     body = (
                         f"Hola {reserva.nombre_cliente},<br><br>"
-                        f"Tu reserva para la película '{reserva.pelicula.nombre}' ha sido confirmada.<br>"
-                        f"Código de reserva: {reserva.codigo_reserva}<br>"
-                        f"Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
-                        f"Horario: {funcion.get_horario_display()}<br>"
-                        f"Sala: {funcion.sala}<br>"
-                        f"Formato: {formato_funcion}<br>"
-                        f"Asientos: {','.join(asientos_seleccionados)}<br>"
+                        f"Tu reserva para la película '<strong>{reserva.pelicula.nombre}</strong>' ha sido confirmada.<br><br>"
+                        f"<strong>Detalles de tu reserva:</strong><br>"
+                        f"🎫 Código de reserva: <strong>{reserva.codigo_reserva}</strong><br>"
+                        f"📅 Fecha: {fecha_seleccionada.strftime('%d/%m/%Y')}<br>"
+                        f"🕐 Horario: {funcion.get_horario_display()}<br>"
+                        f"🎬 Sala: {funcion.sala}<br>"
+                        f"📽️ Formato: {formato_funcion}<br>"
+                        f"💺 Asientos: {', '.join(asientos_seleccionados)}<br><br>"
+                        f"<strong>Resumen de pago:</strong><br>"
                         f"Subtotal: ${subtotal:.2f}<br>"
                         f"Descuento: -${descuento_monto:.2f}<br>"
-                        f"Total: ${precio_total:.2f}<br>"
-                        f"Transacción: {pago.numero_transaccion}<br><br>"
+                        f"<strong>Total: ${precio_total:.2f}</strong><br>"
+                        f"💳 Transacción: {pago.numero_transaccion}<br><br>"
                         "Adjunto encontrarás tu ticket en formato PDF.<br><br>"
-                        "¡Gracias por elegir CineDot!"
+                        "¡Gracias por elegir CineDot! 🎬🍿"
                     )
+                    
                     send_brevo_email(
                         to_emails=[reserva.email],
                         subject=subject,
                         html_content=body,
-                        attachments=[(f"ticket_{reserva.codigo_reserva}.pdf", pdf_buffer.getvalue(), "application/pdf")]
+                        attachments=[(
+                            f"ticket_{reserva.codigo_reserva}.pdf", 
+                            pdf_buffer.getvalue(), 
+                            "application/pdf"
+                        )]
                     )
+                    print("📧 Email enviado con éxito")
+                except Exception as e:
+                    print(f"⚠️ Error al enviar email: {str(e)}")
+                    # No fallar la reserva si falla el email
 
-                    # Guardar método de pago si se solicitó
-                    if guardar_tarjeta and request.user.is_authenticated:
-                        try:
-                            # Encriptar datos de la tarjeta
-                            datos_encriptados = encrypt_card_data_full(
-                                numero_tarjeta=numero_tarjeta,
-                                nombre_titular=nombre_titular,
-                                fecha_expiracion=fecha_expiracion
-                            )
-                            
-                            # Detectar tipo de tarjeta
-                            tipo_tarjeta = resultado_pago.get("tipo_tarjeta", "OTRA")
-                            
-                            # Verificar si ya existe un método con este alias
-                            metodo_existente = MetodoPago.objects.filter(
+                # ========== GUARDAR MÉTODO DE PAGO (SI SE SOLICITÓ) ==========
+                if guardar_tarjeta and request.user.is_authenticated:
+                    try:
+                        datos_encriptados = encrypt_card_data_full(
+                            numero_tarjeta=numero_tarjeta,
+                            nombre_titular=nombre_titular,
+                            fecha_expiracion=fecha_expiracion
+                        )
+                        
+                        tipo_tarjeta = resultado_pago.get("tipo_tarjeta", "OTRA")
+                        
+                        metodo_existente = MetodoPago.objects.filter(
+                            usuario=request.user,
+                            alias=alias_tarjeta
+                        ).first()
+                        
+                        if metodo_existente:
+                            # Actualizar
+                            metodo_existente.datos_encriptados = datos_encriptados
+                            metodo_existente.ultimos_4_digitos = numero_tarjeta[-4:]
+                            metodo_existente.tipo_tarjeta = tipo_tarjeta
+                            metodo_existente.mes_expiracion = int(fecha_expiracion.split('/')[0])
+                            metodo_existente.anio_expiracion = int('20' + fecha_expiracion.split('/')[1])
+                            metodo_existente.nombre_titular = nombre_titular
+                            metodo_existente.activo = True
+                            metodo_existente.save()
+                            messages.success(request, f"✓ Método de pago '{alias_tarjeta}' actualizado")
+                        else:
+                            # Crear nuevo
+                            MetodoPago.objects.create(
                                 usuario=request.user,
-                                alias=alias_tarjeta
-                            ).first()
-                            
-                            if metodo_existente:
-                                # Actualizar el método existente
-                                metodo_existente.datos_encriptados = datos_encriptados
-                                metodo_existente.ultimos_4_digitos = numero_tarjeta[-4:]
-                                metodo_existente.tipo_tarjeta = tipo_tarjeta
-                                metodo_existente.mes_expiracion = int(fecha_expiracion.split('/')[0])
-                                metodo_existente.anio_expiracion = int('20' + fecha_expiracion.split('/')[1])
-                                metodo_existente.nombre_titular = nombre_titular
-                                metodo_existente.activo = True
-                                metodo_existente.save()
-                                messages.success(request, f"✓ Método de pago '{alias_tarjeta}' actualizado exitosamente")
-                            else:
-                                # Crear nuevo método de pago
-                                MetodoPago.objects.create(
-                                    usuario=request.user,
-                                    tipo='TARJETA',
-                                    alias=alias_tarjeta,
-                                    datos_encriptados=datos_encriptados,
-                                    ultimos_4_digitos=numero_tarjeta[-4:],
-                                    tipo_tarjeta=tipo_tarjeta,
-                                    mes_expiracion=int(fecha_expiracion.split('/')[0]),
-                                    anio_expiracion=int('20' + fecha_expiracion.split('/')[1]),
-                                    nombre_titular=nombre_titular,
-                                    es_predeterminado=False,
-                                    activo=True
-                                )
-                                messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado exitosamente")
-                        except Exception as e:
-                            # No fallar la reserva si falla el guardado
-                            messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
+                                tipo='TARJETA',
+                                alias=alias_tarjeta,
+                                datos_encriptados=datos_encriptados,
+                                ultimos_4_digitos=numero_tarjeta[-4:],
+                                tipo_tarjeta=tipo_tarjeta,
+                                mes_expiracion=int(fecha_expiracion.split('/')[0]),
+                                anio_expiracion=int('20' + fecha_expiracion.split('/')[1]),
+                                nombre_titular=nombre_titular,
+                                es_predeterminado=False,
+                                activo=True
+                            )
+                            messages.success(request, f"✓ Método de pago '{alias_tarjeta}' guardado")
+                    except Exception as e:
+                        messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
 
-                    request.session["codigo_reserva"] = reserva.codigo_reserva
-                    messages.success(request, f"¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}")
-                    return redirect(f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}")
-                    
-            except Exception as e:
-                # Si es un error de pago rechazado, ya mostramos el mensaje
-                if "Pago rechazado" not in str(e):
-                    messages.error(request, f"Error al procesar la reserva: {str(e)}")
-                # La transacción se revierte automáticamente
-        else:
-            for error in errores:
-                messages.error(request, error)
+                # ========== ÉXITO ==========
+                request.session["codigo_reserva"] = reserva.codigo_reserva
+                messages.success(
+                    request, 
+                    f"🎉 ¡Pago y reserva exitosos! Código: {reserva.codigo_reserva}"
+                )
+                
+                print(f"✅ Proceso completado exitosamente - Código: {codigo_reserva}")
+                
+                return redirect(
+                    f"{reverse('asientos', args=[pelicula.id])}?fecha={fecha_seleccionada.strftime('%Y-%m-%d')}"
+                )
+                
+        except Exception as e:
+            print(f"❌ Error en transacción: {str(e)}")
+            if "Pago rechazado" in str(e):
+                messages.error(request, str(e))
+            else:
+                messages.error(request, f"Error al procesar la reserva: {str(e)}")
 
-    # --- Render normal (GET inicial o POST sin reservar) ---
+    # ========== RENDER NORMAL (GET O POST SIN RESERVAR) ==========
     funciones_con_precios = []
     for funcion in funciones_vigentes:
         formato = funcion.get_formato_sala()
@@ -928,7 +1108,7 @@ def asientos(request, pelicula_id=None):
             "precio": precio
         })
 
-    # Cargar métodos de pago guardados si el usuario está autenticado
+    # Cargar métodos de pago guardados
     metodos_guardados = []
     if request.user.is_authenticated:
         metodos_guardados = MetodoPago.objects.filter(
@@ -959,6 +1139,7 @@ def asientos(request, pelicula_id=None):
         "codigo_cupon": codigo_cupon,
         "metodos_guardados": metodos_guardados,
     }
+    
     return render(request, "asientos.html", context)
 
 #################################################################
@@ -2141,6 +2322,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render
 from .models import Venta, Pelicula
 
+
 @admin_required
 def reportes_admin(request):
     peliculas = Pelicula.objects.all()
@@ -2148,69 +2330,91 @@ def reportes_admin(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    # Filtrar solo reservas con formato válido
-    reservas = Reserva.objects.filter(formato__in=['2D', '3D', 'IMAX'])
+    # ✅ USAR MODELO VENTA EN LUGAR DE RESERVA
+    ventas = Venta.objects.all()
 
-    # --- Filtros por fecha y película ---
+    # --- Filtros por fecha ---
     if fecha_inicio and fecha_fin:
-        reservas = reservas.filter(fecha_reserva__date__range=[fecha_inicio, fecha_fin])
+        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
 
+    # --- Filtro por película ---
     if pelicula_id:
-        reservas = reservas.filter(pelicula_id=pelicula_id)
+        ventas = ventas.filter(pelicula_id=pelicula_id)
 
-    # --- Agrupar por película y ordenar por total de boletos (descendente) ---
-    reservas_resumen = (
-        reservas.values('pelicula__nombre')
+    # --- Agrupar por película y ordenar por total de boletos ---
+    ventas_resumen = (
+        ventas.values('pelicula__nombre')
         .annotate(
             total_boletos=Sum('cantidad_boletos'),
-            total_venta=Sum('precio_total')
+            total_venta=Sum('total_venta')
         )
         .order_by('-total_boletos')
     )
 
-    # --- Calcular boletos por formato (por película) ---
-    formatos_disponibles = ['2D', '3D', 'IMAX']
+    # --- Calcular boletos por formato ---
     formatos_info = {}
-
-    for r in reservas_resumen:
-        pelicula_nombre = r['pelicula__nombre']
-        key = pelicula_nombre
-        formatos_info[key] = []
-
-        for formato in formatos_disponibles:
-            boletos = reservas.filter(
-                pelicula__nombre=pelicula_nombre,
-                formato=formato
-            ).aggregate(Sum('cantidad_boletos'))['cantidad_boletos__sum'] or 0
-
-            if boletos > 0:
-                formatos_info[key].append({
-                    'formato': formato,
-                    'total_boletos': boletos
+    
+    for v in ventas_resumen:
+        pelicula_nombre = v['pelicula__nombre']
+        formatos_info[pelicula_nombre] = []
+        
+        # Obtener reservas de esta película
+        reservas_filtradas = Reserva.objects.filter(
+            pelicula__nombre=pelicula_nombre,
+            estado__in=['RESERVADO', 'CONFIRMADO']
+        )
+        
+        # Aplicar mismos filtros de fecha
+        if fecha_inicio and fecha_fin:
+            reservas_filtradas = reservas_filtradas.filter(
+                fecha_funcion__range=[fecha_inicio, fecha_fin]
+            )
+        
+        # Agrupar por formato
+        formatos_pelicula = (
+            reservas_filtradas.values('formato')
+            .annotate(total_boletos=Sum('cantidad_boletos'))
+            .order_by('-total_boletos')
+        )
+        
+        for f in formatos_pelicula:
+            if f['formato'] and f['total_boletos'] > 0:
+                formatos_info[pelicula_nombre].append({
+                    'formato': f['formato'],
+                    'total_boletos': f['total_boletos']
                 })
 
     # --- Totales generales ---
-    resumen_general = reservas.aggregate(
+    resumen_general = ventas.aggregate(
         total_boletos=Sum('cantidad_boletos'),
-        total_ventas=Sum('precio_total')
+        total_ventas=Sum('total_venta')
     )
+
+    # Asegurar que no sean None
+    if resumen_general['total_boletos'] is None:
+        resumen_general['total_boletos'] = 0
+    if resumen_general['total_ventas'] is None:
+        resumen_general['total_ventas'] = 0.0
 
     # --- Películas más populares ---
     popularidad = (
-        reservas.values('pelicula__nombre')
+        ventas.values('pelicula__nombre')
         .annotate(total_boletos=Sum('cantidad_boletos'))
         .order_by('-total_boletos')[:5]
     )
 
     context = {
         'peliculas': peliculas,
-        'ventas_resumen': reservas_resumen,
+        'ventas_resumen': ventas_resumen,
         'resumen_general': resumen_general,
         'popularidad': popularidad,
         'formatos_info': formatos_info,
     }
 
     return render(request, 'reportes_admin.html', context)
+
+
+###################################################################################
 
 ### Exportar Reportes exell y pdf
 
@@ -2498,22 +2702,29 @@ class CustomPasswordResetView(PasswordResetView):
 
 import json
 
+##########################################################################################
 @admin_required
 def dashboard_admin(request):
-    # Filtrar solo reservas con formato válido
-    reservas = Reserva.objects.filter(formato__in=['2D', '3D', 'IMAX'])
-
+    # ✅ USAR MODELO VENTA
+    ventas = Venta.objects.all()
+    
+    # Top 10 películas más vendidas
     top_peliculas = list(
-        reservas.values('pelicula__nombre')
+        ventas.values('pelicula__nombre')
         .annotate(
             total_boletos=Sum('cantidad_boletos'),
-            total_venta=Sum('precio_total')
+            total_venta=Sum('total_venta')
         )
         .order_by('-total_boletos')[:10]
     )
 
+    # Para formatos, usar Reservas
+    reservas_confirmadas = Reserva.objects.filter(
+        estado__in=['RESERVADO', 'CONFIRMADO']
+    )
+    
     formatos = list(
-        reservas.values('formato')
+        reservas_confirmadas.values('formato')
         .annotate(
             total_boletos=Sum('cantidad_boletos'),
             total_venta=Sum('precio_total')
@@ -2521,10 +2732,29 @@ def dashboard_admin(request):
         .order_by('-total_boletos')
     )
 
-    resumen_general = reservas.aggregate(
+    # Filtrar formatos vacíos
+    formatos = [f for f in formatos if f['formato']]
+
+    # Resumen general
+    resumen_general = ventas.aggregate(
         total_boletos=Sum('cantidad_boletos'),
-        total_ventas=Sum('precio_total')
+        total_ventas=Sum('total_venta')
     )
+
+    # Valores por defecto
+    if resumen_general['total_boletos'] is None:
+        resumen_general['total_boletos'] = 0
+    if resumen_general['total_ventas'] is None:
+        resumen_general['total_ventas'] = 0.0
+
+    # Debug en consola
+    print("=" * 50)
+    print("📊 DASHBOARD DATA:")
+    print(f"Total Boletos: {resumen_general['total_boletos']}")
+    print(f"Total Ventas: ${resumen_general['total_ventas']:.2f}")
+    print(f"Top Películas: {len(top_peliculas)}")
+    print(f"Formatos: {len(formatos)}")
+    print("=" * 50)
 
     context = {
         "resumen_general": resumen_general,
@@ -2533,7 +2763,11 @@ def dashboard_admin(request):
         "top_peliculas_json": json.dumps(top_peliculas, default=str),
         "formatos_json": json.dumps(formatos, default=str),
     }
+    
     return render(request, "dashboard_admin.html", context)
+
+
+##############################################################################
 
 @login_required
 def mis_reservaciones_cancelables(request):

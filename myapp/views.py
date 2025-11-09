@@ -920,8 +920,10 @@ def asientos(request, pelicula_id=None):
                 # ========== CREAR CÓDIGO DE RESERVA ==========
                 codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
                 
-                # ========== CREAR RESERVA ==========
-                asientos_str = ",".join(asientos_seleccionados)
+                asientos_finales_unicos = sorted(list(set(asientos_seleccionados)))
+
+                # 2. Crear el string final
+                asientos_str = ",".join(asientos_finales_unicos)
                 print(f"💾 Guardando reserva con asientos: '{asientos_str}'")
                 
                 reserva = Reserva(

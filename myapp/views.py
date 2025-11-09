@@ -3216,6 +3216,28 @@ def administrar_usuarios(request):
             user.delete()
             messages.success(request, "🗑️ Usuario eliminado correctamente.")
             return redirect("administrar_usuarios")
+        
+        # Restablecer contraseña
+        elif accion == "reset_password":
+            user_id = request.POST.get("user_id")
+            nueva_password = request.POST.get("nueva_password", "").strip()
+            
+            if not user_id or not nueva_password:
+                messages.error(request, "⚠️ Datos incompletos para restablecer contraseña.")
+                return redirect("administrar_usuarios")
+            
+            if len(nueva_password) < 4:
+                messages.error(request, "⚠️ La contraseña debe tener al menos 4 caracteres.")
+                return redirect("administrar_usuarios")
+            
+            try:
+                user = get_object_or_404(User, id=user_id)
+                user.set_password(nueva_password)
+                user.save()
+                messages.success(request, f"✅ Contraseña de '{user.username}' restablecida correctamente.")
+            except Exception as e:
+                messages.error(request, f"❌ Error al restablecer contraseña: {str(e)}")
+                return redirect("administrar_usuarios")
 
     # --- MODO EDICIÓN ---
     if request.method == "GET" and "editar" in request.GET:

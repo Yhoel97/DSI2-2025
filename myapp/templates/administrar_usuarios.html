@@ -24,7 +24,6 @@
     <div class="mb-3 d-flex gap-2">
         <a href="{% url 'index' %}" class="btn btn-primary">
             <i class="fas fa-home"></i> Volver al Inicio
-            
         </a>
         <a href="{% url 'peliculas' %}" class="btn btn-primary"><i class="fas fa-film"></i> Administrar Películas</a>
     </div>
@@ -143,7 +142,6 @@
                                     <i class="fas fa-trash"></i> Eliminar
                                 </button>
                             </form>
-
                         </td>
                     </tr>
                     {% empty %}
@@ -158,13 +156,17 @@
 <script src="https://kit.fontawesome.com/a076d05399.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
+// ✅ SOLUCIÓN: Definir las URLs de Django ANTES de usarlas en funciones
+const ADMIN_USUARIOS_URL = "{% url 'administrar_usuarios' %}";
+const CSRF_TOKEN = "{{ csrf_token }}";
+
+// Confirmación para eliminar usuario
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".delete-form").forEach(form => {
         form.addEventListener("submit", function(e) {
-            e.preventDefault(); // Evita que se envíe inmediatamente
-
-            const username = this.querySelector("input[name='user_id']").value;
+            e.preventDefault();
 
             Swal.fire({
                 title: '¿Eliminar usuario?',
@@ -177,17 +179,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    this.submit(); // Envía el formulario al confirmar
+                    this.submit();
                 }
             });
         });
     });
 });
 
-</script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-<script>
+// ✅ FUNCIÓN CORREGIDA: Restablecer contraseña
 function abrirResetModal(userId, username) {
     Swal.fire({
         title: `🔑 Restablecer contraseña`,
@@ -204,6 +203,10 @@ function abrirResetModal(userId, username) {
                 Swal.showValidationMessage('⚠️ La contraseña no puede estar vacía');
                 return false;
             }
+            if (nuevaPass.length < 4) {
+                Swal.showValidationMessage('⚠️ La contraseña debe tener al menos 4 caracteres');
+                return false;
+            }
             return nuevaPass;
         }
     }).then((result) => {
@@ -211,12 +214,12 @@ function abrirResetModal(userId, username) {
             // Crear formulario dinámico para POST
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = "{% url 'administrar_usuarios' %}";
+            form.action = ADMIN_USUARIOS_URL; // ✅ Usar la variable definida arriba
             
             const csrf = document.createElement('input');
             csrf.type = 'hidden';
             csrf.name = 'csrfmiddlewaretoken';
-            csrf.value = '{{ csrf_token }}';
+            csrf.value = CSRF_TOKEN; // ✅ Usar la variable definida arriba
             
             const accion = document.createElement('input');
             accion.type = 'hidden';
@@ -238,24 +241,6 @@ function abrirResetModal(userId, username) {
             form.appendChild(uid);
             form.appendChild(pass);
             document.body.appendChild(form);
-            form.submit();
-        }
-    });
-}
-
-// Confirmar eliminación bonita
-function confirmarEliminar(form, username) {
-    Swal.fire({
-        title: `¿Eliminar a ${username}?`,
-        text: "Esta acción no se puede deshacer.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#d33",
-        cancelButtonColor: "#3085d6",
-        confirmButtonText: "Sí, eliminar",
-        cancelButtonText: "Cancelar"
-    }).then((result) => {
-        if (result.isConfirmed) {
             form.submit();
         }
     });

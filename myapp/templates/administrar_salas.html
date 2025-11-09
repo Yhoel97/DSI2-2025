@@ -3,149 +3,223 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Administrar Salas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administrar Salas - CineDot</title>
   <link rel="stylesheet" href="{% static 'styles/administrar_salas.css' %}">
 </head>
 <body>
-  <div class="cine-container">
-    <div class="header-admin">
-      <h1 class="admin-title">Administrar Salas</h1>
-      <div class="admin-buttons">
-        <a href="{% url 'peliculas' %}" class="btn-green">Administrar Películas</a>
-        <a href="{% url 'index' %}" class="btn-green">Inicio</a>
+  <!-- Loader animado -->
+  <div class="loader-overlay" id="loader">
+    <div class="loader-content">
+      <div class="film-strip">
+        <div class="film-hole"></div>
+        <div class="film-hole"></div>
+        <div class="film-hole"></div>
+      </div>
+      <p class="loader-text">Cargando salas...</p>
+    </div>
+  </div>
 
+  <!-- Contenedor principal -->
+  <div class="cine-container">
+    <!-- Header con efecto glassmorphism -->
+    <div class="header-admin">
+      <h1 class="admin-title">
+        <span class="title-icon">🎬</span>
+        Administrar Salas
+        <div class="title-underline"></div>
+      </h1>
+      <div class="admin-buttons">
+        <a href="{% url 'peliculas' %}" class="btn-green">
+          <span class="btn-icon">🎞️</span>
+          Películas
+        </a>
+        <a href="{% url 'index' %}" class="btn-green">
+          <span class="btn-icon">🏠</span>
+          Inicio
+        </a>
       </div>
     </div>
 
-    <!-- Select de películas -->
-    <form method="GET" class="form-group">
-      <label for="pelicula">Película:</label>
-      <select name="pelicula" id="pelicula" onchange="this.form.submit()">
-        <option value="">-- Selecciona una película --</option>
-        {% for p in peliculas %}
-        <option value="{{ p.id }}" {% if pelicula and p.id == pelicula.id %}selected{% endif %}>{{ p.nombre }}</option>
-        {% endfor %}
-      </select>
-    </form>
-
-    <!-- Select de horario y sala -->
-    {% if pelicula %}
-    <form method="GET" class="form-group">
-      <input type="hidden" name="pelicula" value="{{ pelicula.id }}">
-      <label for="combo">Horario y Sala:</label>
-      <select name="combo" id="combo" onchange="this.form.submit()">
-        <option value="">-- Selecciona horario y sala --</option>
-        {% for c in combinaciones %}
-        <option value="{{ c }}" {% if c == combo_actual %}selected{% endif %}>{{ c }}</option>
-        {% endfor %}
-      </select>
-    </form>
-    {% endif %}
-
-    <!-- Cuadrícula de asientos -->
-    {% if combo_actual %}
-    <div class="screen-container"><div class="screen">Pantalla</div></div>
-    <div class="seats-container">
-      <div class="seats-grid">
-        {% for fila in "ABCDE" %}
-        <div class="seat-row">
-          <span class="row-letter">{{ fila }}</span>
-          {% for numero in "12345678" %}
-          {% with asiento=fila|add:numero %}
-          <div class="seat {% if asiento in asientos_ocupados %}reserved clickable{% else %}available{% endif %}" 
-               data-seat="{{ asiento }}">
-            {{ numero }}
-          </div>
-          {% endwith %}
+    <!-- Selector de Fecha con animación -->
+    <div class="section-card fade-in">
+      <form method="GET" class="form-group">
+        <label for="fecha" class="form-label">
+          <span class="label-icon">📅</span>
+          Fecha de la Función
+        </label>
+        <div class="date-selector">
+          {% for dia in fechas_disponibles %}
+          <button type="submit" name="fecha" value="{{ dia.fecha|date:'Y-m-d' }}" 
+                  class="date-btn {% if dia.fecha == fecha_seleccionada %}active{% endif %} {% if dia.es_hoy %}today{% endif %}">
+            <span class="day-name">{{ dia.nombre }}</span>
+            <span class="day-date">{{ dia.formato }}</span>
+            {% if dia.es_hoy %}
+            <span class="today-badge">Hoy</span>
+            {% endif %}
+          </button>
           {% endfor %}
         </div>
-        {% endfor %}
-      </div>
+      </form>
     </div>
 
-    <!-- Botones -->
-    <div class="form-group">
-      <button class="btn-confirm" id="btn-restablecer">Restablecer todos los asientos</button>
-      <button class="btn-confirm" id="btn-eliminar" style="display:none;">
-        Eliminar asiento <span id="asiento-label"></span>
-      </button>
+    <!-- Select de películas con animación -->
+    <div class="section-card fade-in" style="animation-delay: 0.1s;">
+      <form method="GET" class="form-group">
+        <input type="hidden" name="fecha" value="{{ fecha_seleccionada|date:'Y-m-d' }}">
+        <label for="pelicula" class="form-label">
+          <span class="label-icon">🎥</span>
+          Película en Cartelera
+        </label>
+        <div class="select-wrapper">
+          <select name="pelicula" id="pelicula" class="custom-select" onchange="this.form.submit()">
+            <option value="">-- Selecciona una película --</option>
+            {% for p in peliculas %}
+            <option value="{{ p.id }}" {% if pelicula and p.id == pelicula.id %}selected{% endif %}>
+              {{ p.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+    </div>
+
+    <!-- Select de horario y sala con animación -->
+    {% if pelicula %}
+    <div class="section-card fade-in" style="animation-delay: 0.2s;">
+      <form method="GET" class="form-group">
+        <input type="hidden" name="pelicula" value="{{ pelicula.id }}">
+        <input type="hidden" name="fecha" value="{{ fecha_seleccionada|date:'Y-m-d' }}">
+        <label for="combo" class="form-label">
+          <span class="label-icon">🎭</span>
+          Horario y Sala
+        </label>
+        <div class="select-wrapper">
+          <select name="combo" id="combo" class="custom-select" onchange="this.form.submit()">
+            <option value="">-- Selecciona horario y sala --</option>
+            {% for c in combinaciones %}
+            <option value="{{ c }}" {% if c == combo_actual %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Cuadrícula de asientos con animación -->
+    {% if combo_actual %}
+    <div class="section-card fade-in" style="animation-delay: 0.3s;">
+      <!-- Info de la función -->
+      <div class="function-info">
+        <div class="info-card">
+          <span class="info-icon">🎬</span>
+          <span class="info-text">{{ pelicula.nombre }}</span>
+        </div>
+        <div class="info-card">
+          <span class="info-icon">📅</span>
+          <span class="info-text">{{ fecha_seleccionada|date:"d/m/Y" }}</span>
+        </div>
+        <div class="info-card">
+          <span class="info-icon">🎭</span>
+          <span class="info-text">{{ combo_actual }}</span>
+        </div>
+      </div>
+
+      <!-- Pantalla del cine -->
+      <div class="screen-container">
+        <div class="screen">
+          <span class="screen-text">PANTALLA</span>
+          <div class="screen-glow"></div>
+        </div>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="legend">
+        <div class="legend-item">
+          <div class="seat-demo available"></div>
+          <span>Disponible</span>
+        </div>
+        <div class="legend-item">
+          <div class="seat-demo reserved"></div>
+          <span>Ocupado</span>
+        </div>
+        <div class="legend-item">
+          <div class="seat-demo selected"></div>
+          <span>Seleccionado</span>
+        </div>
+      </div>
+
+      <!-- Asientos (5 filas x 8 columnas = 40 asientos) -->
+      <div class="seats-container">
+        <div class="seats-grid">
+          {% for fila in "ABCDE" %}
+          <div class="seat-row" style="animation-delay: {{ forloop.counter0|add:'0.05' }}s;">
+            <span class="row-letter">{{ fila }}</span>
+            {% for numero in "12345678" %}
+            {% with asiento=fila|add:numero %}
+            <div class="seat {% if asiento in asientos_ocupados %}reserved clickable{% else %}available{% endif %}" 
+                 data-seat="{{ asiento }}"
+                 style="animation-delay: {{ forloop.counter0|add:'0.02' }}s;">
+              <span class="seat-number">{{ numero }}</span>
+              <div class="seat-shine"></div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Contador de asientos -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <span class="stat-number">{{ asientos_ocupados|length }}</span>
+          <span class="stat-label">Ocupados</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="available-count">0</span>
+          <span class="stat-label">Disponibles</span>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="action-buttons">
+        <button class="btn-action btn-reset" id="btn-restablecer">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-text">Restablecer Todos</span>
+          <div class="btn-ripple"></div>
+        </button>
+        <button class="btn-action btn-delete" id="btn-eliminar" style="display:none;">
+          <span class="btn-icon">🗑️</span>
+          <span class="btn-text">Eliminar <span id="asiento-label"></span></span>
+          <div class="btn-ripple"></div>
+        </button>
+      </div>
     </div>
     {% endif %}
   </div>
 
-  <!-- JavaScript igual que antes -->
+  <!-- Toast de notificaciones -->
+  <div class="toast" id="toast">
+    <span class="toast-icon">✓</span>
+    <span class="toast-message"></span>
+  </div>
+
+  <!-- JavaScript externo -->
   <script>
-    const reservedSeats = document.querySelectorAll('.clickable');
-    const btnEliminar = document.getElementById('btn-eliminar');
-    const btnRestablecer = document.getElementById('btn-restablecer');
-    const asientoLabel = document.getElementById('asiento-label');
-    let selectedAsiento = null;
-
-    reservedSeats.forEach(seat => {
-      seat.addEventListener('click', () => {
-        const asiento = seat.getAttribute('data-seat');
-
-        if (selectedAsiento === asiento) {
-          seat.classList.remove('selected');
-          selectedAsiento = null;
-          asientoLabel.textContent = '';
-          btnEliminar.style.display = 'none';
-        } else {
-          reservedSeats.forEach(s => s.classList.remove('selected'));
-          seat.classList.add('selected');
-          selectedAsiento = asiento;
-          asientoLabel.textContent = asiento;
-          btnEliminar.style.display = 'inline-block';
+    // Pasar el CSRF token al JavaScript
+    window.CSRF_TOKEN = '{{ csrf_token }}';
+    
+    // **CRÍTICO**: Ocultar loader como fallback si el JS externo falla
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        const loader = document.getElementById('loader');
+        if (loader) {
+          loader.classList.add('hidden');
         }
-      });
-    });
-
-    btnEliminar.addEventListener('click', e => {
-      e.preventDefault();
-      fetch(window.location.href, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `eliminar_asiento=${selectedAsiento}`
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          const seat = document.querySelector(`[data-seat="${selectedAsiento}"]`);
-          seat.classList.remove('reserved', 'selected');
-          seat.classList.add('available');
-          btnEliminar.style.display = 'none';
-          selectedAsiento = null;
-        } else {
-          alert("Error: " + data.error);
-        }
-      });
-    });
-
-    btnRestablecer.addEventListener('click', e => {
-      e.preventDefault();
-      fetch(window.location.href, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `restablecer=true`
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.querySelectorAll('.reserved').forEach(seat => {
-            seat.classList.remove('reserved', 'selected');
-            seat.classList.add('available');
-          });
-          btnEliminar.style.display = 'none';
-          selectedAsiento = null;
-        }
-      });
+      }, 1000);
     });
   </script>
+  <script src="{% static 'js/adminsalas.js' %}"></script>
 </body>
 </html>

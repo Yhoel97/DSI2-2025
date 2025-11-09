@@ -1219,68 +1219,228 @@ def modificar_cupon(request, pk):
 ##################################################################################
 ##################################################################################
 
-
 @csrf_exempt
 def administrar_salas(request):
-    peliculas = Pelicula.objects.all()
-    pelicula_id = request.GET.get('pelicula')
-    combo = request.GET.get('combo')
-    pelicula = Pelicula.objects.filter(id=pelicula_id).first() if pelicula_id else None
+    """
+    Vista para administrar asientos de salas por película, fecha, horario y sala.
+    Solo muestra películas con funciones activas en cartelera.
+    """
+    
+    # ========== OBTENER FECHA SELECCIONADA ==========
+    ahora_naive = datetime.now()
+    hoy = ahora_naive.date()
+    
+    fecha_str = request.GET.get('fecha', '') or request.POST.get('fecha', '')
+    try:
+        fecha_seleccionada = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else hoy
+    except ValueError:
+        fecha_seleccionada = hoy
+    
+    # ========== GENERAR FECHAS DISPONIBLES (5 DÍAS) ==========
+    fechas_disponibles = []
+    nombres_dias_es = {
+        'Monday': 'Lun', 'Tuesday': 'Mar', 'Wednesday': 'Mié',
+        'Thursday': 'Jue', 'Friday': 'Vie', 'Saturday': 'Sáb', 'Sunday': 'Dom'
+    }
+    
+    for i in range(5):
+        dia = hoy + timedelta(days=i)
+        fechas_disponibles.append({
+            'fecha': dia,
+            'nombre': nombres_dias_es[dia.strftime('%A')],
+            'formato': dia.strftime('%d/%m'),
+            'es_hoy': dia == hoy
+        })
+    
+    # ========== OBTENER PELÍCULAS EN CARTELERA ==========
+    # Solo películas con funciones activas que estén vigentes en la fecha seleccionada
+    funciones_activas = Funcion.objects.filter(
+        activa=True,
+        fecha_inicio__lte=fecha_seleccionada
+    ).select_related('pelicula')
+    
+    # Filtrar funciones que no hayan expirado
+    peliculas_ids = set()
+    for funcion in funciones_activas:
+        fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+        if fecha_fin >= fecha_seleccionada:
+            peliculas_ids.add(funcion.pelicula.id)
+    
+    peliculas = Pelicula.objects.filter(id__in=peliculas_ids).order_by('nombre')
+    
+    # ========== PROCESAR PELÍCULA SELECCIONADA ==========
+    pelicula_id = request.GET.get('pelicula') or request.POST.get('pelicula')
+    pelicula = None
+    funciones_vigentes = []
     combinaciones = []
+    combo_actual = request.GET.get('combo') or request.POST.get('combo')
     asientos_ocupados = []
-
-    if pelicula:
-        horarios = pelicula.get_horarios_list()
-        salas = pelicula.get_salas_list()
-        combinaciones = [f"{h} - {s}" for h, s in zip(horarios, salas)]
-
-        if combo:
-            try:
-                horario_sel, sala_sel = combo.split(" - ", 1)
-                reservas = Reserva.objects.filter(
+    
+    if pelicula_id:
+        pelicula = Pelicula.objects.filter(id=pelicula_id).first()
+        
+        if pelicula:
+            # Obtener funciones vigentes para esta película en la fecha seleccionada
+            funciones = Funcion.objects.filter(
+                pelicula=pelicula,
+                activa=True,
+                fecha_inicio__lte=fecha_seleccionada
+            ).order_by('horario', 'sala')
+            
+            for funcion in funciones:
+                fecha_fin = funcion.fecha_inicio + timedelta(weeks=funcion.semanas) - timedelta(days=1)
+                
+                if fecha_fin >= fecha_seleccionada:
+                    # Si es hoy, verificar que no haya pasado el horario
+                    if fecha_seleccionada == hoy:
+                        try:
+                            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                            datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                            if datetime_funcion > (ahora_naive - timedelta(minutes=10)):
+                                funciones_vigentes.append(funcion)
+                        except ValueError:
+                            funciones_vigentes.append(funcion)
+                    else:
+                        funciones_vigentes.append(funcion)
+            
+            # Crear combinaciones: "14:30 - Sala 1 (2D)"
+            for funcion in funciones_vigentes:
+                formato = funcion.get_formato_sala()
+                combo_str = f"{funcion.horario} - Sala {funcion.sala} ({formato})"
+                combinaciones.append(combo_str)
+            
+            # ========== OBTENER ASIENTOS OCUPADOS ==========
+            if combo_actual:
+                try:
+                    # Parsear: "14:30 - Sala 1 (2D)"
+                    partes = combo_actual.split(" - Sala ")
+                    horario_sel = partes[0].strip()
+                    
+                    sala_y_formato = partes[1]
+                    sala_sel = sala_y_formato.split(" (")[0].strip()
+                    
+                    # Buscar reservas para esta combinación específica
+                    reservas = Reserva.objects.filter(
+                        pelicula=pelicula,
+                        sala=sala_sel,
+                        horario=horario_sel,
+                        fecha_funcion=fecha_seleccionada,
+                        estado__in=['RESERVADO', 'CONFIRMADO']
+                    )
+                    
+                    for reserva in reservas:
+                        asientos_ocupados.extend(reserva.get_asientos_list())
+                    
+                    asientos_ocupados = list(set(asientos_ocupados))
+                    
+                    print(f"🎬 Admin Salas - Película: {pelicula.nombre}")
+                    print(f"📅 Fecha: {fecha_seleccionada}")
+                    print(f"🕐 Horario: {horario_sel}")
+                    print(f"🎭 Sala: {sala_sel}")
+                    print(f"💺 Asientos ocupados: {asientos_ocupados}")
+                    
+                except (ValueError, IndexError) as e:
+                    print(f"❌ Error parseando combo: {e}")
+    
+    # ========== MANEJO DE ACCIONES POST ==========
+    if request.method == 'POST':
+        if not combo_actual or not pelicula:
+            return JsonResponse({'success': False, 'error': 'Selecciona película y horario'})
+        
+        try:
+            # Parsear combo actual
+            partes = combo_actual.split(" - Sala ")
+            horario_sel = partes[0].strip()
+            sala_sel = partes[1].split(" (")[0].strip()
+            
+            # ========== RESTABLECER TODOS LOS ASIENTOS ==========
+            if request.POST.get('restablecer') == 'true':
+                reservas_eliminadas = Reserva.objects.filter(
                     pelicula=pelicula,
-                    horario=horario_sel.strip(),
-                    sala=sala_sel.strip(),
+                    sala=sala_sel,
+                    horario=horario_sel,
+                    fecha_funcion=fecha_seleccionada,
                     estado__in=['RESERVADO', 'CONFIRMADO']
                 )
-                for r in reservas:
-                    asientos_ocupados.extend(r.get_asientos_list())
-            except ValueError:
-                pass
-
-        # Restablecer todos los asientos
-        if request.method == 'POST' and request.POST.get('restablecer') == 'true':
-            Reserva.objects.filter(
-                pelicula=pelicula,
-                horario=horario_sel.strip(),
-                sala=sala_sel.strip(),
-                estado__in=['RESERVADO', 'CONFIRMADO']
-            ).delete()
-            return JsonResponse({'success': True})
-
-        # Eliminar asiento individual
-        if request.method == 'POST' and request.POST.get('eliminar_asiento'):
-            asiento = request.POST.get('eliminar_asiento')
-            for r in reservas:
-                asientos = r.get_asientos_list()
-                if asiento in asientos:
-                    asientos.remove(asiento)
-                    if asientos:
-                        r.asientos = ",".join(asientos)
-                        r.save()
-                    else:
-                        r.delete()
-                    return JsonResponse({'success': True})
-            return JsonResponse({'success': False, 'error': 'Asiento no encontrado'})
-
+                
+                count = reservas_eliminadas.count()
+                reservas_eliminadas.delete()
+                
+                print(f"✅ Restablecidos todos los asientos: {count} reservas eliminadas")
+                return JsonResponse({
+                    'success': True,
+                    'mensaje': f'{count} reservas eliminadas'
+                })
+            
+            # ========== ELIMINAR ASIENTO INDIVIDUAL ==========
+            elif request.POST.get('eliminar_asiento'):
+                asiento = request.POST.get('eliminar_asiento').strip()
+                
+                reservas = Reserva.objects.filter(
+                    pelicula=pelicula,
+                    sala=sala_sel,
+                    horario=horario_sel,
+                    fecha_funcion=fecha_seleccionada,
+                    estado__in=['RESERVADO', 'CONFIRMADO']
+                )
+                
+                eliminado = False
+                for reserva in reservas:
+                    asientos = reserva.get_asientos_list()
+                    
+                    if asiento in asientos:
+                        asientos.remove(asiento)
+                        
+                        if asientos:
+                            # Actualizar cantidad de boletos
+                            reserva.asientos = ",".join(asientos)
+                            reserva.cantidad_boletos = len(asientos)
+                            
+                            # Recalcular precio
+                            from .utils import PRECIOS_FORMATO
+                            formato_reserva = reserva.formato
+                            precio_boleto = PRECIOS_FORMATO.get(formato_reserva, 4.00)
+                            reserva.precio_total = precio_boleto * reserva.cantidad_boletos
+                            
+                            reserva.save()
+                            print(f"✅ Asiento {asiento} eliminado. Quedan: {asientos}")
+                        else:
+                            # Si no quedan asientos, eliminar reserva completa
+                            reserva.delete()
+                            print(f"✅ Reserva eliminada (era el último asiento)")
+                        
+                        eliminado = True
+                        break
+                
+                if eliminado:
+                    return JsonResponse({
+                        'success': True,
+                        'mensaje': f'Asiento {asiento} eliminado'
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Asiento {asiento} no encontrado'
+                    })
+        
+        except Exception as e:
+            print(f"❌ Error en POST: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    # ========== CONTEXTO PARA TEMPLATE ==========
     context = {
         'peliculas': peliculas,
         'pelicula': pelicula,
+        'funciones_vigentes': funciones_vigentes,
         'combinaciones': combinaciones,
-        'combo_actual': combo,
+        'combo_actual': combo_actual,
         'asientos_ocupados': asientos_ocupados,
+        'fecha_seleccionada': fecha_seleccionada,
+        'fechas_disponibles': fechas_disponibles,
     }
+    
     return render(request, 'administrar_salas.html', context)
+
 
 ################################################################
 

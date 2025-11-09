@@ -105,7 +105,9 @@ class Pelicula(models.Model):
         }
     
     def get_horarios_list(self):
-        return self.funciones.all().order_by('fecha_inicio', 'horario')
+        return self.funciones.filter(activa=True).order_by('fecha_inicio', 'horario')
+    
+    
 
 
     def __str__(self):

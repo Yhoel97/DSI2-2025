@@ -1,493 +1,333 @@
-console.log("🚀 Archivo asientos.js cargado");
-
-document.addEventListener("DOMContentLoaded", function () {
-    console.log("✅ DOM cargado completamente");
-
-    const form = document.getElementById("reserva-form");
-    if (!form) {
-        console.error("❌ No se encontró el formulario #reserva-form");
-        return;
+// ===== CONFIGURACIÓN INICIAL =====
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎬 Sistema de reservas cargado');
+    
+    // Elementos del DOM
+    const form = document.getElementById('reserva-form');
+    const btnConfirm = document.getElementById('btn-confirm-payment');
+    const processingIndicator = document.getElementById('processing-indicator');
+    
+    // ===== ACTUALIZACIÓN DINÁMICA (AJAX) =====
+    function enviarFormularioAjax() {
+        const formData = new FormData(form);
+        
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📊 Datos recibidos:', data);
+            actualizarUI(data);
+        })
+        .catch(error => {
+            console.error('❌ Error en AJAX:', error);
+        });
     }
 
-    console.log("✅ Formulario encontrado");
+    // ===== ACTUALIZAR INTERFAZ =====
+    function actualizarUI(data) {
+        // Actualizar asientos seleccionados
+        const selectedSeatsDiv = document.getElementById('selected-seats');
+        if (selectedSeatsDiv) {
+            selectedSeatsDiv.textContent = data.asientos.length > 0 
+                ? data.asientos.join(', ') 
+                : 'Ningún asiento seleccionado';
+        }
 
-    // Inputs que disparan recálculo automático
-    const autoSubmitInputs = document.querySelectorAll(".auto-submit");
-    console.log("📋 Total de elementos auto-submit:", autoSubmitInputs.length);
+        // Actualizar contador de boletos
+        const ticketCount = document.getElementById('ticket-count');
+        if (ticketCount) {
+            ticketCount.textContent = data.cantidad_boletos;
+        }
 
-    if (autoSubmitInputs.length === 0) {
-        console.warn("⚠️ No se encontraron elementos con clase .auto-submit");
-        return;
-    }
+        // Actualizar formato
+        const formatoDisplay = document.getElementById('formato-display');
+        if (formatoDisplay) {
+            formatoDisplay.textContent = data.formato;
+        }
 
-    autoSubmitInputs.forEach(function (input, index) {
-        console.log("   [" + index + "] " + input.type + " - name: " + input.name);
+        // Actualizar precio por boleto
+        const precioBoletoDisplay = document.getElementById('precio-boleto-display');
+        if (precioBoletoDisplay) {
+            precioBoletoDisplay.textContent = `$${data.precio_boleto.toFixed(2)}`;
+        }
 
-        input.addEventListener("change", function () {
-            console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            console.log("🔄 CAMBIO DETECTADO");
-            console.log("   Tipo:", this.type);
-            console.log("   Name:", this.name);
-            console.log("   Value:", this.value);
+        // Actualizar subtotal
+        const subtotalDisplay = document.getElementById('subtotal-display');
+        if (subtotalDisplay) {
+            subtotalDisplay.textContent = `$${data.subtotal.toFixed(2)}`;
+        }
 
-            // Si cambiamos de función, necesitamos actualizar los asientos ocupados
-            const esCambioFuncion = this.name === "funcion_id";
-
-            // Crear objeto con los datos del formulario
-            const formData = new FormData(form);
-            formData.append("accion", "recalcular");
-
-            // Enviar vía fetch al backend
-            fetch(form.action, {
-                method: "POST",
-                body: formData,
-                headers: {
-                    "X-Requested-With": "XMLHttpRequest"
+        // Actualizar descuento
+        const discountRow = document.getElementById('discount-row');
+        if (data.descuento > 0) {
+            if (discountRow) {
+                discountRow.style.display = 'flex';
+                const discountSpans = discountRow.querySelectorAll('span');
+                if (discountSpans.length >= 2) {
+                    discountSpans[0].textContent = `Descuento (${data.descuento}%):`;
+                    discountSpans[1].textContent = `-$${data.descuento_monto.toFixed(2)}`;
                 }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    console.log("✅ Respuesta AJAX recibida:", data);
+            }
+        } else {
+            if (discountRow) {
+                discountRow.style.display = 'none';
+            }
+        }
 
-                    // Si cambiamos de función, actualizar asientos ocupados
-                    if (esCambioFuncion && data.asientos_ocupados) {
-                        actualizarAsientosOcupados(data.asientos_ocupados);
-                        // Limpiar selección actual
-                        limpiarSeleccionAsientos();
-                    }
+        // Actualizar total
+        const totalPrice = document.getElementById('total-price');
+        if (totalPrice) {
+            totalPrice.textContent = `Total: $${data.total.toFixed(2)}`;
+        }
 
-                    // Actualizar resumen dinámicamente
-                    const seatsDiv = document.querySelector(".selected-seats");
-                    if (seatsDiv) {
-                        seatsDiv.textContent = data.asientos.length > 0
-                            ? data.asientos.join(", ")
-                            : "Ningún asiento seleccionado";
-                    }
+        // Actualizar monto en botón de pago
+        const btnAmount = document.querySelector('.btn-amount');
+        if (btnAmount) {
+            btnAmount.textContent = `$${data.total.toFixed(2)}`;
+        }
 
-                    const ticketCount = document.querySelector(".ticket-counter span:last-child");
-                    if (ticketCount) ticketCount.textContent = data.cantidad_boletos;
+        // ===== ACTUALIZAR ASIENTOS OCUPADOS =====
+        actualizarAsientosOcupados(data.asientos_ocupados || []);
+    }
 
-                    const formatoDisplay = document.querySelector("#formato-display");
-                    if (formatoDisplay) formatoDisplay.textContent = data.formato;
+    // ===== FUNCIÓN CLAVE: Actualizar estado visual de los asientos =====
+    function actualizarAsientosOcupados(asientosOcupados) {
+        console.log('🔄 Actualizando asientos ocupados:', asientosOcupados);
+        
+        // Obtener todos los checkboxes de asientos
+        const todosLosCheckboxes = document.querySelectorAll('input[name="asientos_list"]');
+        
+        todosLosCheckboxes.forEach(checkbox => {
+            const asiento = checkbox.value;
+            const seatDiv = checkbox.nextElementSibling;
+            
+            if (asientosOcupados.includes(asiento)) {
+                // Asiento ocupado
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                seatDiv.classList.remove('available', 'selected');
+                seatDiv.classList.add('reserved');
+            } else {
+                // Asiento disponible
+                checkbox.disabled = false;
+                seatDiv.classList.remove('reserved');
+                
+                if (checkbox.checked) {
+                    seatDiv.classList.add('selected');
+                    seatDiv.classList.remove('available');
+                } else {
+                    seatDiv.classList.add('available');
+                    seatDiv.classList.remove('selected');
+                }
+            }
+        });
+    }
 
-                    const precioBoletoDisplay = document.querySelector("#precio-boleto-display");
-                    if (precioBoletoDisplay) precioBoletoDisplay.textContent = `$${data.precio_boleto.toFixed(2)}`;
-
-                    const subtotalDisplay = document.querySelector("#subtotal-display");
-                    if (subtotalDisplay) subtotalDisplay.textContent = `$${data.subtotal.toFixed(2)}`;
-
-                    const totalPrice = document.querySelector("#total-price");
-                    if (totalPrice) totalPrice.textContent = `Total: $${data.total.toFixed(2)}`;
-
-                    const discountRow = document.getElementById("discount-row");
-                    if (discountRow) {
-                        if (data.descuento > 0) {
-                            discountRow.style.display = "flex";
-                            document.getElementById("discount-percent-display").textContent = data.descuento;
-                            document.getElementById("discount-amount-display").textContent = `-$${data.descuento_monto.toFixed(2)}`;
-                        } else {
-                            discountRow.style.display = "none";
-                        }
-                    }
-
-                    // Actualizar monto en botón de pago
-                    const btnAmount = document.querySelector(".btn-amount");
-                    if (btnAmount) btnAmount.textContent = `$${data.total.toFixed(2)}`;
-                })
-                .catch(error => {
-                    console.error("❌ Error en AJAX:", error);
-                });
+    // ===== EVENTO: Cambio en asientos =====
+    const asientosCheckboxes = document.querySelectorAll('input[name="asientos_list"]');
+    asientosCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const seatDiv = this.nextElementSibling;
+            
+            if (this.checked) {
+                seatDiv.classList.add('selected');
+                seatDiv.classList.remove('available');
+            } else {
+                seatDiv.classList.remove('selected');
+                seatDiv.classList.add('available');
+            }
+            
+            enviarFormularioAjax();
         });
     });
 
-    console.log("✅ Event listeners configurados correctamente");
-});
+    // ===== EVENTO: Cambio de función (sala/horario) =====
+    const funcionesRadios = document.querySelectorAll('input[name="funcion_id"]');
+    funcionesRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            console.log('🎯 Cambio de función detectado:', this.value);
+            
+            // Desmarcar todos los asientos seleccionados
+            asientosCheckboxes.forEach(checkbox => {
+                if (checkbox.checked && !checkbox.disabled) {
+                    checkbox.checked = false;
+                    const seatDiv = checkbox.nextElementSibling;
+                    seatDiv.classList.remove('selected');
+                    seatDiv.classList.add('available');
+                }
+            });
+            
+            // Enviar formulario para obtener nuevos asientos ocupados
+            enviarFormularioAjax();
+        });
+    });
 
-// ═══════════════════════════════════════════════════════════════
-// SISTEMA DE VALIDACIÓN DE PAGO - PBI-30
-// ═══════════════════════════════════════════════════════════════
+    // ===== VALIDACIÓN Y ENVÍO DEL FORMULARIO =====
+    form.addEventListener('submit', function(e) {
+        const accion = e.submitter ? e.submitter.value : '';
+        
+        // Solo validar cuando sea "reservar"
+        if (accion === 'reservar') {
+            e.preventDefault();
+            
+            // Validar que haya asientos seleccionados
+            const asientosSeleccionados = Array.from(asientosCheckboxes)
+                .filter(cb => cb.checked && !cb.disabled);
+            
+            if (asientosSeleccionados.length === 0) {
+                alert('⚠️ Por favor, selecciona al menos un asiento');
+                return;
+            }
 
-document.addEventListener("DOMContentLoaded", function() {
-    console.log("💳 Inicializando sistema de validación de pago");
+            // Validar método de pago
+            const usarMetodoGuardado = document.querySelector('input[name="usar_metodo_guardado"]:checked');
+            
+            if (usarMetodoGuardado && usarMetodoGuardado.value !== 'false') {
+                // Validar CVV de método guardado
+                const cvvGuardado = document.getElementById('cvv_guardado');
+                if (!cvvGuardado || !cvvGuardado.value.trim()) {
+                    alert('⚠️ Por favor, ingresa el CVV de tu tarjeta guardada');
+                    cvvGuardado?.focus();
+                    return;
+                }
+            } else {
+                // Validar nueva tarjeta
+                const numeroTarjeta = document.getElementById('numero_tarjeta');
+                const nombreTitular = document.getElementById('nombre_titular');
+                const fechaExpiracion = document.getElementById('fecha_expiracion');
+                const cvv = document.getElementById('cvv');
+                
+                if (!numeroTarjeta?.value.trim()) {
+                    alert('⚠️ Por favor, ingresa el número de tarjeta');
+                    numeroTarjeta?.focus();
+                    return;
+                }
+                
+                if (!nombreTitular?.value.trim()) {
+                    alert('⚠️ Por favor, ingresa el nombre del titular');
+                    nombreTitular?.focus();
+                    return;
+                }
+                
+                if (!fechaExpiracion?.value.trim()) {
+                    alert('⚠️ Por favor, ingresa la fecha de expiración');
+                    fechaExpiracion?.focus();
+                    return;
+                }
+                
+                if (!cvv?.value.trim()) {
+                    alert('⚠️ Por favor, ingresa el CVV');
+                    cvv?.focus();
+                    return;
+                }
+            }
 
-    const numeroTarjetaInput = document.getElementById("numero_tarjeta");
-    const fechaExpiracionInput = document.getElementById("fecha_expiracion");
-    const cvvInput = document.getElementById("cvv");
-    const nombreTitularInput = document.getElementById("nombre_titular");
-    const btnConfirmPayment = document.getElementById("btn-confirm-payment");
-    const processingIndicator = document.getElementById("processing-indicator");
-    const form = document.getElementById("reserva-form");
+            // Mostrar indicador de procesamiento
+            if (btnConfirm) btnConfirm.disabled = true;
+            if (processingIndicator) processingIndicator.style.display = 'flex';
+            
+            // Enviar formulario normalmente
+            form.submit();
+        }
+    });
 
-    // Validar número de tarjeta
+    // ===== MANEJO DE MÉTODOS DE PAGO =====
+    const paymentRadios = document.querySelectorAll('input[name="usar_metodo_guardado"]');
+    const savedMethodCvv = document.getElementById('saved-method-cvv');
+    const newCardForm = document.getElementById('new-card-form');
+
+    paymentRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'false') {
+                // Nueva tarjeta
+                if (savedMethodCvv) savedMethodCvv.style.display = 'none';
+                if (newCardForm) newCardForm.style.display = 'block';
+            } else {
+                // Método guardado
+                if (savedMethodCvv) savedMethodCvv.style.display = 'block';
+                if (newCardForm) newCardForm.style.display = 'none';
+            }
+        });
+    });
+
+    // Inicializar estado de métodos de pago
+    const selectedPaymentMethod = document.querySelector('input[name="usar_metodo_guardado"]:checked');
+    if (selectedPaymentMethod) {
+        if (selectedPaymentMethod.value === 'false') {
+            if (savedMethodCvv) savedMethodCvv.style.display = 'none';
+            if (newCardForm) newCardForm.style.display = 'block';
+        } else {
+            if (savedMethodCvv) savedMethodCvv.style.display = 'block';
+            if (newCardForm) newCardForm.style.display = 'none';
+        }
+    }
+
+    // ===== GUARDAR TARJETA =====
+    const guardarTarjetaCheckbox = document.getElementById('guardar_tarjeta');
+    const aliasInput = document.getElementById('alias-input');
+
+    if (guardarTarjetaCheckbox) {
+        guardarTarjetaCheckbox.addEventListener('change', function() {
+            if (aliasInput) {
+                aliasInput.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
+
+    // ===== FORMATEO DE INPUTS =====
+    const numeroTarjetaInput = document.getElementById('numero_tarjeta');
     if (numeroTarjetaInput) {
-        numeroTarjetaInput.addEventListener("input", function(e) {
+        numeroTarjetaInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\s/g, '');
             let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
             e.target.value = formattedValue;
-
+            
             // Detectar tipo de tarjeta
-            const cardIcon = document.getElementById("card-icon");
-            if (value.startsWith('4')) {
-                cardIcon.textContent = '💳'; // Visa
-                cardIcon.className = 'card-icon visa';
-            } else if (value.startsWith('5')) {
-                cardIcon.textContent = '💳'; // Mastercard
-                cardIcon.className = 'card-icon mastercard';
-            } else if (value.startsWith('3')) {
-                cardIcon.textContent = '💳'; // Amex
-                cardIcon.className = 'card-icon amex';
-            } else {
-                cardIcon.textContent = '💳';
-                cardIcon.className = 'card-icon';
+            const cardIcon = document.getElementById('card-icon');
+            if (cardIcon) {
+                if (value.startsWith('4')) {
+                    cardIcon.textContent = '💳'; // Visa
+                } else if (value.startsWith('5')) {
+                    cardIcon.textContent = '💳'; // Mastercard
+                } else if (value.startsWith('3')) {
+                    cardIcon.textContent = '💳'; // Amex
+                } else {
+                    cardIcon.textContent = '💳';
+                }
             }
-
-            // Validación
-            validarNumeroTarjeta(value);
-        });
-
-        numeroTarjetaInput.addEventListener("blur", function() {
-            const value = this.value.replace(/\s/g, '');
-            validarNumeroTarjeta(value);
         });
     }
 
-    function validarNumeroTarjeta(numero) {
-        const errorSpan = document.getElementById("error-numero-tarjeta");
-        const input = document.getElementById("numero_tarjeta");
-
-        if (numero.length === 0) {
-            errorSpan.textContent = "";
-            input.classList.remove("error", "valid");
-            return false;
-        }
-
-        if (!/^\d+$/.test(numero)) {
-            errorSpan.textContent = "Solo se permiten números";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        if (numero.length !== 15 && numero.length !== 16) {
-            errorSpan.textContent = "El número debe tener 15 o 16 dígitos";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        errorSpan.textContent = "";
-        input.classList.remove("error");
-        input.classList.add("valid");
-        return true;
-    }
-
-    // Validar fecha de expiración
+    const fechaExpiracionInput = document.getElementById('fecha_expiracion');
     if (fechaExpiracionInput) {
-        fechaExpiracionInput.addEventListener("input", function(e) {
+        fechaExpiracionInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
             if (value.length >= 2) {
                 value = value.slice(0, 2) + '/' + value.slice(2, 4);
             }
             e.target.value = value;
-            validarFechaExpiracion(value);
-        });
-
-        fechaExpiracionInput.addEventListener("blur", function() {
-            validarFechaExpiracion(this.value);
         });
     }
 
-    function validarFechaExpiracion(fecha) {
-        const errorSpan = document.getElementById("error-fecha-expiracion");
-        const input = document.getElementById("fecha_expiracion");
-
-        if (fecha.length === 0) {
-            errorSpan.textContent = "";
-            input.classList.remove("error", "valid");
-            return false;
-        }
-
-        if (!/^\d{2}\/\d{2}$/.test(fecha)) {
-            errorSpan.textContent = "Formato debe ser MM/YY";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        const [mes, anio] = fecha.split('/').map(Number);
-        if (mes < 1 || mes > 12) {
-            errorSpan.textContent = "Mes inválido (01-12)";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        const ahora = new Date();
-        const anioActual = ahora.getFullYear() % 100;
-        const mesActual = ahora.getMonth() + 1;
-
-        if (anio < anioActual || (anio === anioActual && mes < mesActual)) {
-            errorSpan.textContent = "Tarjeta vencida";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        errorSpan.textContent = "";
-        input.classList.remove("error");
-        input.classList.add("valid");
-        return true;
-    }
-
-    // Validar CVV
+    const cvvInput = document.getElementById('cvv');
     if (cvvInput) {
-        cvvInput.addEventListener("input", function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            e.target.value = value.slice(0, 4);
-            validarCVV(value);
-        });
-
-        cvvInput.addEventListener("blur", function() {
-            validarCVV(this.value);
+        cvvInput.addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
         });
     }
 
-    function validarCVV(cvv) {
-        const errorSpan = document.getElementById("error-cvv");
-        const input = document.getElementById("cvv");
-
-        if (cvv.length === 0) {
-            errorSpan.textContent = "";
-            input.classList.remove("error", "valid");
-            return false;
-        }
-
-        if (!/^\d{3,4}$/.test(cvv)) {
-            errorSpan.textContent = "CVV debe tener 3 o 4 dígitos";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        errorSpan.textContent = "";
-        input.classList.remove("error");
-        input.classList.add("valid");
-        return true;
-    }
-
-    // Validar nombre del titular
-    if (nombreTitularInput) {
-        nombreTitularInput.addEventListener("input", function() {
-            this.value = this.value.toUpperCase();
-        });
-
-        nombreTitularInput.addEventListener("blur", function() {
-            validarNombreTitular(this.value);
-        });
-    }
-
-    function validarNombreTitular(nombre) {
-        const errorSpan = document.getElementById("error-nombre-titular");
-        const input = document.getElementById("nombre_titular");
-
-        if (nombre.length === 0) {
-            errorSpan.textContent = "";
-            input.classList.remove("error", "valid");
-            return false;
-        }
-
-        if (nombre.length < 3) {
-            errorSpan.textContent = "Nombre muy corto";
-            input.classList.add("error");
-            input.classList.remove("valid");
-            return false;
-        }
-
-        errorSpan.textContent = "";
-        input.classList.remove("error");
-        input.classList.add("valid");
-        return true;
-    }
-
-    // Flag para prevenir doble submit
-    let isSubmitting = false;
-
-    // Validación completa del formulario al enviar
-    if (form) {
-        form.addEventListener("submit", function(e) {
-            const accion = e.submitter?.value;
-            
-            // Solo validar pago si la acción es "reservar"
-            if (accion === "reservar") {
-                // Prevenir doble submit
-                if (isSubmitting) {
-                    e.preventDefault();
-                    console.log("⚠️ Ya hay un pago en proceso, por favor espera...");
-                    return false;
-                }
-                // Verificar si se está usando un método guardado o nueva tarjeta
-                const usandoMetodoGuardado = document.querySelector('input[name="usar_metodo_guardado"]:checked');
-                const pagarConNuevaTarjeta = document.querySelector('#nueva-tarjeta:checked');
-                
-                // Si se está usando un método guardado, validar solo el CVV del método guardado
-                if (usandoMetodoGuardado && !pagarConNuevaTarjeta) {
-                    const cvvGuardadoInput = document.getElementById('saved-method-cvv');
-                    if (cvvGuardadoInput) {
-                        const cvvGuardado = cvvGuardadoInput.value.trim();
-                        if (!cvvGuardado || cvvGuardado.length < 3 || cvvGuardado.length > 4 || !/^\d+$/.test(cvvGuardado)) {
-                            e.preventDefault();
-                            isSubmitting = false;  // Resetear flag si hay error
-                            alert("⚠️ Por favor ingresa un CVV válido para tu tarjeta guardada");
-                            return false;
-                        }
-                    }
-                } else {
-                    // Si se está pagando con nueva tarjeta, validar todos los campos
-                    const numeroValido = validarNumeroTarjeta(numeroTarjetaInput.value.replace(/\s/g, ''));
-                    const fechaValida = validarFechaExpiracion(fechaExpiracionInput.value);
-                    const cvvValido = validarCVV(cvvInput.value);
-                    const nombreValido = validarNombreTitular(nombreTitularInput.value);
-
-                    if (!numeroValido || !fechaValida || !cvvValido || !nombreValido) {
-                        e.preventDefault();
-                        isSubmitting = false;  // Resetear flag si hay error
-                        alert("⚠️ Por favor completa correctamente todos los datos de la tarjeta");
-                        return false;
-                    }
-                }
-
-                // Marcar como procesando
-                isSubmitting = true;
-
-                // Mostrar indicador de procesamiento
-                if (btnConfirmPayment && processingIndicator) {
-                    btnConfirmPayment.disabled = true;
-                    btnConfirmPayment.textContent = "Procesando...";
-                    processingIndicator.style.display = "flex";
-                }
-                
-                // Si por alguna razón no se envía, resetear después de 30 segundos
-                setTimeout(function() {
-                    isSubmitting = false;
-                    if (btnConfirmPayment) {
-                        btnConfirmPayment.disabled = false;
-                        btnConfirmPayment.innerHTML = '<span class="btn-icon">🎟️</span><span class="btn-text">Confirmar Reserva y Pagar</span><span class="btn-amount">$' + document.getElementById('total-price').textContent.split('$')[1] + '</span>';
-                    }
-                    if (processingIndicator) {
-                        processingIndicator.style.display = "none";
-                    }
-                }, 30000);
-            }
-        });
-    }
-
-    console.log("✅ Sistema de validación de pago inicializado");
-});
-
-// ═══════════════════════════════════════════════════════════════
-// TOGGLE DE MÉTODOS DE PAGO (GUARDADOS vs NUEVA TARJETA) - PBI-30
-// ═══════════════════════════════════════════════════════════════
-
-document.addEventListener("DOMContentLoaded", function() {
-    console.log("🔄 Inicializando toggle de métodos de pago");
-
-    const paymentRadios = document.querySelectorAll('input[name="usar_metodo_guardado"]');
-    const newCardForm = document.getElementById("new-card-form");
-    const savedMethodCvv = document.getElementById("saved-method-cvv");
-    const guardarTarjetaCheckbox = document.getElementById("guardar_tarjeta");
-    const aliasInput = document.getElementById("alias-input");
-
-    if (paymentRadios.length === 0) {
-        console.log("ℹ️ No hay métodos de pago guardados para este usuario");
-        return;
-    }
-
-    // Función para actualizar la visibilidad de los formularios
-    function updatePaymentForms() {
-        const selectedRadio = document.querySelector('input[name="usar_metodo_guardado"]:checked');
-        
-        if (!selectedRadio) {
-            console.warn("⚠️ No hay radio seleccionado");
-            return;
-        }
-
-        const selectedValue = selectedRadio.value;
-        console.log("💳 Método de pago seleccionado:", selectedValue);
-
-        if (selectedValue === "false") {
-            // Mostrar formulario de nueva tarjeta
-            if (newCardForm) {
-                newCardForm.style.display = "block";
-                const inputs = newCardForm.querySelectorAll('input[type="text"]');
-                inputs.forEach(input => input.removeAttribute('disabled'));
-            }
-            if (savedMethodCvv) {
-                savedMethodCvv.style.display = "none";
-                const cvvGuardadoInput = document.getElementById("cvv_guardado");
-                if (cvvGuardadoInput) {
-                    cvvGuardadoInput.setAttribute('disabled', 'disabled');
-                    cvvGuardadoInput.value = '';
-                }
-            }
-        } else {
-            // Mostrar solo campo CVV para método guardado
-            if (newCardForm) {
-                newCardForm.style.display = "none";
-                const inputs = newCardForm.querySelectorAll('input[type="text"]');
-                inputs.forEach(input => input.setAttribute('disabled', 'disabled'));
-            }
-            if (savedMethodCvv) {
-                savedMethodCvv.style.display = "block";
-                const cvvGuardadoInput = document.getElementById("cvv_guardado");
-                if (cvvGuardadoInput) {
-                    cvvGuardadoInput.removeAttribute('disabled');
-                    cvvGuardadoInput.focus();
-                }
-            }
-        }
-    }
-
-    // Agregar event listeners a los radios
-    paymentRadios.forEach(radio => radio.addEventListener("change", updatePaymentForms));
-
-    // Toggle de campo alias al marcar "guardar tarjeta"
-    if (guardarTarjetaCheckbox && aliasInput) {
-        guardarTarjetaCheckbox.addEventListener("change", function() {
-            if (this.checked) {
-                aliasInput.style.display = "block";
-                const aliasInputField = document.getElementById("alias_tarjeta");
-                if (aliasInputField) aliasInputField.focus();
-            } else {
-                aliasInput.style.display = "none";
-                const aliasInputField = document.getElementById("alias_tarjeta");
-                if (aliasInputField) aliasInputField.value = '';
-            }
-        });
-    }
-
-    // Validación del CVV guardado
-    const cvvGuardadoInput = document.getElementById("cvv_guardado");
+    const cvvGuardadoInput = document.getElementById('cvv_guardado');
     if (cvvGuardadoInput) {
-        cvvGuardadoInput.addEventListener("input", function(e) {
-            this.value = this.value.replace(/\D/g, '');
-            if (this.value.length > 4) this.value = this.value.substring(0, 4);
-
-            const errorSpan = document.getElementById("error-cvv-guardado");
-            if (this.value.length >= 3) {
-                this.classList.remove("error");
-                this.classList.add("valid");
-                if (errorSpan) errorSpan.textContent = "";
-            } else {
-                this.classList.remove("valid");
-                if (this.value.length > 0) {
-                    this.classList.add("error");
-                    if (errorSpan) errorSpan.textContent = "CVV debe tener 3-4 dígitos";
-                }
-            }
+        cvvGuardadoInput.addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
         });
     }
 
-    // Ejecutar al cargar
-    updatePaymentForms();
-    console.log("✅ Toggle de métodos de pago inicializado");
+    console.log('✅ Sistema de reservas inicializado correctamente');
 });

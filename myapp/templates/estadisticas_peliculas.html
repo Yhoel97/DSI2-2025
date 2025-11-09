@@ -1,4 +1,3 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="es">
@@ -7,16 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estadísticas de Películas</title>
     
-     <link rel="stylesheet" href="{% static 'styles/informe_prliculas.css' %}">
+    <link rel="stylesheet" href="{% static 'styles/informe_peliculas.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    </head>
+    
+</head>
 <body>
     <div class="container mt-4">
         
         <div class="mb-4">
-            <a href="{% url 'index' %}" class="btn btn-primary">
+            <a href="{% url 'index' %}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Volver al Inicio
             </a>
         </div>
@@ -27,6 +26,60 @@
                     <i class="fas fa-chart-line"></i> Desempeño de Películas
                 </h2>
 
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <form method="GET" id="reporte-form" class="row align-items-end g-3">
+                            
+                            <div class="col-md-3">
+                                <label for="pelicula_filtro" class="form-label">Película</label>
+                                <select name="pelicula" id="pelicula_filtro" class="form-select">
+                                    <option value="">Todas</option>
+                                    {% for p in peliculas_list %}
+                                        <option value="{{ p.pk }}" 
+                                            {% if p.pk|stringformat:"s" == request.GET.pelicula %}selected{% endif %}>
+                                            {{ p.nombre }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label for="fecha_desde" class="form-label">Desde</label>
+                                <input type="date" name="desde" id="fecha_desde" class="form-control" 
+                                       value="{{ request.GET.desde|default:'' }}">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="fecha_hasta" class="form-label">Hasta</label>
+                                <input type="date" name="hasta" id="fecha_hasta" class="form-control" 
+                                       value="{{ request.GET.hasta|default:'' }}">
+                            </div>
+                            
+                            <div class="col-md-3 d-flex gap-2">
+                                <button type="submit" class="btn btn-success flex-fill">
+                                    <i class="fas fa-filter"></i> Filtrar
+                                </button>
+                                
+                                <a href="{% url 'admin_estadisticas_peliculas' %}" class="btn btn-secondary flex-fill" style="background-color: #9370DB; border-color: #9370DB;">
+                                    <i class="fas fa-eraser"></i> Limpiar Filtro
+                                </a>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-12 d-flex gap-2">
+                        <a href="{% url 'exportar_pdf_peliculas' %}?{{ request.GET.urlencode }}" class="btn btn-danger">
+                            <i class="fas fa-file-pdf"></i> Exportar PDF
+                        </a>
+
+                        <a href="{% url 'exportar_excel_peliculas' %}?{{ request.GET.urlencode }}" class="btn btn-primary" style="background-color: #17A2B8; border-color: #17A2B8;">
+                            <i class="fas fa-file-excel"></i> Exportar Excel
+                        </a>
+                    </div>
+                </div>
                 <div class="card mb-4" style="border-left: 5px solid #007bff; border-radius: 8px;">
                     <div class="card-body py-2">
                         <p class="mb-0">
@@ -41,10 +94,10 @@
                         <thead class="table-dark">
                             <tr>
                                 <th style="width: 30%;">Película</th>
-                                <th class="text-center">⭐ Puntuación Promedio</th>
-                                <th class="text-center">🎟️ Boletos Vendidos</th>
-                                <th class="text-center">🧑 Usuarios Únicos</th>
-                                <th class="text-center">📈 % Compradores</th>
+                                <th class="text-center">Puntuación Promedio</th>
+                                <th class="text-center">Boletos Vendidos</th>
+                                <th class="text-center">Usuarios Únicos</th>
+                                <th class="text-center">% Compradores</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -73,5 +126,7 @@
             </div>
         </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

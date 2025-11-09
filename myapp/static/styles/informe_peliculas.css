@@ -1,13 +1,24 @@
 /* admin-stats.css */
 
-/* 1. Estilos Globales de la Página (si no se usa base.html) */
+/* 1. Estilos Globales de la Página */
 body {
-    background-color: #f4f6f9; /* Fondo muy claro para el panel */
+    /* Mantenemos tu degradado original, pero añadimos min-height: 100vh para que cubra toda la ventana */
+    background: linear-gradient(135deg, #fce3ec 0%, #d8e8f8 50%, #e0f7e9 100%);
     color: #333;
     font-family: Arial, sans-serif;
+    min-height: 100vh; /* Asegura que el degradado se extienda */
+    margin: 0;
 }
 
-/* 2. Contenedor Principal */
+/* 🚨 SOLUCIÓN PARA LA CAJA BLANCA 🚨 */
+/* Asumo que la caja blanca que contiene filtros y tablas es una clase .card o similar */
+.card { 
+    background-color: transparent !important; /* Hacemos el fondo de la caja transparente */
+    box-shadow: none !important;             /* Eliminamos la sombra para que no se vea el borde de la caja */
+    border: none !important;                 /* Eliminamos cualquier borde de la tarjeta */
+}
+
+/* 2. Contenedor Principal (lo mantienes como lo tenías) */
 .container {
     padding-top: 30px;
     padding-bottom: 50px;

@@ -61,6 +61,8 @@ urlpatterns = [
     path('administrar_usuarios/', views.administrar_usuarios, name='administrar_usuarios'),
     path('estadisticas/peliculas/', views.estadisticas_peliculas, name='admin_estadisticas_peliculas'), # 👈 Corregido
     path('reportes/', views.reportes_admin, name='reportes_admin'),
+    path('reportes/peliculas/exportar/pdf/', views.exportar_pdf_peliculas, name='exportar_pdf_peliculas'),
+    path('reportes/peliculas/exportar/excel/', views.exportar_excel_peliculas, name='exportar_excel_peliculas'),
 
 ]
 

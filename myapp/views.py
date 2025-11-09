@@ -2,6 +2,7 @@ from io import BytesIO
 from zipfile import ZipFile
 import json
 import random
+import io
 from django.shortcuts import redirect
 import string
 from django.db.models import Sum
@@ -54,7 +55,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.csrf import csrf_exempt
-from .models import Pelicula, Funcion, Reserva
+from .models import Pelicula, Funcion, Reserva, User
 from .decorators import admin_required
 from django.http import HttpResponse
 import pandas as pd
@@ -79,6 +80,11 @@ from .utils.payment_simulator import simular_pago
 from .utils.encryption import encrypt_card_data, encrypt_card_data_full, decrypt_card_data, get_card_type
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Avg, Count
+from reportlab.lib.pagesizes import A4, letter
+import openpyxl 
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, Alignment, PatternFill
+from datetime import date
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -3221,56 +3227,248 @@ def administrar_usuarios(request):
 
 @staff_member_required
 def estadisticas_peliculas(request):
-    """
-    Calcula y presenta estadísticas de desempeño de las películas.
-    Solo accesible para usuarios administradores (staff_member_required).
-    """
+    data = _obtener_datos_filtrados(request)
     
-    # Obtener todas las películas activas
-    peliculas = Pelicula.objects.all().order_by('nombre')
+    context = {
+        # Los datos ya están filtrados por fecha y película 
+        'datos_estadisticos': data['datos_estadisticos'],
+        'total_usuarios': data['total_usuarios'],
+        'peliculas_list': data['peliculas_list'], 
+    }
+
+    return render(request, 'estadisticas_peliculas.html', context)
+
+def _obtener_datos_filtrados(request):
     
+    # Obtener filtros de la URL 
+    pelicula_id = request.GET.get('pelicula')
+    fecha_desde_str = request.GET.get('desde')
+    fecha_hasta_str = request.GET.get('hasta')
+    
+    # Obtener datos base 
+    reservas_base = Reserva.objects.filter(estado__in=['CONFIRMADO', 'RESERVADO'])
+    
+    # filtro de Película
+    if pelicula_id:
+        reservas_base = reservas_base.filter(pelicula_id=pelicula_id)
+        
+    #  filtro de Fechas 
+    if fecha_desde_str:
+        try:
+            fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            reservas_base = reservas_base.filter(fecha_reserva__gte=fecha_desde) 
+        except ValueError:
+            pass
+            
+    if fecha_hasta_str:
+        try:
+            fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            reservas_base = reservas_base.filter(fecha_reserva__lte=fecha_hasta)
+        except ValueError:
+            pass
+
+    # Logica de estadistica
+    
+    # Obtener todas las películas para las que hubo alguna reserva en el período/filtro
+    peliculas_filtradas_ids = reservas_base.values_list('pelicula', flat=True).distinct()
+    
+    # Calcular estadísticas por película
     datos_estadisticos = []
+    total_usuarios_registrados = User.objects.filter(is_active=True).count()
     
-    # Obtener el número total de usuarios registrados para el cálculo del porcentaje
-    total_usuarios = User.objects.filter(is_active=True).count()
-    
-    # Manejar el caso de división por cero
-    if total_usuarios == 0:
-        total_usuarios = 1 # Para evitar errores de división, el porcentaje será 0
+    for pelicula_id in peliculas_filtradas_ids:
+        pelicula = Pelicula.objects.get(pk=pelicula_id)
+        reservas_pelicula = reservas_base.filter(pelicula=pelicula)
         
-    for pelicula in peliculas:
+        # Calcula Boletos Vendidos
+        boletos_vendidos = reservas_pelicula.aggregate(total_boletos=Sum('cantidad_boletos'))['total_boletos'] or 0
         
-        # 1. Puntuación Promedio (Basado en el modelo Reseña)
-        # Calcula el promedio de la columna 'puntuacion' para esta película
-        puntuacion_data = Valoracion.objects.filter(pelicula=pelicula).aggregate(Avg('rating'))
-        puntuacion_promedio = puntuacion_data['rating__avg'] or 0.0 # Devuelve 0.0 si no hay reseñas
+        # Calcula Usuarios Únicos
+        usuarios_unicos = reservas_pelicula.values('usuario').distinct().count()
         
-        # 2. Número de Reproducciones / Reservas (Basado en el modelo Reserva)
-        # Cuenta cuántas reservas se han hecho para funciones de esta película
-        # Usamos distinct() para contar solo usuarios únicos que reservaron
-        reservas_count = Reserva.objects.filter(
-            pelicula=pelicula, 
-            estado__in=['CONFIRMADO', 'RESERVADO', 'USADO'] # No contar CANCELADO
-        ).aggregate(
-            conteo_boletos=Count('pk'), # Conteo total de boletos/reservas
-            usuarios_unicos=Count('usuario', distinct=True) # Conteo de usuarios únicos
-        )
+        # Calcula Puntuación Promedio
+        puntuacion_obj = Valoracion.objects.filter(pelicula=pelicula).aggregate(promedio=Avg('rating'))
+        puntuacion_promedio = f"{puntuacion_obj['promedio']:.2f}" if puntuacion_obj['promedio'] else 'N/A'
         
-        # 3. Porcentaje de Usuarios que Compraron Boleto
-        usuarios_unicos_compradores = reservas_count['usuarios_unicos']
-        
-        porcentaje_compradores = (usuarios_unicos_compradores / total_usuarios) * 100
+        # Calcula % Compradores
+        porcentaje_compradores = 0.0
+        if total_usuarios_registrados > 0:
+            porcentaje_compradores = (usuarios_unicos / total_usuarios_registrados) * 100
         
         datos_estadisticos.append({
             'nombre': pelicula.nombre,
-            'puntuacion_promedio': f"{puntuacion_promedio:.2f}", # Formato a dos decimales
-            'numero_reservas': reservas_count['conteo_boletos'],
-            'usuarios_unicos': usuarios_unicos_compradores,
-            'porcentaje_compradores': f"{porcentaje_compradores:.2f}", # Formato a dos decimales
+            'puntuacion_promedio': puntuacion_promedio,
+            'numero_reservas': boletos_vendidos,
+            'usuarios_unicos': usuarios_unicos,
+            'porcentaje_compradores': f"{porcentaje_compradores:.2f}",
         })
         
-    context = {
+    return {
         'datos_estadisticos': datos_estadisticos,
-        'total_usuarios': total_usuarios
+        'total_usuarios': total_usuarios_registrados,
+        'peliculas_list': Pelicula.objects.all().order_by('nombre')
     }
-    return render(request, 'estadisticas_peliculas.html', context)
+
+def exportar_pdf_peliculas(request):
+    data = _obtener_datos_filtrados(request)
+    datos_estadisticos = data['datos_estadisticos']
+    
+    # Crea un buffer en memoria
+    buffer = io.BytesIO()
+    
+    # Crea el objeto Canvas
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Encabezado del documento
+    p.setFont("Helvetica-Bold", 16)
+    p.setFillColor(colors.HexColor('#6a1b9a'))
+    p.drawString(30, height - 30, " Reporte de Desempeño de Películas")
+    
+    p.setFont("Helvetica", 10)
+    p.setFillColor(colors.black)
+    p.drawString(30, height - 50, f"Generado: {date.today().strftime('%d/%m/%Y')}")
+    p.drawString(30, height - 65, f"Total de Usuarios Registrados: {data['total_usuarios']}")
+    
+    # Prepara los  datos para la tabla PDF
+    table_data = [
+        ['Película', 'Puntuación Promedio', 'Boletos Vendidos', 'Usuarios Únicos', '% Compradores']
+    ]
+    for dato in datos_estadisticos:
+        table_data.append([
+            dato['nombre'],
+            dato['puntuacion_promedio'],
+            str(dato['numero_reservas']),
+            str(dato['usuarios_unicos']),
+            f"{dato['porcentaje_compradores']}%"
+        ])
+
+    # Crea la Tabla
+    table = Table(table_data, colWidths=[150, 120, 90, 80, 80]) 
+    
+    # Estilo de la tabla 
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ])
+    table.setStyle(style)
+
+    # Dibuja la tabla
+    table_height = len(table_data) * 20 + 30 # Altura aproximada
+    table.wrapOn(p, width, table_height)
+    table.drawOn(p, 30, height - 100 - table_height)
+
+    # Finaliza el PDF y envia
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="reporte_peliculas_{date.today().isoformat()}.pdf"'
+    return response
+
+def exportar_excel_peliculas(request):
+    #Obteniendo los datos filtrados 
+    data = _obtener_datos_filtrados(request)
+    datos_estadisticos = data['datos_estadisticos']
+    
+    # creacion de libro en excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Desempeño de Películas"
+
+    # 3. Encabezados del excel
+    headers = ['Película', 'Puntuación Promedio', 'Boletos Vendidos', 'Usuarios Únicos', '% Compradores']
+    ws.append(headers)
+
+    # 4. Datos del reporte (A partir de la fila 2)
+    for dato in datos_estadisticos:
+        # Aseguramos que los números se guarden como números (float o int)
+        try:
+            # Convierte 'N/A' a None para que Excel lo maneje como una celda vacía o de error
+            puntuacion = float(dato['puntuacion_promedio']) if dato['puntuacion_promedio'] != 'N/A' else None
+        except ValueError:
+            puntuacion = None
+
+        try:
+            
+            porcentaje = float(dato['porcentaje_compradores']) / 100.0
+        except ValueError:
+            porcentaje = 0.0
+            
+        ws.append([
+            dato['nombre'],
+            puntuacion,
+            int(dato['numero_reservas']),
+            int(dato['usuarios_unicos']),
+            porcentaje
+        ])
+
+
+    # Definir Estilos
+    # Usamos un color similar a tu encabezado de tabla (gris oscuro)
+    header_fill = PatternFill(start_color="333333", end_color="333333", fill_type="solid") 
+    header_font = Font(bold=True, color="FFFFFF") 
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True) # Alineación central
+    left_align = Alignment(horizontal="left", vertical="center")
+
+    # Aplicar estilos a Encabezados (Fila 1)
+    for col_idx, header_text in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header_text)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+
+    # Aplicar formatos de celda (porcentaje, decimales) y alineación
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2), 2):
+        
+        porcentaje_cell = row[4] 
+        # Formato de porcentaje a dos decimales
+        porcentaje_cell.number_format = '0.00%' 
+        
+        row[1].number_format = '0.00' 
+        
+        # Aplicar alineación
+        row[0].alignment = left_align 
+        row[1].alignment = center_align 
+        row[2].alignment = center_align 
+        row[3].alignment = center_align 
+        porcentaje_cell.alignment = center_align 
+
+
+    # Ajustar ancho de columnas para mejor visualización
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column
+        for cell in col:
+            try:
+                # Comprobar la longitud del valor de la celda
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        # Aumentar el ancho de la columna 
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[get_column_letter(column)].width = adjusted_width
+
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    # Crea respuesta HTTP para la descarga
+    response = HttpResponse(
+        buffer.read(), 
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    # Nombre del archivo
+    response['Content-Disposition'] = f'attachment; filename="reporte_peliculas_{date.today().isoformat()}.xlsx"'
+    
+    return response
+    

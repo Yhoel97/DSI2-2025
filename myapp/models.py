@@ -103,6 +103,10 @@ class Pelicula(models.Model):
             'vacias': 5 - estrellas_llenas - (1 if tiene_media else 0),
             'promedio': promedio
         }
+    
+    def get_horarios_list(self):
+        return self.funciones.all().order_by('fecha_inicio', 'horario')
+
 
     def __str__(self):
         return self.nombre

@@ -193,5 +193,5 @@ print(f"   Database: {DATABASES['default'].get('NAME', 'db.sqlite3')}")
 
 # ✅ Configuración de URLs de autenticación
 LOGIN_URL = '/accounts/login/'  # URL de login (usuarios no autenticados serán redirigidos aquí)
-LOGIN_REDIRECT_URL = 'index'  # A dónde va después de login exitoso
-LOGOUT_REDIRECT_URL = 'index'  # A dónde va después de logout
+LOGIN_REDIRECT_URL = '/'  # A dónde va después de login exitoso
+LOGOUT_REDIRECT_URL = '/'  # A dónde va después de logout

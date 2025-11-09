@@ -1,39 +1,45 @@
-/* admin-stats.css */
 
-/* 1. Estilos Globales de la Página (si no se usa base.html) */
 body {
-    background-color: #f4f6f9; /* Fondo muy claro para el panel */
+    background: linear-gradient(135deg, #fce3ec 0%, #d8e8f8 50%, #e0f7e9 100%);
     color: #333;
     font-family: Arial, sans-serif;
+    min-height: 100vh; /* Asegura que el degradado se extienda */
+    margin: 0;
 }
 
-/* 2. Contenedor Principal */
+.card { 
+    background-color: transparent !important; 
+    box-shadow: none !important;            
+    border: none !important;                 
+}
+
+
 .container {
     padding-top: 30px;
     padding-bottom: 50px;
 }
 
-/* 3. Título del Reporte */
+
 h2 {
-    color: #3c8dbc; /* Azul estándar de paneles de admin */
+    color: #3c8dbc; 
     border-bottom: 3px solid #3c8dbc;
     padding-bottom: 10px;
     margin-bottom: 30px;
     font-weight: 600;
 }
 
-/* 4. Estilo de la Tabla */
+
 .admin-stats-table {
     width: 100%;
     margin-top: 20px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Sombra suave */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 6px;
-    overflow: hidden; /* Asegura que la tabla respete el border-radius */
+    overflow: hidden; 
 }
 
-/* Encabezados */
+
 .admin-stats-table thead th {
     background-color: #3c8dbc;
     color: white;
@@ -43,28 +49,26 @@ h2 {
     vertical-align: middle;
 }
 
-/* Filas del cuerpo */
+
 .admin-stats-table tbody tr:nth-child(even) {
-    background-color: #f9f9f9; /* Raya las filas para facilitar la lectura */
+    background-color: #f9f9f9; 
 }
 .admin-stats-table tbody tr:hover {
-    background-color: #e6f3ff; /* Resalta al pasar el mouse */
+    background-color: #e6f3ff; 
 }
 
-/* 5. Estilos de Celda */
+
 .admin-stats-table td {
     padding: 12px 8px;
     vertical-align: middle;
-    /* Aplicamos alineación a la derecha para números y centro para iconos */
     text-align: center; 
 }
 
 .admin-stats-table td:first-child {
-    text-align: left; /* La columna del nombre de la película se alinea a la izquierda */
+    text-align: left; 
     font-weight: 600;
 }
 
-/* 6. Estilo para los Badges (Porcentaje) */
 .badge-metric {
     font-size: 0.9em;
     padding: 0.4em 0.7em;
@@ -74,7 +78,6 @@ h2 {
     display: inline-block;
 }
 
-/* Clases de Bootstrap simuladas (si no lo usas) */
 .bg-success { background-color: #00a65a; color: white; }
 .bg-warning { background-color: #f39c12; color: white; }
 .bg-info { background-color: #00c0ef; color: white; }

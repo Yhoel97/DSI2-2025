@@ -2940,6 +2940,13 @@ def mis_reservaciones_cancelables(request):
             
             # Comprobación de las 3 horas: La función debe ser en MÁS de 3 horas
             if datetime_funcion > HORA_LIMITE_CANCELACION:
+                # Formato AM/PM: 
+                horario_ampm = datetime_funcion.strftime('%I:%M %p') 
+            
+            # Adjuntar el campo combinado para la tabla
+                sala_limpia = str(reserva.sala).replace('Sala', '').strip()
+            
+                reserva.horario_sala_web = f"{horario_ampm} / Sala {sala_limpia}"
                 reservas_validas.append(reserva)
         
         except ValueError:
@@ -2970,6 +2977,13 @@ def cancelar_reserva(request, pk):
             datetime_funcion = timezone.make_aware(datetime_funcion)
 
         tiempo_hasta_proyeccion = datetime_funcion - timezone.now()
+        fecha_formateada = reserva.fecha_funcion.strftime('%d/%m/%Y')
+        
+        
+        horario_ampm = datetime_funcion.strftime('%I:%M %p')
+        
+        
+        horario_sala_combinado = f"{horario_ampm} "
     except ValueError:
         messages.error(request, 'Error interno: No se pudo verificar la hora de la función.')
         return redirect('mis_reservaciones_cancelables')
@@ -3004,7 +3018,7 @@ def cancelar_reserva(request, pk):
                 f"🎫 Código de reserva: <strong>{reserva.codigo_reserva}</strong><br>"
                 f"🎬 Película: {reserva.pelicula.nombre}<br>"
                 f"🗓️ <strong>Fecha de Función:</strong> {reserva.fecha_funcion}<br>"
-                f"🕐 Horario: {reserva.horario}<br>"
+                f"🕐 Horario: {horario_sala_combinado}<br>"
                 f"🎬 Sala: {reserva.sala}<br>"
                 f"💺 Asientos Liberados: {reserva.asientos}<br><br>"
         

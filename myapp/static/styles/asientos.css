@@ -954,3 +954,124 @@ body {
     font-size: 1.1rem;
   }
 }
+
+/* ===== Modal de autenticación requerida ===== */
+.auth-required-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.auth-required-modal {
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+  padding: 3rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  max-width: 450px;
+  width: 90%;
+  animation: slideUp 0.4s ease;
+}
+
+.auth-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: pulse 2s infinite;
+}
+
+.auth-required-modal h2 {
+  font-size: 2rem;
+  color: #7b68ee;
+  margin-bottom: 1rem;
+  font-weight: 900;
+}
+
+.auth-required-modal p {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-buttons a {
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.auth-buttons a:nth-child(1) {
+  background: linear-gradient(135deg, #7b68ee, #9370db);
+  color: white;
+}
+
+.auth-buttons a:nth-child(1):hover {
+  background: linear-gradient(135deg, #6a5acd, #7b68ee);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(123, 104, 238, 0.4);
+}
+
+.auth-buttons a:nth-child(2) {
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  color: white;
+}
+
+.auth-buttons a:nth-child(2):hover {
+  background: linear-gradient(135deg, #45a049, #4CAF50);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(76, 175, 80, 0.4);
+}
+
+.auth-buttons a:nth-child(3) {
+  background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+  color: #333;
+}
+
+.auth-buttons a:nth-child(3):hover {
+  background: linear-gradient(135deg, #e0e0e0, #d0d0d0);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Responsive para modal de auth */
+@media (max-width: 768px) {
+  .auth-required-modal {
+    padding: 2rem;
+    max-width: 90%;
+  }
+  
+  .auth-required-modal h2 {
+    font-size: 1.5rem;
+  }
+  
+  .auth-required-modal p {
+    font-size: 1rem;
+  }
+  
+  .auth-buttons a {
+    font-size: 1rem;
+    padding: 0.875rem 1.5rem;
+  }
+}

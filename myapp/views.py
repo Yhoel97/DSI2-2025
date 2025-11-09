@@ -577,7 +577,6 @@ PRECIOS_FORMATO = {
     'IMAX': 8.00
 }
 
-@login_required
 @csrf_exempt
 def asientos(request, pelicula_id=None):
 

@@ -2996,11 +2996,24 @@ def cancelar_reserva(request, pk):
         try:
             subject = f"Cancelación Exitosa - Reserva {reserva.codigo_reserva}"
             body = (
-                f"Hola {reserva.nombre_cliente} {reserva.apellido_cliente},\n\n"
-                f"Confirmamos que tu reserva para la película '{reserva.pelicula.nombre}' ha sido **cancelada exitosamente**.\n"
-                f"Los asientos {reserva.asientos} de la Sala {reserva.sala} para el horario {reserva.horario} han sido liberados.\n\n"
-                f"El proceso de reembolso del monto de ${reserva.precio_total:.2f} se iniciará en las próximas 48 horas (dependiendo de tu banco).\n\n"
-                f"¡Esperamos verte pronto en CineDot!"
+                f"Hola {reserva.nombre_cliente} {reserva.apellido_cliente},<br><br>"
+        
+                f"Confirmamos que tu reserva para la película '<strong>{reserva.pelicula.nombre}</strong>' ha sido **CANCELADA exitosamente**.<br><br>"
+        
+                f"<strong>Detalles de la reserva cancelada:</strong><br>"
+                f"🎫 Código de reserva: <strong>{reserva.codigo_reserva}</strong><br>"
+                f"🎬 Película: {reserva.pelicula.nombre}<br>"
+                f"🗓️ <strong>Fecha de Función:</strong> {reserva.fecha_funcion}<br>"
+                f"🕐 Horario: {reserva.horario}<br>"
+                f"🎬 Sala: {reserva.sala}<br>"
+                f"💺 Asientos Liberados: {reserva.asientos}<br><br>"
+        
+                f"<strong>Información de Reembolso:</strong><br>"
+                f"💸 Monto a reembolsar: <strong>${reserva.precio_total:.2f}</strong><br>"
+                f"El proceso de reembolso se iniciará en las próximas 48 horas hábiles (el tiempo puede variar según tu banco).<br><br>"
+        
+                f"Lamentamos que no puedas asistir esta vez.<br>"
+                f"¡Esperamos verte pronto en CineDot! 🍿"
             )
             
             

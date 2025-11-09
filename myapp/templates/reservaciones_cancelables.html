@@ -29,7 +29,7 @@
 
         <section class="section container my-reservations">
             <h2 class="section-title">Mis Reservaciones Activas (Últimas 24h)</h2>
-            <p class="info-text">Solo se muestran reservas hechas en las últimas 24 horas y que su funcion no sea dentro de 3 horas, solo se muestran las queaún no han sido canceladas.</p>
+            <p class="info-text">Solo se muestran reservas hechas en las últimas 24 horas y que su funcion no sea dentro de 3 horas, solo se muestran las que aún no han sido canceladas.</p>
             
             {% if reservas %}
                 <div class="table-responsive">
@@ -55,9 +55,10 @@
                                     <td data-label="Fecha Función">{{ reserva.fecha_funcion|date:"d/m/Y" }}</td>
                                     <td data-label="Horario / Sala">{{ reserva.horario }} / {{ reserva.sala }}</td>
                                     <td data-label="Asientos">{{ reserva.asientos }}</td>
-                                    <td data-label="Fecha Reserva">{{ reserva.fecha_reserva|date:"d/m/Y H:i" }}</td>
+                                    <td data-label="Fecha Reserva">{{ reserva.fecha_reserva|date:"d/m/Y g:i A" }}</td>
                                     <td data-label="Acción">
-                                        <form method="post" action="{% url 'cancelar_reserva' reserva.pk %}">
+                                        <form method="post" action="{% url 'cancelar_reserva' reserva.pk %}"
+                                            onsubmit="return confirm('¿Está seguro que desea cancelar esta reserva?');">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-cancel btn-danger btn-sm">Cancelar</button>
                                         </form>

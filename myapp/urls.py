@@ -59,6 +59,8 @@ urlpatterns = [
 
     # PBI-29: Gestión de Usuarios
     path('administrar_usuarios/', views.administrar_usuarios, name='administrar_usuarios'),
+    path('estadisticas/peliculas/', views.estadisticas_peliculas, name='admin_estadisticas_peliculas'), # 👈 Corregido
+    path('reportes/', views.reportes_admin, name='reportes_admin'),
 
 ]
 

@@ -74,9 +74,11 @@ from itertools import groupby
 import pytz
 from decimal import Decimal
 
-from .models import Pelicula, Funcion, Pago, MetodoPago
+from .models import Pelicula, Funcion, Pago, MetodoPago, Valoracion
 from .utils.payment_simulator import simular_pago
 from .utils.encryption import encrypt_card_data, encrypt_card_data_full, decrypt_card_data, get_card_type
+from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Avg, Count
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -3240,3 +3242,59 @@ def administrar_usuarios(request):
         "usuarios": usuarios,
         "usuario_editar": usuario_editar,
     })
+
+@staff_member_required
+def estadisticas_peliculas(request):
+    """
+    Calcula y presenta estadísticas de desempeño de las películas.
+    Solo accesible para usuarios administradores (staff_member_required).
+    """
+    
+    # Obtener todas las películas activas
+    peliculas = Pelicula.objects.all().order_by('nombre')
+    
+    datos_estadisticos = []
+    
+    # Obtener el número total de usuarios registrados para el cálculo del porcentaje
+    total_usuarios = User.objects.filter(is_active=True).count()
+    
+    # Manejar el caso de división por cero
+    if total_usuarios == 0:
+        total_usuarios = 1 # Para evitar errores de división, el porcentaje será 0
+        
+    for pelicula in peliculas:
+        
+        # 1. Puntuación Promedio (Basado en el modelo Reseña)
+        # Calcula el promedio de la columna 'puntuacion' para esta película
+        puntuacion_data = Valoracion.objects.filter(pelicula=pelicula).aggregate(Avg('rating'))
+        puntuacion_promedio = puntuacion_data['rating__avg'] or 0.0 # Devuelve 0.0 si no hay reseñas
+        
+        # 2. Número de Reproducciones / Reservas (Basado en el modelo Reserva)
+        # Cuenta cuántas reservas se han hecho para funciones de esta película
+        # Usamos distinct() para contar solo usuarios únicos que reservaron
+        reservas_count = Reserva.objects.filter(
+            pelicula=pelicula, 
+            estado__in=['CONFIRMADO', 'RESERVADO', 'USADO'] # No contar CANCELADO
+        ).aggregate(
+            conteo_boletos=Count('pk'), # Conteo total de boletos/reservas
+            usuarios_unicos=Count('usuario', distinct=True) # Conteo de usuarios únicos
+        )
+        
+        # 3. Porcentaje de Usuarios que Compraron Boleto
+        usuarios_unicos_compradores = reservas_count['usuarios_unicos']
+        
+        porcentaje_compradores = (usuarios_unicos_compradores / total_usuarios) * 100
+        
+        datos_estadisticos.append({
+            'nombre': pelicula.nombre,
+            'puntuacion_promedio': f"{puntuacion_promedio:.2f}", # Formato a dos decimales
+            'numero_reservas': reservas_count['conteo_boletos'],
+            'usuarios_unicos': usuarios_unicos_compradores,
+            'porcentaje_compradores': f"{porcentaje_compradores:.2f}", # Formato a dos decimales
+        })
+        
+    context = {
+        'datos_estadisticos': datos_estadisticos,
+        'total_usuarios': total_usuarios
+    }
+    return render(request, 'estadisticas_peliculas.html', context)

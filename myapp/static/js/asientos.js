@@ -400,11 +400,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ============================================
-    // ✅ VALIDACIÓN ANTES DE ENVIAR
+    // ✅ VALIDACIÓN ANTES DE ENVIAR (EVENTO SUBMIT)
     // ============================================
-    if (btnConfirm) {
-        btnConfirm.addEventListener('click', (e) => {
-            console.log('🔍 Validando formulario...');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            // Solo validar si la acción es "reservar" (no para "recalcular" cupón)
+            const submitButton = document.activeElement;
+            if (submitButton && submitButton.value === 'recalcular') {
+                // Permitir recalcular sin validaciones completas
+                return true;
+            }
+
+            console.log('🔍 Validando formulario antes de envío...');
 
             // Validar que haya asientos seleccionados
             const asientosSeleccionados = Array.from(seatCheckboxes)
@@ -522,17 +529,23 @@ document.addEventListener('DOMContentLoaded', () => {
             // ✅ TODO VALIDADO - Mostrar indicador de procesamiento
             console.log('✅ Formulario validado correctamente');
             console.log('📋 Asientos finales:', asientosSeleccionados.map(cb => cb.value));
+            console.log('🚀 Enviando formulario al servidor...');
             
+            // Mostrar indicador de procesamiento DESPUÉS de validar
             if (processingIndicator) {
                 processingIndicator.style.display = 'flex';
             }
-            if (btnConfirm) {
-                btnConfirm.disabled = true;
-                btnConfirm.style.opacity = '0.6';
-                btnConfirm.style.cursor = 'not-allowed';
-            }
+            
+            // Deshabilitar botón DESPUÉS de que el navegador haya iniciado el submit
+            setTimeout(() => {
+                if (btnConfirm) {
+                    btnConfirm.disabled = true;
+                    btnConfirm.style.opacity = '0.6';
+                    btnConfirm.style.cursor = 'not-allowed';
+                }
+            }, 0);
 
-            // Permitir que el formulario se envíe
+            // Permitir que el formulario se envíe normalmente
             return true;
         });
     }

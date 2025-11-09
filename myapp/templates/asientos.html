@@ -92,7 +92,7 @@
                                    data-precio="{{ item.precio }}"
                                    {% if item.funcion == funcion_actual %}checked{% endif %}
                                    required
-                                   class="auto-submit">
+                                   class="funcion-radio">
                             <div class="funcion-content">
                                 <div class="funcion-horario">🕐 {{ item.funcion.get_horario_display }}</div>
                                 <div class="funcion-sala">🎬 Sala {{ item.funcion.sala }}</div>
@@ -119,7 +119,8 @@
                                    value="{{ asiento }}"
                                    {% if asiento in asientos_ocupados %}disabled{% endif %}
                                    {% if asiento in asientos_seleccionados %}checked{% endif %}
-                                   class="auto-submit"
+                                   class="seat-checkbox"
+                                   data-asiento="{{ asiento }}"
                                    style="display: none;">
                             <div class="seat {% if asiento in asientos_ocupados %}reserved{% elif asiento in asientos_seleccionados %}selected{% else %}available{% endif %}">
                                 {{ numero }}
@@ -136,6 +137,9 @@
                     <div class="legend-item"><div class="seat selected"></div><span>Seleccionado</span></div>
                     <div class="legend-item"><div class="seat reserved"></div><span>Ocupado</span></div>
                 </div>
+
+                <!-- ✅ CRÍTICO: Contenedor para inputs ocultos de asientos -->
+                <div id="hidden-seats-container" style="display: none;"></div>
 
                 <!-- Resumen -->
                 <div class="selection-summary">
@@ -171,6 +175,11 @@
                             <span>Descuento ({{ descuento_porcentaje }}%):</span>
                             <span>-${{ descuento_monto|floatformat:2 }}</span>
                         </p>
+                        {% else %}
+                        <p id="discount-row" class="price-row discount-row" style="color: #28a745; display: none;">
+                            <span>Descuento (0%):</span>
+                            <span>-$0.00</span>
+                        </p>
                         {% endif %}
                     </div>
                     <div class="total-price" id="total-price">
@@ -178,7 +187,7 @@
                     </div>
                 </div>
 
-                <!-- Sección de Método de Pago - PBI-30 y PBI-27 -->
+                <!-- Sección de Método de Pago -->
                 <div class="payment-section">
                     <h3>💳 Método de Pago</h3>
                     
@@ -251,7 +260,8 @@
                                    id="cvv_guardado" 
                                    name="cvv_guardado" 
                                    placeholder="123"
-                                   maxlength="4">
+                                   maxlength="4"
+                                   pattern="[0-9]{3,4}">
                             <small>Por seguridad, necesitamos el CVV de tu tarjeta guardada</small>
                             <span class="field-error" id="error-cvv-guardado"></span>
                         </div>
@@ -302,7 +312,8 @@
                                        id="cvv" 
                                        name="cvv" 
                                        placeholder="123"
-                                       maxlength="4">
+                                       maxlength="4"
+                                       pattern="[0-9]{3,4}">
                                 <span class="field-error" id="error-cvv"></span>
                             </div>
                         </div>
@@ -360,6 +371,52 @@
         </script>
         {% endif %}
     </div>
+
+    <script>
+    // ✅ CRÍTICO: Sincronizar asientos antes de enviar el formulario
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('reserva-form');
+        
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const accion = document.querySelector('button[type="submit"]:focus')?.value || 
+                              e.submitter?.value;
+                
+                // Solo sincronizar asientos cuando sea una reserva final
+                if (accion === 'reservar') {
+                    console.log('🎯 Preparando envío de reserva...');
+                    
+                    // Limpiar contenedor de inputs ocultos
+                    const container = document.getElementById('hidden-seats-container');
+                    if (container) {
+                        container.innerHTML = '';
+                        
+                        // Obtener todos los asientos seleccionados
+                        const checkboxes = document.querySelectorAll('input.seat-checkbox:checked:not(:disabled)');
+                        
+                        console.log('📋 Asientos seleccionados:', checkboxes.length);
+                        
+                        if (checkboxes.length === 0) {
+                            e.preventDefault();
+                            alert('⚠️ Por favor selecciona al menos un asiento');
+                            return false;
+                        }
+                        
+                        // Crear inputs ocultos para cada asiento seleccionado
+                        checkboxes.forEach(checkbox => {
+                            const hiddenInput = document.createElement('input');
+                            hiddenInput.type = 'hidden';
+                            hiddenInput.name = 'asientos_list';
+                            hiddenInput.value = checkbox.value;
+                            container.appendChild(hiddenInput);
+                            console.log('  ✓ Asiento:', checkbox.value);
+                        });
+                    }
+                }
+            });
+        }
+    });
+    </script>
 
     <script src="{% static 'js/asientos.js' %}"></script>
 </body>

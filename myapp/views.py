@@ -2537,18 +2537,34 @@ def dashboard_admin(request):
 
 @login_required
 def mis_reservaciones_cancelables(request):
-    #Define el limite de tiempo 24 horas
-    tiempo_limite = timezone.now() - timedelta(hours=24)
-    #la reserva solo se podra cancelar 3 horas antes de la funcion
-    tiempo_limite_proyeccion = timezone.now() + timedelta(hours=3)
     
+    TIEMPO_MAXIMO_CANCELACION = timezone.now() - timedelta(hours=24)
+    HORA_LIMITE_CANCELACION = timezone.now() + timedelta(hours=3)
     # Filtra las reservas solo de usuarios logueados
-    reservas_validas = Reserva.objects.filter(
-        usuario=request.user,                 # Solo las del usuario logueado
-        fecha_reserva__gte=tiempo_limite,     # Filtrar: Hechas en las últimas 24h
-        horario__gte=tiempo_limite_proyeccion,
-        estado__in=['RESERVADO', 'CONFIRMADO']                      
-    ).order_by('-fecha_reserva') 
+    reservas_posibles = Reserva.objects.filter(
+        usuario=request.user,
+        fecha_reserva__gte=TIEMPO_MAXIMO_CANCELACION, 
+        estado__in=['RESERVADO', 'CONFIRMADO'],
+    ).order_by('-fecha_reserva')
+    reservas_validas = []
+    
+    for reserva in reservas_posibles:
+       
+        try:
+            
+            hora_funcion = datetime.strptime(reserva.horario, '%H:%M').time()
+            datetime_funcion = datetime.combine(reserva.fecha_funcion, hora_funcion)
+            
+            if timezone.is_aware(timezone.now()):
+                datetime_funcion = timezone.make_aware(datetime_funcion)
+            
+            # Comprobación de las 3 horas: La función debe ser en MÁS de 3 horas
+            if datetime_funcion > HORA_LIMITE_CANCELACION:
+                reservas_validas.append(reserva)
+        
+        except ValueError:
+            # Si el formato del horario no es correcto, simplemente omite la reserva
+            continue
     
     context = {
         'reservas': reservas_validas,
@@ -2560,25 +2576,39 @@ def mis_reservaciones_cancelables(request):
 def cancelar_reserva(request, pk):
     reserva = get_object_or_404(Reserva, pk=pk, usuario=request.user)
     
+    # Constantes de los límites
+    TIEMPO_MAXIMO_CANCELACION = timedelta(hours=24) # 24h desde la compra
+    TIEMPO_MINIMO_CANCELACION_PROYECCION = timedelta(hours=3) # 3h antes de la función
     
-    #tiempo_limite = timezone.now() - timedelta(hours=24)
-    TIEMPO_MAXIMO_CANCELACION = timedelta(hours=24)
-    TIEMPO_MINIMO_CANCELACION_PROYECCION = timedelta(hours=3)
     tiempo_transcurrido = timezone.now() - reserva.fecha_reserva
-    tiempo_hasta_proyeccion = reserva.horario - timezone.now()
+    
+    try:
+        hora_funcion = datetime.strptime(reserva.horario, '%H:%M').time()
+        datetime_funcion = datetime.combine(reserva.fecha_funcion, hora_funcion)
+        
+        if timezone.is_aware(timezone.now()):
+            datetime_funcion = timezone.make_aware(datetime_funcion)
 
+        tiempo_hasta_proyeccion = datetime_funcion - timezone.now()
+    except ValueError:
+        messages.error(request, 'Error interno: No se pudo verificar la hora de la función.')
+        return redirect('mis_reservaciones_cancelables')
+    
     
     if request.method == 'POST':
-        #  Verifica si la reserva ya pasó el límite o ya está cancelada
+        
+        #  VERIFICACIÓN DE LA REGLA DE 24 HORAS DESDE LA COMPRA
         if tiempo_transcurrido > TIEMPO_MAXIMO_CANCELACION:
-            messages.error(request, 'Esta reserva ya no puede ser cancelada.')
+            messages.error(request, 'Esta reserva ya no puede ser cancelada: han pasado más de 24 horas desde la compra.')
             return redirect('mis_reservaciones_cancelables')
         
+        # 2VERIFICACIÓN DE LA REGLA DE 3 HORAS ANTES DE LA FUNCIÓN
+        # Si la reserva fue hecha dentro de las 24 horas, aún debe cumplir la regla de la función.
         if tiempo_hasta_proyeccion < TIEMPO_MINIMO_CANCELACION_PROYECCION:
             messages.error(request, 'Esta reserva ya no puede ser cancelada: la función inicia en menos de 3 horas.')
             return redirect('mis_reservaciones_cancelables')
             
-        #  Cancelar la reserva y invalidar el codigo qr del ticket generado en la reservacion
+        # 3. CANCELACIÓN (Si pasó ambas verificaciones)
         reserva.estado = 'CANCELADO'
         reserva.usado = True
         reserva.save()

@@ -571,6 +571,7 @@ PRECIOS_FORMATO = {
     'IMAX': 8.00
 }
 
+@login_required
 @csrf_exempt
 def asientos(request, pelicula_id=None):
 
@@ -931,7 +932,7 @@ def asientos(request, pelicula_id=None):
                     cantidad_boletos=cantidad_boletos,
                     precio_total=precio_total,
                     estado="CONFIRMADO",
-                    usuario=request.user if request.user.is_authenticated else None,
+                    usuario=request.user,
                     pago_completado=True,
                     fecha_pago=timezone.now(),
                     codigo_reserva=codigo_reserva

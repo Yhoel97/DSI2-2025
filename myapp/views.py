@@ -998,13 +998,15 @@ def asientos(request, pelicula_id=None):
 
                 # ========== REGISTRAR VENTA ==========
                 print(f"📊 Creando Venta con formato: [{reserva.formato}] (tipo: {type(reserva.formato)})")
+                from django.utils import timezone
                 Venta.objects.create(
                     pelicula=reserva.pelicula,
                     sala=reserva.sala,
                     fecha=fecha_seleccionada,
                     cantidad_boletos=reserva.cantidad_boletos,
                     total_venta=reserva.precio_total,
-                    formato=reserva.formato if reserva.formato else "2D"  # Asegurar que no sea None/vacío
+                    formato=reserva.formato if reserva.formato else "2D",  # Asegurar que no sea None/vacío
+                    fecha_venta=timezone.now().date()  # Fecha actual de la venta
                 )
                 print("📊 Venta registrada")
 

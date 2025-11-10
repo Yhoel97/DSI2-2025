@@ -1026,7 +1026,7 @@ def asientos(request, pelicula_id=None):
                     cantidad_boletos=reserva.cantidad_boletos,
                     total_venta=reserva.precio_total,
                     formato=reserva.formato if reserva.formato else "2D",  # Asegurar que no sea None/vacío
-                    fecha_venta=timezone.now().date()  # Fecha actual de la venta
+                    #fecha_venta=timezone.now().date()  # Fecha actual de la venta
                 )
                 print(f"📊 Venta registrada con formato: {reserva.formato} y fecha_venta {timezone.now().date()}")
 

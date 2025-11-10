@@ -14,11 +14,23 @@
 <body>
     <div class="container mt-4">
         
-        <div class="mb-4">
-            <a href="{% url 'index' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Inicio
-            </a>
-        </div>
+     <header class="header">
+  <div class="header-top">
+  <nav class="nav">
+    <ul class="nav-list flex">
+    <li><a href="{% url 'index' %}"><i class="fas fa-home"></i> Inicio</a></li>
+    <li><a href="{% url 'panelAdmin' %}"><i class="fas fa-cog"></i> Panel Admin</a></li>
+    <li><a href="{% url 'peliculas' %}"><i class="fas fa-film"></i> Gestión de Películas</a></li>
+    <li><a href="{% url 'administrar_salas' %}"><i class="fas fa-door-open"></i> Administrar Salas</a></li>
+    <li><a href="{% url 'administrar_funciones' %}"><i class="fas fa-calendar-alt"></i> Administrar Funciones</a></li>
+    <li><a href="{% url 'administrar_usuarios' %}"><i class="fas fa-user"></i> Administrar Usuarios</a></li>
+    <li><a href="{% url 'reportes_admin' %}"><i class="fas fa-chart-line"></i> Reportes Administrativos</a></li>
+    <li><a href="{% url 'dashboard_admin' %}"><i class="fas fa-tachometer-alt"></i> Dashboard Administrativo</a></li>
+    <li><a href="{% url 'registrar_cupon' %}"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
+    <li><a href="{% url 'admin_estadisticas_peliculas' %}"><i class="fas fa-chart-bar"></i> Reporte de Películas</a></li>
+  </nav>
+</div>
+</header>
 
         <div class="card shadow-sm" style="border-radius: 15px; background-color: white;">
             <div class="card-body">
@@ -84,7 +96,7 @@
                     <div class="card-body py-2">
                         <p class="mb-0">
                             <strong>Total de Usuarios Registrados:</strong> {{ total_usuarios }}
-                            <span class="float-end text-muted">Datos para el cálculo del % de compradores.</span>
+                            
                         </p>
                     </div>
                 </div>

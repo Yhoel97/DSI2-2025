@@ -8,6 +8,26 @@
     <link rel="stylesheet" href="{% static 'styles/funciones.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
+<header class="header">
+  <div class="header-top">
+  <nav class="nav">
+    <ul class="nav-list flex">
+    <li><a href="{% url 'index' %}"><i class="fas fa-home"></i> Inicio</a></li>
+    <li><a href="{% url 'panelAdmin' %}"><i class="fas fa-cog"></i> Panel Admin</a></li>
+    <li><a href="{% url 'peliculas' %}"><i class="fas fa-film"></i> Gestión de Películas</a></li>
+    <li><a href="{% url 'administrar_salas' %}"><i class="fas fa-door-open"></i> Administrar Salas</a></li>
+    <li><a href="{% url 'administrar_funciones' %}"><i class="fas fa-calendar-alt"></i> Administrar Funciones</a></li>
+    <li><a href="{% url 'administrar_usuarios' %}"><i class="fas fa-user"></i> Administrar Usuarios</a></li>
+    <li><a href="{% url 'reportes_admin' %}"><i class="fas fa-chart-line"></i> Reportes Administrativos</a></li>
+    <li><a href="{% url 'dashboard_admin' %}"><i class="fas fa-tachometer-alt"></i> Dashboard Administrativo</a></li>
+    <li><a href="{% url 'registrar_cupon' %}"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
+    <li><a href="{% url 'admin_estadisticas_peliculas' %}"><i class="fas fa-chart-bar"></i> Reporte de Películas</a></li>
+  </nav>
+</div>
+</header>
+
+
 <body class="bg-light">
 
 <div class="container mt-4 mb-5">
@@ -22,10 +42,6 @@
         {% endfor %}
     {% endif %}
 
-    <div class="mb-3 d-flex gap-2">
-        <a href="{% url 'index' %}" class="btn btn-primary"><i class="fas fa-home"></i> Volver al Inicio</a>
-        <a href="{% url 'peliculas' %}" class="btn btn-primary"><i class="fas fa-film"></i> Administrar Películas</a>
-    </div>
 
     <!-- Formulario Crear / Editar -->
     <div class="card shadow-sm">

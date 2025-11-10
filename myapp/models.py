@@ -377,16 +377,8 @@ class Venta(models.Model):
     fecha = models.DateField()
     cantidad_boletos = models.PositiveIntegerField()
     total_venta = models.DecimalField(max_digits=10, decimal_places=2)
-    # 👇 NUEVO CAMPO
-    FORMATO_CHOICES = [
-        ('2D', '2D'),
-        ('3D', '3D'),
-        ('IMAX', 'IMAX'),
-        ('4DX', '4DX'),
-    ]
-    formato = models.CharField(max_length=10, choices=FORMATO_CHOICES, default='2D')
-    fecha_venta = models.DateField(default=timezone.now)
-
+    formato = models.CharField(max_length=10, null=True, blank=True)  # 2D, 3D, IMAX
+    fecha_venta = models.DateField(auto_now_add=True)  # Fecha en que se realizó la venta
 
     def __str__(self):
         return f"{self.pelicula.nombre} - {self.fecha}"

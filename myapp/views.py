@@ -180,14 +180,25 @@ def peliculas(request):
 
         # --- EDITAR ---
         elif accion == 'editar':
-            nombre_original = request.POST.get('nombre_original', '').strip()
+            pelicula_id = request.POST.get('pelicula_id', '').strip()
+            
+            if not pelicula_id:
+                messages.error(request, 'ID de película no proporcionado.')
+                return redirect('peliculas')
+            
             try:
-                pelicula = Pelicula.objects.get(nombre=nombre_original)
+                pelicula = Pelicula.objects.get(id=pelicula_id)
             except Pelicula.DoesNotExist:
                 messages.error(request, 'No se encontró la película a editar.')
                 return redirect('peliculas')
 
-            pelicula.nombre = request.POST.get('nombre', '').strip()
+            # Validar nombre duplicado (excepto la misma película)
+            nuevo_nombre = request.POST.get('nombre', '').strip()
+            if Pelicula.objects.filter(nombre=nuevo_nombre).exclude(id=pelicula.id).exists():
+                messages.error(request, 'Ya existe otra película con ese nombre.')
+                return redirect('peliculas')
+
+            pelicula.nombre = nuevo_nombre
             pelicula.anio = request.POST.get('anio', '').strip()
             pelicula.director = request.POST.get('director', '').strip()
             pelicula.imagen_url = request.POST.get('imagen_url', '').strip()
@@ -203,27 +214,35 @@ def peliculas(request):
 
         # --- ELIMINAR ---
         elif accion == 'eliminar':
-            nombre = request.POST.get('nombre', '').strip()
+            pelicula_id = request.POST.get('pelicula_id', '').strip()
+            
+            if not pelicula_id:
+                messages.error(request, 'ID de película no proporcionado.')
+                return redirect('peliculas')
+            
             try:
-                Pelicula.objects.get(nombre=nombre).delete()
-                messages.success(request, f'Película "{nombre}" eliminada correctamente.')
+                pelicula = Pelicula.objects.get(id=pelicula_id)
+                nombre_pelicula = pelicula.nombre
+                pelicula.delete()
+                messages.success(request, f'Película "{nombre_pelicula}" eliminada correctamente.')
             except Pelicula.DoesNotExist:
                 messages.error(request, 'No se encontró la película para eliminar.')
             return redirect('peliculas')
 
     # 🔹 Datos para el formulario y la tabla
     generos_choices = dict(Pelicula.GENERO_CHOICES)
-    salas_disponibles = Pelicula.SALAS_DISPONIBLES  # ✅ ahora solo salas con formato
+    salas_disponibles = Pelicula.SALAS_DISPONIBLES
 
     pelicula_editar = None
     if 'editar' in request.GET:
-        nombre = request.GET.get('editar')
-        pelicula_editar = Pelicula.objects.filter(nombre=nombre).first()
+        pelicula_id = request.GET.get('editar')
+        if pelicula_id:
+            pelicula_editar = Pelicula.objects.filter(id=pelicula_id).first()
 
     # 🔹 Convertir películas de cartelera con sus salas y formatos
     peliculas_con_pares = []
     for p in peliculas_en_cartelera:
-        pares = p.get_salas_con_formato()  # ✅ devuelve (sala, formato)
+        pares = p.get_salas_con_formato()
         generos_nombres = [generos_choices.get(g, g) for g in p.get_generos_list()]
         peliculas_con_pares.append({
             'obj': p,
@@ -235,8 +254,8 @@ def peliculas(request):
 
     # 🔹 Contexto para renderizar
     context = {
-        'peliculas': peliculas_con_pares,          # En cartelera
-        'peliculas_proximas': peliculas_proximas,  # Próximamente
+        'peliculas': peliculas_con_pares,
+        'peliculas_proximas': peliculas_proximas,
         'GENERO_CHOICES_DICT': generos_choices,
         'SALAS_DISPONIBLES': salas_disponibles,
         'pelicula_editar': pelicula_editar,
@@ -877,6 +896,13 @@ def asientos(request, pelicula_id=None):
             
             funcion = get_object_or_404(Funcion, id=funcion_id)
             formato_funcion = funcion.get_formato_sala()
+            print(f"🎬 Formato obtenido de la función: [{formato_funcion}] (tipo: {type(formato_funcion)})")
+            
+            # Validar que formato no esté vacío
+            if not formato_funcion or formato_funcion.strip() == "":
+                formato_funcion = "2D"  # Default
+                print(f"⚠️ Formato vacío, usando default: {formato_funcion}")
+            
             precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
             # Recalcular totales
@@ -903,6 +929,11 @@ def asientos(request, pelicula_id=None):
                     raise Exception(f"Los asientos {', '.join(asientos_duplicados)} ya fueron reservados por otro usuario")
 
                 # ========== PROCESAR PAGO SIMULADO ==========
+                print(f"🔍 DEBUG - numero_tarjeta: [{numero_tarjeta}] (tipo: {type(numero_tarjeta)})")
+                print(f"🔍 DEBUG - nombre_titular: [{nombre_titular}]")
+                print(f"🔍 DEBUG - fecha_expiracion: [{fecha_expiracion}]")
+                print(f"🔍 DEBUG - cvv: [{cvv}]")
+                
                 datos_tarjeta = {
                     'numero': numero_tarjeta,
                     'mes_expiracion': int(fecha_expiracion.split('/')[0]),
@@ -969,7 +1000,9 @@ def asientos(request, pelicula_id=None):
                 pago.save()
                 print(f"💾 Pago guardado - ID: {pago.id}")
 
-                # ========== REGISTRAR VENTA (siempre una por reserva confirmada) ==========
+                # ========== REGISTRAR VENTA ==========
+                print(f"📊 Creando Venta con formato: [{reserva.formato}] (tipo: {type(reserva.formato)})")
+                from django.utils import timezone
                 Venta.objects.create(
                     pelicula=reserva.pelicula,
                     sala=reserva.sala,
@@ -977,7 +1010,8 @@ def asientos(request, pelicula_id=None):
                     fecha_venta=timezone.now().date(),
                     cantidad_boletos=reserva.cantidad_boletos,
                     total_venta=reserva.precio_total,
-                    formato=reserva.formato
+                    formato=reserva.formato if reserva.formato else "2D",  # Asegurar que no sea None/vacío
+                    fecha_venta=timezone.now().date()  # Fecha actual de la venta
                 )
                 print(f"📊 Venta registrada con formato: {reserva.formato} y fecha_venta {timezone.now().date()}")
 

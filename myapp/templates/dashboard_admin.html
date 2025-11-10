@@ -23,14 +23,24 @@
   <header class="p-3 text-center">
     <h2><i class="fas fa-chart-line me-2 text-success"></i> Dashboard Administrativo</h2>
     <!-- Botones de navegación -->
-    <div class="mb-3 d-flex gap-2 flex-wrap justify-content-center nav-buttons">
-        <a href="{% url 'index' %}" class="btn-nav"><i class="fas fa-home"></i> Inicio</a>
-        <a href="{% url 'administrar_salas' %}" class="btn-nav"><i class="fas fa-door-open"></i> Salas</a>
-        <a href="{% url 'administrar_funciones' %}" class="btn-nav"><i class="fas fa-calendar-alt"></i> Funciones</a>
-        <a href="{% url 'reportes_admin' %}" class="btn-nav"><i class="fas fa-chart-bar"></i> Reportes</a>
-        <a href="{% url 'dashboard_admin' %}" class="btn-nav"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-    </div>
-  </header>
+
+  <div class="header-top">
+  <nav class="nav">
+    <ul class="nav-list flex">
+    <li><a href="{% url 'index' %}"><i class="fas fa-home"></i> Inicio</a></li>
+    <li><a href="{% url 'panelAdmin' %}"><i class="fas fa-cog"></i> Panel Admin</a></li>
+    <li><a href="{% url 'peliculas' %}"><i class="fas fa-film"></i> Gestión de Películas</a></li>
+    <li><a href="{% url 'administrar_salas' %}"><i class="fas fa-door-open"></i> Administrar Salas</a></li>
+    <li><a href="{% url 'administrar_funciones' %}"><i class="fas fa-calendar-alt"></i> Administrar Funciones</a></li>
+    <li><a href="{% url 'administrar_usuarios' %}"><i class="fas fa-user"></i> Administrar Usuarios</a></li>
+    <li><a href="{% url 'reportes_admin' %}"><i class="fas fa-chart-line"></i> Reportes Administrativos</a></li>
+    <li><a href="{% url 'dashboard_admin' %}"><i class="fas fa-tachometer-alt"></i> Dashboard Administrativo</a></li>
+    <li><a href="{% url 'registrar_cupon' %}"><i class="fas fa-ticket-alt"></i> Cupones</a></li>
+    <li><a href="{% url 'admin_estadisticas_peliculas' %}"><i class="fas fa-chart-bar"></i> Reporte de Películas</a></li>
+  </nav>
+</div>
+
+
 
   <div class="container mt-4">
     <!-- Totales -->

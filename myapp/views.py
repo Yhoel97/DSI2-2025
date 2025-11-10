@@ -53,6 +53,7 @@ from django.db.models import Q
 from datetime import date
 from django.contrib import messages
 from django.db import transaction
+from django.utils import timezone 
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from .models import Pelicula, Funcion, Reserva, User
@@ -85,6 +86,7 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill
 from datetime import date
+from django.utils import timezone
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -658,6 +660,11 @@ def asientos(request, pelicula_id=None):
 
     # ========== DATOS DE SELECCIÓN ==========
     asientos_seleccionados = request.POST.getlist("asientos_list")
+
+    # 🧩 FIX duplicados: eliminar asientos repetidos por clics múltiples
+    asientos_seleccionados = list(dict.fromkeys(asientos_seleccionados))
+    print(f"✅ Asientos únicos (sin duplicados): {asientos_seleccionados}")
+
     cantidad_boletos = len(asientos_seleccionados)
 
     # Formato y precio de la función actual
@@ -705,7 +712,7 @@ def asientos(request, pelicula_id=None):
             "sala": str(funcion_actual.sala) if funcion_actual else '',
             "horario": funcion_actual.horario if funcion_actual else ''
         })
-
+    
     # ========== CONFIRMAR RESERVA Y PAGO ==========
     if request.method == "POST" and request.POST.get("accion") == "reservar":
         print("💳 Iniciando proceso de reserva y pago...")
@@ -885,7 +892,7 @@ def asientos(request, pelicula_id=None):
                     horario=funcion.horario,
                     fecha_funcion=fecha_seleccionada,
                     estado__in=['RESERVADO', 'CONFIRMADO']
-                ).select_for_update()  # ⚠️ Bloquear para evitar race conditions
+                ).select_for_update()
                 
                 asientos_conflicto = []
                 for res in reservas_conflicto:
@@ -921,8 +928,6 @@ def asientos(request, pelicula_id=None):
                 codigo_reserva = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
                 
                 asientos_finales_unicos = sorted(list(set(asientos_seleccionados)))
-
-                # 2. Crear el string final
                 asientos_str = ",".join(asientos_finales_unicos)
                 print(f"💾 Guardando reserva con asientos: '{asientos_str}'")
                 
@@ -935,7 +940,7 @@ def asientos(request, pelicula_id=None):
                     sala=str(funcion.sala),
                     horario=funcion.horario,
                     fecha_funcion=fecha_seleccionada,
-                    asientos=asientos_str,  # ✅ String separado por comas
+                    asientos=asientos_str,
                     cantidad_boletos=cantidad_boletos,
                     precio_total=precio_total,
                     estado="CONFIRMADO",
@@ -946,11 +951,10 @@ def asientos(request, pelicula_id=None):
                 )
                 reserva.save()
                 print(f"✅ Reserva guardada - ID: {reserva.id}, Código: {codigo_reserva}")
-                print(f"✅ Asientos en BD: '{reserva.asientos}'")
 
                 # ========== CREAR REGISTRO DE PAGO ==========
                 pago = Pago(
-                    reserva=reserva,  # ✅ Ahora sí existe la reserva
+                    reserva=reserva,
                     monto=precio_total,
                     metodo_pago="TARJETA",
                     estado_pago="APROBADO",
@@ -965,15 +969,17 @@ def asientos(request, pelicula_id=None):
                 pago.save()
                 print(f"💾 Pago guardado - ID: {pago.id}")
 
-                # ========== REGISTRAR VENTA ==========
+                # ========== REGISTRAR VENTA (siempre una por reserva confirmada) ==========
                 Venta.objects.create(
                     pelicula=reserva.pelicula,
                     sala=reserva.sala,
-                    fecha=fecha_seleccionada,
+                    fecha=reserva.fecha_funcion,
+                    fecha_venta=timezone.now().date(),
                     cantidad_boletos=reserva.cantidad_boletos,
-                    total_venta=reserva.precio_total
+                    total_venta=reserva.precio_total,
+                    formato=reserva.formato
                 )
-                print("📊 Venta registrada")
+                print(f"📊 Venta registrada con formato: {reserva.formato} y fecha_venta {timezone.now().date()}")
 
                 # ========== GUARDAR MÉTODO DE PAGO (SI SE SOLICITÓ) ==========
                 if guardar_tarjeta and request.user.is_authenticated:
@@ -1021,7 +1027,6 @@ def asientos(request, pelicula_id=None):
                         messages.warning(request, f"La reserva fue exitosa pero no se pudo guardar el método de pago: {str(e)}")
 
             # ========== GENERAR PDF Y ENVIAR EMAIL (FUERA DE TRANSACCIÓN) ==========
-            # ⚠️ IMPORTANTE: Esto va DESPUÉS del commit de la transacción
             try:
                 print("📧 Generando PDF y enviando email...")
                 pdf_buffer = generar_pdf_reserva(reserva)
@@ -1060,7 +1065,6 @@ def asientos(request, pelicula_id=None):
                 print(f"⚠️ Error al enviar email (no afecta la reserva): {str(e)}")
                 import traceback
                 traceback.print_exc()
-                # No fallar la reserva si falla el email
 
             # ========== ÉXITO ==========
             request.session["codigo_reserva"] = reserva.codigo_reserva
@@ -1078,7 +1082,7 @@ def asientos(request, pelicula_id=None):
         except Exception as e:
             print(f"❌ ERROR GENERAL en transacción: {str(e)}")
             import traceback
-            traceback.print_exc()  # ⚠️ Ver traceback completo
+            traceback.print_exc()
             
             if "Pago rechazado" in str(e):
                 messages.error(request, str(e))
@@ -1128,6 +1132,8 @@ def asientos(request, pelicula_id=None):
     }
     
     return render(request, "asientos.html", context)
+
+
 #################################################################
 #################################################################
 @csrf_exempt
@@ -2456,19 +2462,34 @@ def administrar_funciones(request):
     })
 
 
-
 #########################################################################
-### Reportes Administrativos##############################################
+### Reportes Administrativos (Versión con campo 'formato' en Venta) #####
 
 from django.db.models import Sum
 from django.shortcuts import render
 from .models import Venta, Pelicula
+from django.db.models import Q
+from django.contrib.auth.decorators import user_passes_test
 
-from django.db.models import Sum, Q
+
+# Decorador de seguridad para asegurar que solo el admin acceda
+def admin_required(view_func):
+    return user_passes_test(lambda u: u.is_staff or u.is_superuser)(view_func)
+
+
+#########################################################################
+### Reportes Administrativos (Versión corregida con formato en Venta) ###
+
+from django.db.models import Sum
 from django.shortcuts import render
 from .models import Venta, Pelicula
+from django.db.models import Q
+from django.contrib.auth.decorators import user_passes_test
 
 
+# ============================================
+# 📊 Reporte administrativo de ventas
+# ============================================
 @admin_required
 def reportes_admin(request):
     peliculas = Pelicula.objects.all()
@@ -2476,59 +2497,68 @@ def reportes_admin(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
 
-    # ✅ USAR MODELO VENTA EN LUGAR DE RESERVA
-    ventas = Venta.objects.all()
+    # --- Obtener todas las ventas ---
+    ventas = Venta.objects.all().order_by('-fecha_venta')
+    print("✅ Total ventas encontradas:", ventas.count())
 
-    # --- Filtros por fecha ---
+    # --- Filtro por fechas (usando fecha_venta) ---
     if fecha_inicio and fecha_fin:
-        ventas = ventas.filter(fecha__range=[fecha_inicio, fecha_fin])
+        ventas = ventas.filter(fecha_venta__range=[fecha_inicio, fecha_fin])
 
     # --- Filtro por película ---
     if pelicula_id:
         ventas = ventas.filter(pelicula_id=pelicula_id)
 
-    # --- Agrupar por película y ordenar por total de boletos ---
-    ventas_resumen = (
-        ventas.values('pelicula__nombre')
+    # ============================================================
+    # 🔧 NUEVA LÓGICA (Evita duplicados agrupando correctamente)
+    # ============================================================
+
+    # 1️⃣ Agrupamos primero por película y formato
+    ventas_por_formato = (
+        ventas.values('pelicula__nombre', 'formato')
         .annotate(
             total_boletos=Sum('cantidad_boletos'),
             total_venta=Sum('total_venta')
         )
-        .order_by('-total_boletos')
+        .order_by('pelicula__nombre', 'formato')
     )
 
-    # --- Calcular boletos por formato ---
+    # 2️⃣ Creamos estructura para resumen general por película
+    ventas_resumen = {}
     formatos_info = {}
-    
-    for v in ventas_resumen:
+
+    for v in ventas_por_formato:
         pelicula_nombre = v['pelicula__nombre']
-        formatos_info[pelicula_nombre] = []
-        
-        # Obtener reservas de esta película
-        reservas_filtradas = Reserva.objects.filter(
-            pelicula__nombre=pelicula_nombre,
-            estado__in=['RESERVADO', 'CONFIRMADO']
-        )
-        
-        # Aplicar mismos filtros de fecha
-        if fecha_inicio and fecha_fin:
-            reservas_filtradas = reservas_filtradas.filter(
-                fecha_funcion__range=[fecha_inicio, fecha_fin]
-            )
-        
-        # Agrupar por formato
-        formatos_pelicula = (
-            reservas_filtradas.values('formato')
-            .annotate(total_boletos=Sum('cantidad_boletos'))
-            .order_by('-total_boletos')
-        )
-        
-        for f in formatos_pelicula:
-            if f['formato'] and f['total_boletos'] > 0:
-                formatos_info[pelicula_nombre].append({
-                    'formato': f['formato'],
-                    'total_boletos': f['total_boletos']
-                })
+        formato = v['formato']
+        boletos = v['total_boletos'] or 0
+        total_venta = v['total_venta'] or 0
+
+        # Inicializar estructuras si no existen
+        if pelicula_nombre not in ventas_resumen:
+            ventas_resumen[pelicula_nombre] = {
+                'pelicula__nombre': pelicula_nombre,
+                'total_boletos': 0,
+                'total_venta': 0
+            }
+            formatos_info[pelicula_nombre] = []
+
+        # Sumar totales
+        ventas_resumen[pelicula_nombre]['total_boletos'] += boletos
+        ventas_resumen[pelicula_nombre]['total_venta'] += total_venta
+
+        # Guardar formato y boletos
+        if formato:
+            formatos_info[pelicula_nombre].append({
+                'formato': formato,
+                'total_boletos': boletos
+            })
+
+    # 3️⃣ Convertimos el diccionario en lista ordenada
+    ventas_resumen = sorted(
+        ventas_resumen.values(),
+        key=lambda x: x['total_boletos'],
+        reverse=True
+    )
 
     # --- Totales generales ---
     resumen_general = ventas.aggregate(
@@ -2536,11 +2566,8 @@ def reportes_admin(request):
         total_ventas=Sum('total_venta')
     )
 
-    # Asegurar que no sean None
-    if resumen_general['total_boletos'] is None:
-        resumen_general['total_boletos'] = 0
-    if resumen_general['total_ventas'] is None:
-        resumen_general['total_ventas'] = 0.0
+    resumen_general['total_boletos'] = resumen_general['total_boletos'] or 0
+    resumen_general['total_ventas'] = resumen_general['total_ventas'] or 0.0
 
     # --- Películas más populares ---
     popularidad = (
@@ -2557,8 +2584,22 @@ def reportes_admin(request):
         'formatos_info': formatos_info,
     }
 
-    return render(request, 'reportes_admin.html', context)
+    # ============================================================
+    # 🧩 DEPURACIÓN DETALLADA Y CORRECTA
+    # ============================================================
+    tron_imax = ventas.filter(
+        Q(pelicula__nombre__icontains="Tron Ares"),
+        Q(formato__icontains="IMAX")
+    ).aggregate(
+        total_boletos=Sum('cantidad_boletos'),
+        total_ventas=Sum('total_venta')
+    )
 
+    print("🔹 Ventas IMAX Tron Ares:", tron_imax)
+    print("📊 Ventas registradas (agrupadas):", ventas_por_formato.count())
+    print("📈 Totales generales:", resumen_general)
+
+    return render(request, 'reportes_admin.html', context)
 
 ###################################################################################
 
@@ -2851,10 +2892,10 @@ import json
 ##########################################################################################
 @admin_required
 def dashboard_admin(request):
-    # ✅ USAR MODELO VENTA
+    # ✅ USAR MODELO VENTA directamente
     ventas = Venta.objects.all()
-    
-    # Top 10 películas más vendidas
+
+    # --- Top 10 películas más vendidas ---
     top_peliculas = list(
         ventas.values('pelicula__nombre')
         .annotate(
@@ -2864,38 +2905,32 @@ def dashboard_admin(request):
         .order_by('-total_boletos')[:10]
     )
 
-    # Para formatos, usar Reservas
-    reservas_confirmadas = Reserva.objects.filter(
-        estado__in=['RESERVADO', 'CONFIRMADO']
-    )
-    
+    # --- Agrupar por formato (2D, 3D, IMAX, etc.) ---
     formatos = list(
-        reservas_confirmadas.values('formato')
+        ventas.values('formato')
         .annotate(
             total_boletos=Sum('cantidad_boletos'),
-            total_venta=Sum('precio_total')
+            total_venta=Sum('total_venta')
         )
         .order_by('-total_boletos')
     )
 
-    # Filtrar formatos vacíos
+    # Filtrar formatos vacíos o nulos
     formatos = [f for f in formatos if f['formato']]
 
-    # Resumen general
+    # --- Resumen general ---
     resumen_general = ventas.aggregate(
         total_boletos=Sum('cantidad_boletos'),
         total_ventas=Sum('total_venta')
     )
 
-    # Valores por defecto
-    if resumen_general['total_boletos'] is None:
-        resumen_general['total_boletos'] = 0
-    if resumen_general['total_ventas'] is None:
-        resumen_general['total_ventas'] = 0.0
+    # Valores por defecto (para evitar None)
+    resumen_general['total_boletos'] = resumen_general['total_boletos'] or 0
+    resumen_general['total_ventas'] = resumen_general['total_ventas'] or 0.0
 
-    # Debug en consola
+    # --- Debug opcional ---
     print("=" * 50)
-    print("📊 DASHBOARD DATA:")
+    print("📊 DASHBOARD DATA (ventas reales):")
     print(f"Total Boletos: {resumen_general['total_boletos']}")
     print(f"Total Ventas: ${resumen_general['total_ventas']:.2f}")
     print(f"Top Películas: {len(top_peliculas)}")
@@ -2909,7 +2944,7 @@ def dashboard_admin(request):
         "top_peliculas_json": json.dumps(top_peliculas, default=str),
         "formatos_json": json.dumps(formatos, default=str),
     }
-    
+
     return render(request, "dashboard_admin.html", context)
 
 

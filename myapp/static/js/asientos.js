@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnConfirm = document.getElementById('btn-confirm-payment');
     const processingIndicator = document.getElementById('processing-indicator');
 
+    // 🚨 NUEVO: bandera para evitar llamadas AJAX simultáneas o bucles
+    let ajaxEnProgreso = false;
+
     // ============================================
     // 📊 ACTUALIZAR RESUMEN (SIN RECARGAR)
     // ============================================
@@ -30,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Actualizar UI inmediatamente
         const selectedSeatsDiv = document.getElementById('selected-seats');
         if (selectedSeatsDiv) {
-            selectedSeatsDiv.textContent = 
+            selectedSeatsDiv.textContent =
                 asientosSeleccionados.length > 0 ? asientosSeleccionados.join(', ') : 'Ningún asiento seleccionado';
         }
 
@@ -77,8 +80,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // 📡 AJAX: ACTUALIZAR PRECIOS Y ASIENTOS OCUPADOS
     // ============================================
     function enviarAjaxActualizacion(asientos, funcionId) {
+        // 🚫 Evitar peticiones simultáneas
+        if (ajaxEnProgreso) {
+            console.log("⏳ Petición AJAX ya en curso. Se evita duplicado.");
+            return;
+        }
+        ajaxEnProgreso = true;
+
         const formData = new FormData(form);
-        
+
         // ✅ CRÍTICO: Limpiar y re-agregar asientos seleccionados
         formData.delete('asientos_list');
         asientos.forEach(asiento => {
@@ -98,28 +108,30 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             body: formData
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('✅ Respuesta AJAX recibida:', data);
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('✅ Respuesta AJAX recibida:', data);
 
-            // Actualizar formato y precios
-            actualizarPreciosUI(data);
+                // Actualizar formato y precios
+                actualizarPreciosUI(data);
 
-            // ✅ ACTUALIZAR ASIENTOS OCUPADOS DINÁMICAMENTE
-            if (data.asientos_ocupados) {
-                console.log('🔄 Actualizando asientos ocupados:', data.asientos_ocupados);
-                actualizarAsientosOcupados(data.asientos_ocupados);
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error en AJAX:', error);
-            // No mostrar alert para no interrumpir la experiencia
-        });
+                // ✅ ACTUALIZAR ASIENTOS OCUPADOS DINÁMICAMENTE
+                if (data.asientos_ocupados) {
+                    console.log('🔄 Actualizando asientos ocupados:', data.asientos_ocupados);
+                    actualizarAsientosOcupados(data.asientos_ocupados);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error en AJAX:', error);
+            })
+            .finally(() => {
+                ajaxEnProgreso = false; // 🔓 Liberar bloqueo
+            });
     }
 
     // ============================================
@@ -165,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 discountRow.style.display = 'flex';
                 const descuentoLabel = discountRow.querySelector('span:first-child');
                 const descuentoMonto = discountRow.querySelector('span:last-child');
-                
+
                 if (descuentoLabel) {
                     descuentoLabel.textContent = `Descuento (${data.descuento}%):`;
                 }
@@ -179,11 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // 🔄 ACTUALIZAR ASIENTOS OCUPADOS (DINÁMICO)
+    // 🔄 ACTUALIZAR ASIENTOS OCUPADOS (SIN BUCLE)
     // ============================================
     function actualizarAsientosOcupados(asientosOcupados) {
         const asientosOcupadosSet = new Set(asientosOcupados);
-        
+
         seatCheckboxes.forEach(checkbox => {
             const asiento = checkbox.value;
             const seatDiv = checkbox.nextElementSibling;
@@ -208,8 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Recalcular resumen después de actualizar asientos
-        actualizarResumen();
+        // 🚫 No se llama a actualizarResumen() aquí para evitar recursión
+        console.log("✅ Asientos ocupados actualizados sin bucle infinito");
     }
 
     // ============================================
@@ -218,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
     seatCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', (e) => {
             const seatDiv = e.target.nextElementSibling;
-            
+
             if (!seatDiv) return;
-            
+
             if (e.target.checked) {
                 seatDiv.classList.remove('available');
                 seatDiv.classList.add('selected');
@@ -243,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', () => {
             console.log('🔄 Función cambiada a ID:', radio.value);
             console.log('📍 Formato:', radio.dataset.formato, 'Precio:', radio.dataset.precio);
-            
+
             // Deseleccionar todos los asientos (pero no los deshabilitados)
             seatCheckboxes.forEach(cb => {
                 if (!cb.disabled && cb.checked) {
@@ -276,8 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (newCardForm) {
             newCardForm.style.display = isNewCard ? 'block' : 'none';
-            
-            // Limpiar campos si no es nueva tarjeta
+
             if (!isNewCard) {
                 const inputs = newCardForm.querySelectorAll('input');
                 inputs.forEach(input => {
@@ -324,17 +335,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (numeroTarjetaInput) {
         numeroTarjetaInput.addEventListener('input', (e) => {
-            // Solo números
             let valor = e.target.value.replace(/\s/g, '').replace(/\D/g, '');
-            
-            // Limitar a 16 dígitos
+
             valor = valor.substring(0, 16);
-            
-            // Formatear con espacios cada 4 dígitos
+
             let formatted = valor.match(/.{1,4}/g)?.join(' ') || valor;
             e.target.value = formatted;
 
-            // Detectar tipo de tarjeta
             if (cardIcon) {
                 if (valor.startsWith('4')) {
                     cardIcon.textContent = '💳 Visa';
@@ -356,26 +363,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fechaExpInput) {
         fechaExpInput.addEventListener('input', (e) => {
             let valor = e.target.value.replace(/\D/g, '');
-            
+
             if (valor.length >= 2) {
                 let mes = valor.substring(0, 2);
                 let anio = valor.substring(2, 4);
-                
-                // Validar mes (01-12)
-                if (parseInt(mes) > 12) {
-                    mes = '12';
-                }
-                if (parseInt(mes) === 0) {
-                    mes = '01';
-                }
-                
+
+                if (parseInt(mes) > 12) mes = '12';
+                if (parseInt(mes) === 0) mes = '01';
+
                 valor = mes + (anio ? '/' + anio : '');
             }
-            
+
             e.target.value = valor;
         });
 
-        // Formatear al pegar
         fechaExpInput.addEventListener('paste', (e) => {
             setTimeout(() => {
                 let valor = e.target.value.replace(/\D/g, '');
@@ -404,16 +405,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================
     if (form) {
         form.addEventListener('submit', (e) => {
-            // Solo validar si la acción es "reservar" (no para "recalcular" cupón)
             const submitButton = document.activeElement;
             if (submitButton && submitButton.value === 'recalcular') {
-                // Permitir recalcular sin validaciones completas
                 return true;
             }
 
             console.log('🔍 Validando formulario antes de envío...');
 
-            // Validar que haya asientos seleccionados
             const asientosSeleccionados = Array.from(seatCheckboxes)
                 .filter(cb => cb.checked && !cb.disabled);
 
@@ -423,9 +421,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             }
 
-            console.log(`✅ ${asientosSeleccionados.length} asiento(s) seleccionado(s)`);
-
-            // Validar datos del cliente
             const nombreCliente = document.getElementById('nombre_cliente');
             const apellidoCliente = document.getElementById('apellido_cliente');
             const emailCliente = document.getElementById('email');
@@ -451,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             }
 
-            // Validar método de pago
             const selectedPayment = document.querySelector('.payment-radio:checked');
             if (!selectedPayment) {
                 e.preventDefault();
@@ -462,7 +456,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const isNewCard = selectedPayment.value === 'false';
 
             if (isNewCard) {
-                // Validar nueva tarjeta
                 const numeroTarjeta = document.getElementById('numero_tarjeta');
                 const nombreTitular = document.getElementById('nombre_titular');
                 const fechaExp = document.getElementById('fecha_expiracion');
@@ -504,7 +497,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     return false;
                 }
 
-                // Si quiere guardar la tarjeta, validar alias
                 const guardarTarjeta = document.getElementById('guardar_tarjeta');
                 const aliasTarjeta = document.getElementById('alias_tarjeta');
                 if (guardarTarjeta && guardarTarjeta.checked) {
@@ -516,7 +508,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } else {
-                // Validar CVV de método guardado
                 const cvvGuardado = document.getElementById('cvv_guardado');
                 if (!cvvGuardado || !cvvGuardado.value || cvvGuardado.value.length < 3) {
                     e.preventDefault();
@@ -526,17 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // ✅ TODO VALIDADO - Mostrar indicador de procesamiento
-            console.log('✅ Formulario validado correctamente');
-            console.log('📋 Asientos finales:', asientosSeleccionados.map(cb => cb.value));
-            console.log('🚀 Enviando formulario al servidor...');
-            
-            // Mostrar indicador de procesamiento DESPUÉS de validar
             if (processingIndicator) {
                 processingIndicator.style.display = 'flex';
             }
-            
-            // Deshabilitar botón DESPUÉS de que el navegador haya iniciado el submit
+
             setTimeout(() => {
                 if (btnConfirm) {
                     btnConfirm.disabled = true;
@@ -545,7 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 0);
 
-            // Permitir que el formulario se envíe normalmente
             return true;
         });
     }
@@ -558,10 +541,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('  - Funciones disponibles:', funcionRadios.length);
     console.log('  - Métodos de pago:', paymentRadios.length);
 
-    // Actualizar resumen inicial
-    actualizarResumen();
+    // 🚫 Evitar llamada inicial automática
+    console.log("🟢 Página lista. Esperando interacción del usuario...");
 
-    // Inicializar formulario de pago
     if (paymentRadios.length > 0) {
         togglePaymentForms();
     }

@@ -5,6 +5,8 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from django.db.models import Avg
 from django.db import models
+from django.utils import timezone
+
 
 
 class Pelicula(models.Model):
@@ -375,6 +377,16 @@ class Venta(models.Model):
     fecha = models.DateField()
     cantidad_boletos = models.PositiveIntegerField()
     total_venta = models.DecimalField(max_digits=10, decimal_places=2)
+    # 👇 NUEVO CAMPO
+    FORMATO_CHOICES = [
+        ('2D', '2D'),
+        ('3D', '3D'),
+        ('IMAX', 'IMAX'),
+        ('4DX', '4DX'),
+    ]
+    formato = models.CharField(max_length=10, choices=FORMATO_CHOICES, default='2D')
+    fecha_venta = models.DateField(default=timezone.now)
+
 
     def __str__(self):
         return f"{self.pelicula.nombre} - {self.fecha}"

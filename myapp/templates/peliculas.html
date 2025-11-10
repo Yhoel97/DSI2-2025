@@ -59,7 +59,7 @@
                 {% csrf_token %}
                 {% if pelicula_editar %}
                     <input type="hidden" name="accion" value="editar">
-                    <input type="hidden" name="nombre_original" value="{{ pelicula_editar.nombre }}">
+                    <input type="hidden" name="pelicula_id" value="{{ pelicula_editar.id }}">
                     <h2><i class="fas fa-edit"></i> Editar Película</h2>
                 {% else %}
                     <input type="hidden" name="accion" value="crear">
@@ -149,7 +149,7 @@
                         <a href="{% url 'peliculas' %}" class="btn btn-secondary"><i class="fas fa-times"></i> Cancelar</a>
                     {% else %}
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
-                                            {% endif %}
+                    {% endif %}
                 </div>
             </form>
         </div>
@@ -210,13 +210,13 @@
                             {% endfor %}
                         </td>
                         <td class="action-buttons">
-                            <a href="{% url 'peliculas' %}?editar={{ pelicula.obj.nombre|urlencode }}" class="btn btn-success">
+                            <a href="{% url 'peliculas' %}?editar={{ pelicula.obj.id }}" class="btn btn-success">
                                 <i class="fas fa-edit"></i> Editar
                             </a>
                             <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
                                 {% csrf_token %}
                                 <input type="hidden" name="accion" value="eliminar">
-                                <input type="hidden" name="nombre" value="{{ pelicula.obj.nombre }}">
+                                <input type="hidden" name="pelicula_id" value="{{ pelicula.obj.id }}">
                                 <button type="submit" class="btn btn-danger"
                                   onclick="return confirm('¿Estás seguro de eliminar esta película?');">
                                   <i class="fas fa-trash-alt"></i> Eliminar
@@ -259,13 +259,13 @@
                 <td>{{ pelicula.get_clasificacion_display }}</td>
                 <td>{{ pelicula.get_idioma_display }}</td>
                 <td class="action-buttons">
-                  <a href="{% url 'peliculas' %}?editar={{ pelicula.nombre|urlencode }}" class="btn btn-success">
+                  <a href="{% url 'peliculas' %}?editar={{ pelicula.id }}" class="btn btn-success">
                     <i class="fas fa-edit"></i> Editar
                   </a>
                   <form method="POST" action="{% url 'peliculas' %}" style="display: inline;">
                     {% csrf_token %}
                     <input type="hidden" name="accion" value="eliminar">
-                    <input type="hidden" name="nombre" value="{{ pelicula.nombre }}">
+                    <input type="hidden" name="pelicula_id" value="{{ pelicula.id }}">
                     <button type="submit" class="btn btn-danger"
                       onclick="return confirm('¿Estás seguro de eliminar esta película?');">
                       <i class="fas fa-trash-alt"></i> Eliminar

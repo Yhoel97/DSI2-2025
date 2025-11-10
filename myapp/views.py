@@ -178,14 +178,25 @@ def peliculas(request):
 
         # --- EDITAR ---
         elif accion == 'editar':
-            nombre_original = request.POST.get('nombre_original', '').strip()
+            pelicula_id = request.POST.get('pelicula_id', '').strip()
+            
+            if not pelicula_id:
+                messages.error(request, 'ID de película no proporcionado.')
+                return redirect('peliculas')
+            
             try:
-                pelicula = Pelicula.objects.get(nombre=nombre_original)
+                pelicula = Pelicula.objects.get(id=pelicula_id)
             except Pelicula.DoesNotExist:
                 messages.error(request, 'No se encontró la película a editar.')
                 return redirect('peliculas')
 
-            pelicula.nombre = request.POST.get('nombre', '').strip()
+            # Validar nombre duplicado (excepto la misma película)
+            nuevo_nombre = request.POST.get('nombre', '').strip()
+            if Pelicula.objects.filter(nombre=nuevo_nombre).exclude(id=pelicula.id).exists():
+                messages.error(request, 'Ya existe otra película con ese nombre.')
+                return redirect('peliculas')
+
+            pelicula.nombre = nuevo_nombre
             pelicula.anio = request.POST.get('anio', '').strip()
             pelicula.director = request.POST.get('director', '').strip()
             pelicula.imagen_url = request.POST.get('imagen_url', '').strip()
@@ -201,27 +212,35 @@ def peliculas(request):
 
         # --- ELIMINAR ---
         elif accion == 'eliminar':
-            nombre = request.POST.get('nombre', '').strip()
+            pelicula_id = request.POST.get('pelicula_id', '').strip()
+            
+            if not pelicula_id:
+                messages.error(request, 'ID de película no proporcionado.')
+                return redirect('peliculas')
+            
             try:
-                Pelicula.objects.get(nombre=nombre).delete()
-                messages.success(request, f'Película "{nombre}" eliminada correctamente.')
+                pelicula = Pelicula.objects.get(id=pelicula_id)
+                nombre_pelicula = pelicula.nombre
+                pelicula.delete()
+                messages.success(request, f'Película "{nombre_pelicula}" eliminada correctamente.')
             except Pelicula.DoesNotExist:
                 messages.error(request, 'No se encontró la película para eliminar.')
             return redirect('peliculas')
 
     # 🔹 Datos para el formulario y la tabla
     generos_choices = dict(Pelicula.GENERO_CHOICES)
-    salas_disponibles = Pelicula.SALAS_DISPONIBLES  # ✅ ahora solo salas con formato
+    salas_disponibles = Pelicula.SALAS_DISPONIBLES
 
     pelicula_editar = None
     if 'editar' in request.GET:
-        nombre = request.GET.get('editar')
-        pelicula_editar = Pelicula.objects.filter(nombre=nombre).first()
+        pelicula_id = request.GET.get('editar')
+        if pelicula_id:
+            pelicula_editar = Pelicula.objects.filter(id=pelicula_id).first()
 
     # 🔹 Convertir películas de cartelera con sus salas y formatos
     peliculas_con_pares = []
     for p in peliculas_en_cartelera:
-        pares = p.get_salas_con_formato()  # ✅ devuelve (sala, formato)
+        pares = p.get_salas_con_formato()
         generos_nombres = [generos_choices.get(g, g) for g in p.get_generos_list()]
         peliculas_con_pares.append({
             'obj': p,
@@ -233,8 +252,8 @@ def peliculas(request):
 
     # 🔹 Contexto para renderizar
     context = {
-        'peliculas': peliculas_con_pares,          # En cartelera
-        'peliculas_proximas': peliculas_proximas,  # Próximamente
+        'peliculas': peliculas_con_pares,
+        'peliculas_proximas': peliculas_proximas,
         'GENERO_CHOICES_DICT': generos_choices,
         'SALAS_DISPONIBLES': salas_disponibles,
         'pelicula_editar': pelicula_editar,

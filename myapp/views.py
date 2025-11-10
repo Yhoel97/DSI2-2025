@@ -3,90 +3,75 @@ from zipfile import ZipFile
 import json
 import random
 import io
-from django.shortcuts import redirect
 import string
-from django.db.models import Sum
-from django.shortcuts import render, redirect
-from django.urls import reverse
-from DSI2025 import settings
-from .forms import *
-from django.contrib.auth.models import User
+import os
+import qrcode
+import pytz
+from decimal import Decimal
+from functools import wraps
+from itertools import groupby
+from datetime import date, datetime, timedelta
+
+# ==== Django ====
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from functools import wraps
-from django.contrib.auth import authenticate, login
-from django.contrib import messages
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import Pelicula, Reserva, Valoracion,CodigoDescuento
+from django.db import models, transaction
+from django.db.models import Q, Sum, Avg, Count, Prefetch
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.db.models import Q
+
+# ==== ReportLab (PDF) ====
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import Paragraph, Table, TableStyle
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
 )
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from io import BytesIO
-from django.conf import settings
-import os
-from datetime import datetime
-import qrcode
 from reportlab.platypus import Image as RLImage
-from PIL import Image as PILImage
-from datetime import date
-from django.db import models
-from itertools import groupby
-from django.shortcuts import render
-from django.urls import reverse
-from django.db.models import Q
 
-from datetime import date
-from django.contrib import messages
-from django.db import transaction
-from django.utils import timezone 
-from django.shortcuts import get_object_or_404, render, redirect
-from django.views.decorators.csrf import csrf_exempt
-from .models import Pelicula, Funcion, Reserva, User
-from .decorators import admin_required
-from django.http import HttpResponse
-import pandas as pd
-from reportlab.pdfgen import canvas
-from .models import Pelicula, Venta
-from django.db.models import Sum
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from django.http import HttpResponse
-from .models import Venta
-from django.db.models import Prefetch
-from datetime import datetime
-from .email import send_brevo_email   
-from django.utils import timezone 
-from datetime import date, datetime, timedelta
-from itertools import groupby
-import pytz
-from decimal import Decimal
-
-from .models import Pelicula, Funcion, Pago, MetodoPago, Valoracion
-from .utils.payment_simulator import simular_pago
-from .utils.encryption import encrypt_card_data, encrypt_card_data_full, decrypt_card_data, get_card_type
-from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Avg, Count
-from reportlab.lib.pagesizes import A4, letter
-import openpyxl 
+# ==== OpenPyXL (Excel) ====
+import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill
-from datetime import date
-from django.utils import timezone
+
+# ==== Imágenes y QR ====
+from PIL import Image as PILImage
+
+# ==== Aplicación interna ====
+from DSI2025 import settings
+from .forms import *
+from .decorators import admin_required
+from .email import send_brevo_email
+from .models import (
+    Pelicula,
+    Funcion,
+    Reserva,
+    Valoracion,
+    CodigoDescuento,
+    Pago,
+    MetodoPago,
+    Venta,
+    User
+)
+from .utils.payment_simulator import simular_pago
+from .utils.encryption import (
+    encrypt_card_data,
+    encrypt_card_data_full,
+    decrypt_card_data,
+    get_card_type
+)
+
 
 # Diccionario de géneros con nombres completos
 GENERO_CHOICES_DICT = {
@@ -1017,12 +1002,10 @@ def asientos(request, pelicula_id=None):
 
                 # ========== REGISTRAR VENTA ==========
                 print(f"📊 Creando Venta con formato: [{reserva.formato}] (tipo: {type(reserva.formato)})")
-                from django.utils import timezone
                 Venta.objects.create(
                     pelicula=reserva.pelicula,
                     sala=reserva.sala,
                     fecha=reserva.fecha_funcion,
-                    fecha_venta=timezone.now().date(),
                     cantidad_boletos=reserva.cantidad_boletos,
                     total_venta=reserva.precio_total,
                     formato=reserva.formato if reserva.formato else "2D",  # Asegurar que no sea None/vacío

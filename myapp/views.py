@@ -373,12 +373,27 @@ def index(request):
         
         # Si es hoy, verificar que el horario no haya pasado (con margen de 10 min)
         if fecha_seleccionada == hoy:
-            hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
-            datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
-            
-            margen = timedelta(minutes=10)
-            if datetime_funcion > (ahora_naive - margen):
+            try:
+                hora_funcion = datetime.strptime(funcion.horario, '%H:%M').time()
+                datetime_funcion = datetime.combine(fecha_seleccionada, hora_funcion)
+                
+                    # CAMBIO PRINCIPAL: Incluir funciones que NO hayan pasado aún
+                    # Margen de 5 minutos para dar flexibilidad
+                margen = timedelta(minutes=5)
+
+                if datetime_funcion > (ahora_naive - margen):
+                    funciones_filtradas.append(funcion)
+
+                else:
+                    # Debug: ver qué funciones se están descartando
+                    print(f"⏰ Función descartada: {funcion.pelicula.nombre} a las {funcion.horario} "
+                        f"(ya pasó - ahora: {ahora_naive.strftime('%H:%M')})")
+                                
+            except ValueError as e:
+            # Si hay error parseando horario, incluir la función de todas formas
+                print(f"⚠️ Error parseando horario {funcion.horario}: {e}")
                 funciones_filtradas.append(funcion)
+
         else:
             # Para fechas futuras, incluir todas las funciones vigentes
             funciones_filtradas.append(funcion)
@@ -2200,6 +2215,16 @@ def administrar_funciones(request):
 
                 if fecha_inicio < hoy_es:
                     messages.error(request, "❌ No puedes crear funciones con fecha pasada.")
+                    return redirect("administrar_funciones")
+                
+                        # VALIDACIÓN NUEVA: La fecha de inicio debe ser >= fecha de estreno
+                if pelicula.fecha_estreno and fecha_inicio < pelicula.fecha_estreno:
+                    messages.error(
+                        request, 
+                        f"❌ La fecha de inicio que seleccionaste ({fecha_inicio.strftime('%d/%m/%Y')}) no puede ser anterior "
+                        f"a la fecha de estreno de la película que es el próximo ({pelicula.fecha_estreno.strftime('%d/%m/%Y')})."
+                        f" No se creó la función por este motivo."
+                    )
                     return redirect("administrar_funciones")
 
                 funciones_creadas = 0

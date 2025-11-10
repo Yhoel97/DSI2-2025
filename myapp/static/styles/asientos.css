@@ -1,4 +1,3 @@
-
 /* ===== Fondo general con degradado pastel ===== */
 body {
   font-family: 'Arial', sans-serif;
@@ -26,29 +25,181 @@ body {
 /* ===== Encabezado ===== */
 .cine-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem 0;
+  position: relative;
 }
+
 .cine-header h1 {
-  font-size: 3rem;
+  font-size: 3.5rem;
   font-weight: 900;
-  color: #7b68ee;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  margin-bottom: 0.5rem;
+  animation: float 3s ease-in-out infinite, textShine 4s ease-in-out infinite;
+  letter-spacing: 3px;
+  font-family: 'Arial Black', sans-serif;
+  position: relative;
+  filter: drop-shadow(0 4px 8px rgba(123, 104, 238, 0.3));
 }
+
+/* Efecto de brillo en el texto */
+@keyframes textShine {
+  0%, 100% {
+    filter: drop-shadow(0 4px 8px rgba(123, 104, 238, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 4px 15px rgba(123, 104, 238, 0.6)) drop-shadow(0 0 30px rgba(217, 79, 255, 0.4));
+  }
+}
+
+/* ===== Información de la película - Un solo contenedor con gradiente ===== */
+.movie-info {
+  position: relative;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(135deg, #fce3ec, #d8e8f8, #e0f7e9);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+/* Borde animado con gradiente móvil */
+.movie-info::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  background: linear-gradient(45deg, 
+    #ff0080, #ff8c00, #40e0d0, #7b68ee, 
+    #ff0080, #ff8c00, #40e0d0, #7b68ee
+  );
+  background-size: 400% 400%;
+  border-radius: 20px;
+  z-index: -1;
+  animation: borderGlow 4s ease infinite;
+  filter: blur(8px);
+}
+
+
 .movie-info h2 {
-  font-size: 2rem;
-  font-weight: bold;
+  font-size: 1.6rem;
+  font-weight: 900;
   color: #000;
-  text-shadow: -1px -1px 0 #fff, 1px 1px 0 #fff;
+  text-shadow: 
+    -1px -1px 0 #fff,
+    1px 1px 0 #fff,
+    0 0 10px rgba(123, 104, 238, 0.3);
+  margin: 0.5rem 0;
+  position: relative;
+  z-index: 2;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
 }
+
 .movie-info p {
   font-style: italic;
   color: #444;
+  margin: 0.3rem 0 0.8rem 0;
+  font-size: 1rem;
+  position: relative;
+  z-index: 2;
 }
+
+/* Poster con efecto de carga y animaciones */
 .movie-poster-small {
-  max-width: 220px;
-  border-radius: 10px;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.3);
-  margin-top: 1rem;
+  max-width: 180px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  margin-top: 0.5rem;
+  position: relative;
+  z-index: 2;
+  animation: posterEntrance 0.8s ease-out;
+  transition: transform 0.3s ease;
+}
+
+.movie-poster-small:hover {
+  transform: scale(1.05) rotate(2deg);
+  box-shadow: 0 12px 30px rgba(123, 104, 238, 0.4);
+}
+
+/* Efecto de carga en el poster */
+@keyframes posterEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+    filter: blur(10px);
+  }
+  50% {
+    opacity: 0.5;
+    filter: blur(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Skeleton loader para cuando carga la imagen */
+.movie-poster-small::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.3) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  animation: shimmer 2s infinite;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes linesMove {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100px);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 /* ===== Botón de regreso ===== */
@@ -63,6 +214,7 @@ body {
   transition: all 0.3s ease;
   box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
+
 .btn-back:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 14px rgba(0,0,0,0.3);
@@ -75,6 +227,7 @@ body {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
 .customer-form h3 {
   border-bottom: 1px solid #ddd;
   padding-bottom: 0.5rem;
@@ -85,11 +238,13 @@ body {
 .form-group {
   margin-bottom: 1rem;
 }
+
 .form-group label {
   font-weight: 600;
   margin-bottom: 0.3rem;
   display: block;
 }
+
 .form-group input[type="text"],
 .form-group input[type="email"] {
   width: 100%;
@@ -99,58 +254,142 @@ body {
   font-size: 1rem;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
+
 .form-group input:focus {
   border-color: #7b68ee;
   box-shadow: 0 0 0 3px rgba(123,104,238,0.2);
   outline: none;
 }
 
-/* ===== Pantalla ===== */
+/* ===== Pantalla mejorada y animada ===== */
 .screen-container {
-  margin: 2rem 0;
+  margin: 2.5rem 0;
   display: flex;
   justify-content: center;
+  perspective: 1000px;
 }
+
 .screen {
-  width: 80%;
-  height: 30px;
-  background: linear-gradient(to right, #7b68ee, #d94fff);
-  border-radius: 10px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-  transform: rotateX(-25deg);
+  width: 85%;
+  max-width: 700px;
+  height: 40px;
+  background: linear-gradient(
+    to bottom,
+    #7b68ee 0%,
+    #9b59b6 50%,
+    #d94fff 100%
+  );
+  border-radius: 15px 15px 50% 50% / 15px 15px 30% 30%;
+  box-shadow: 
+    0 10px 30px rgba(123, 104, 238, 0.5),
+    0 0 60px rgba(217, 79, 255, 0.3),
+    inset 0 -5px 20px rgba(0, 0, 0, 0.3),
+    inset 0 5px 20px rgba(255, 255, 255, 0.2);
+  transform: rotateX(-20deg) translateZ(0);
   text-align: center;
   color: white;
   font-weight: bold;
-  line-height: 30px;
+  line-height: 40px;
+  font-size: 1.1rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  position: relative;
+  animation: screenGlow 3s ease-in-out infinite;
+  overflow: hidden;
 }
 
-/* ===== Asientos estilo checkbox horizontal ===== */
+/* Brillo animado en la pantalla */
+.screen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: screenShine 4s linear infinite;
+}
+
+/* Efecto de profundidad */
+.screen::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 10%;
+  right: 10%;
+  height: 10px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(123, 104, 238, 0.4) 0%,
+    transparent 70%
+  );
+  filter: blur(10px);
+}
+
+@keyframes screenGlow {
+  0%, 100% {
+    box-shadow: 
+      0 10px 30px rgba(123, 104, 238, 0.5),
+      0 0 60px rgba(217, 79, 255, 0.3),
+      inset 0 -5px 20px rgba(0, 0, 0, 0.3),
+      inset 0 5px 20px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 10px 40px rgba(123, 104, 238, 0.7),
+      0 0 80px rgba(217, 79, 255, 0.5),
+      inset 0 -5px 25px rgba(0, 0, 0, 0.4),
+      inset 0 5px 25px rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes screenShine {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* ===== Asientos - Grid mejorado para responsive ===== */
 .seats-grid {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.8rem;
   align-items: center;
-  flex-wrap: wrap;
+  margin: 2rem auto;
+  max-width: 100%;
+  padding: 0 10px;
 }
 
 .seat-row {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 30px repeat(8, 1fr);
+  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  width: 100%;
+  max-width: 600px;
   justify-content: center;
 }
 
 .row-letter {
   font-weight: bold;
   color: #555;
-  margin-right: 8px;
+  font-size: 1.1rem;
+  text-align: center;
+  width: 30px;
 }
 
 /* Label que envuelve input + div seat */
 .seat-label {
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   position: relative;
 }
@@ -165,10 +404,10 @@ body {
   position: absolute;
 }
 
-/* Estilo visual del asiento - similar a los checkboxes de géneros */
+/* Estilo visual del asiento */
 .seat {
-  padding: 8px 14px;
-  border-radius: 20px;
+  padding: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.85);
   border: 2px solid #ddd;
   font-size: 0.95rem;
@@ -176,19 +415,23 @@ body {
   transition: all 0.3s ease;
   color: #333;
   font-weight: 600;
-  min-width: 40px;
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
 }
 
 /* Hover */
-.seat-label:hover .seat {
+.seat-label:hover .seat:not(.reserved) {
   background: linear-gradient(135deg, #fce3ec, #d8e8f8);
   border-color: #7b68ee;
   box-shadow: 0 6px 12px rgba(123, 104, 238, 0.2);
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
-/* Seleccionado (morado permanente) */
+/* Seleccionado */
 .seat-label input[type="checkbox"]:checked + .seat,
 .seat.selected {
   background-color: #7b68ee;
@@ -222,6 +465,7 @@ body {
   padding: 1rem;
   background: rgba(255,255,255,0.8);
   border-radius: 8px;
+  flex-wrap: wrap;
 }
 
 .legend-item {
@@ -232,8 +476,9 @@ body {
 
 .legend-item .seat {
   transform: none;
-  min-width: 20px;
-  padding: 6px 10px;
+  min-width: 30px;
+  padding: 8px;
+  aspect-ratio: 1;
 }
 
 /* ===== Resumen ===== */
@@ -244,10 +489,12 @@ body {
   margin-top: 2rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
 .selection-summary h3 {
   border-bottom: 1px solid #ddd;
   padding-bottom: 0.5rem;
 }
+
 .selected-seats {
   margin: 1rem 0;
   padding: 0.8rem;
@@ -310,10 +557,12 @@ body {
   transition: transform 0.2s ease, box-shadow 0.3s ease;
   margin-top: 1rem;
 }
+
 .btn-confirm:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 18px rgba(106,90,205,0.3);
 }
+
 .btn-confirm:active {
   transform: translateY(0);
   box-shadow: 0 4px 10px rgba(106, 90, 205, 0.25);
@@ -324,7 +573,7 @@ body {
   box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.25), 0 6px 14px rgba(123, 104, 238, 0.25);
 }
 
-/* ===== Funciones disponibles (estilo checkbox) ===== */
+/* ===== Funciones disponibles ===== */
 .funciones-container {
   display: flex;
   flex-wrap: wrap;
@@ -470,82 +719,7 @@ body {
   100% { transform: scale(1); }
 }
 
-/* ===== Responsive ajustes ===== */
-@media (max-width: 768px) {
-  .cine-container {
-    padding: 1rem;
-  }
-
-  .movie-poster-small {
-    max-width: 180px;
-  }
-
-  .seat {
-    font-size: 0.85rem;
-    padding: 6px 12px;
-    min-width: 32px;
-  }
-
-  .seat-row {
-    gap: 8px;
-  }
-
-  .btn-confirm {
-    font-size: 0.95rem;
-    padding: 0.8rem 1rem;
-  }
-
-  .funciones-container {
-    flex-direction: column;
-  }
-
-  .funcion-content {
-    min-width: auto;
-    width: 100%;
-  }
-
-  .legend {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .cine-header h1 {
-    font-size: 2.2rem;
-  }
-
-  .movie-info h2 {
-    font-size: 1.5rem;
-  }
-
-  .screen {
-    width: 100%;
-  }
-
-  .seat {
-    font-size: 0.8rem;
-    padding: 5px 10px;
-  }
-
-  .btn-back {
-    font-size: 0.9rem;
-    padding: 0.5rem 1rem;
-  }
-
-  .cupon-input-group {
-    flex-direction: column;
-  }
-
-  .cupon-input-group input,
-  .btn-apply {
-    width: 100%;
-  }
-}
-
-/* ===== ESTILOS PARA SISTEMA DE PAGO - PBI-30 ===== */
-
+/* ===== SECCIÓN DE PAGO ===== */
 .payment-section {
   background: #ffffff;
   border-radius: 12px;
@@ -606,7 +780,6 @@ body {
   font-size: 1.1rem;
 }
 
-/* Estilos para métodos guardados */
 .saved-method .payment-option-content {
   flex-wrap: wrap;
   position: relative;
@@ -925,37 +1098,7 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* Iconos de tipos de tarjeta */
-.card-icon.visa::before {
-  content: "💳";
-}
-
-.card-icon.mastercard::before {
-  content: "💳";
-}
-
-.card-icon.amex::before {
-  content: "💳";
-}
-
-/* Responsive para sección de pago */
-@media (max-width: 768px) {
-  .new-card-form .form-row {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .btn-confirm-payment {
-    font-size: 1rem;
-    padding: 1rem;
-  }
-
-  .btn-amount {
-    font-size: 1.1rem;
-  }
-}
-
-/* ===== Modal de autenticación requerida ===== */
+/* ===== Modal de autenticación ===== */
 .auth-required-overlay {
   position: fixed;
   top: 0;
@@ -1055,8 +1198,95 @@ body {
   50% { transform: scale(1.1); }
 }
 
-/* Responsive para modal de auth */
+/* ===== RESPONSIVE MEJORADO ===== */
 @media (max-width: 768px) {
+  .cine-container {
+    padding: 1rem;
+    margin: 1rem auto;
+  }
+
+  .cine-header h1 {
+    font-size: 2.2rem;
+  }
+
+  .movie-info {
+    max-width: 100%;
+    padding: 0.8rem;
+  }
+
+  .movie-info h2 {
+    font-size: 1.4rem;
+  }
+
+  .movie-poster-small {
+    max-width: 150px;
+  }
+
+  .screen {
+    width: 90%;
+    height: 35px;
+    line-height: 35px;
+    font-size: 1rem;
+  }
+
+  /* Asientos responsive - mantener cuadrado perfecto */
+  .seats-grid {
+    padding: 0 5px;
+  }
+
+  .seat-row {
+    grid-template-columns: 25px repeat(8, 1fr);
+    gap: 6px;
+    max-width: 100%;
+  }
+
+  .row-letter {
+    font-size: 1rem;
+    width: 25px;
+  }
+
+  .seat {
+    font-size: 0.85rem;
+    padding: 8px 4px;
+    aspect-ratio: 1;
+    min-width: 0;
+  }
+
+  .btn-confirm,
+  .btn-confirm-payment {
+    font-size: 1rem;
+    padding: 1rem;
+  }
+
+  .btn-amount {
+    font-size: 1.1rem;
+  }
+
+  .funciones-container {
+    flex-direction: column;
+  }
+
+  .funcion-content {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .legend {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .legend-item .seat {
+    min-width: 35px;
+    padding: 8px;
+  }
+
+  .new-card-form .form-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
   .auth-required-modal {
     padding: 2rem;
     max-width: 90%;
@@ -1073,5 +1303,124 @@ body {
   .auth-buttons a {
     font-size: 1rem;
     padding: 0.875rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cine-header h1 {
+    font-size: 2rem;
+  }
+
+  .movie-info h2 {
+    font-size: 1.2rem;
+  }
+
+  .movie-info p {
+    font-size: 0.9rem;
+  }
+
+  .movie-poster-small {
+    max-width: 130px;
+  }
+
+  .screen {
+    width: 95%;
+    height: 30px;
+    line-height: 30px;
+    font-size: 0.9rem;
+  }
+
+  /* Asientos mobile - cuadrados perfectos */
+  .seat-row {
+    grid-template-columns: 20px repeat(8, 1fr);
+    gap: 4px;
+  }
+
+  .row-letter {
+    font-size: 0.9rem;
+    width: 20px;
+  }
+
+  .seat {
+    font-size: 0.75rem;
+    padding: 6px 2px;
+    border-radius: 6px;
+  }
+
+  .btn-back {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .cupon-input-group {
+    flex-direction: column;
+  }
+
+  .cupon-input-group input,
+  .btn-apply {
+    width: 100%;
+  }
+
+  .payment-section {
+    padding: 1rem;
+  }
+
+  .payment-section h3 {
+    font-size: 1.2rem;
+  }
+
+  .btn-confirm-payment {
+    font-size: 0.95rem;
+    padding: 0.9rem;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .btn-icon {
+    font-size: 1.2rem;
+  }
+
+  .btn-amount {
+    font-size: 1rem;
+  }
+}
+
+/* ===== MEJORAS ADICIONALES ===== */
+@media (max-width: 380px) {
+  .seat-row {
+    grid-template-columns: 18px repeat(8, 1fr);
+    gap: 3px;
+  }
+
+  .row-letter {
+    font-size: 0.8rem;
+    width: 18px;
+  }
+
+  .seat {
+    font-size: 0.7rem;
+    padding: 5px 1px;
+  }
+}
+
+/* Asegurar que los asientos siempre sean cuadrados */
+@media (min-width: 769px) {
+  .seat {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .seat {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (max-width: 480px) {
+  .seat {
+    width: auto;
+    height: auto;
   }
 }

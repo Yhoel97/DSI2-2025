@@ -870,6 +870,13 @@ def asientos(request, pelicula_id=None):
             
             funcion = get_object_or_404(Funcion, id=funcion_id)
             formato_funcion = funcion.get_formato_sala()
+            print(f"🎬 Formato obtenido de la función: [{formato_funcion}] (tipo: {type(formato_funcion)})")
+            
+            # Validar que formato no esté vacío
+            if not formato_funcion or formato_funcion.strip() == "":
+                formato_funcion = "2D"  # Default
+                print(f"⚠️ Formato vacío, usando default: {formato_funcion}")
+            
             precio_por_boleto = PRECIOS_FORMATO.get(formato_funcion, 4.00)
 
             # Recalcular totales
@@ -896,6 +903,11 @@ def asientos(request, pelicula_id=None):
                     raise Exception(f"Los asientos {', '.join(asientos_duplicados)} ya fueron reservados por otro usuario")
 
                 # ========== PROCESAR PAGO SIMULADO ==========
+                print(f"🔍 DEBUG - numero_tarjeta: [{numero_tarjeta}] (tipo: {type(numero_tarjeta)})")
+                print(f"🔍 DEBUG - nombre_titular: [{nombre_titular}]")
+                print(f"🔍 DEBUG - fecha_expiracion: [{fecha_expiracion}]")
+                print(f"🔍 DEBUG - cvv: [{cvv}]")
+                
                 datos_tarjeta = {
                     'numero': numero_tarjeta,
                     'mes_expiracion': int(fecha_expiracion.split('/')[0]),
@@ -966,12 +978,14 @@ def asientos(request, pelicula_id=None):
                 print(f"💾 Pago guardado - ID: {pago.id}")
 
                 # ========== REGISTRAR VENTA ==========
+                print(f"📊 Creando Venta con formato: [{reserva.formato}] (tipo: {type(reserva.formato)})")
                 Venta.objects.create(
                     pelicula=reserva.pelicula,
                     sala=reserva.sala,
                     fecha=fecha_seleccionada,
                     cantidad_boletos=reserva.cantidad_boletos,
-                    total_venta=reserva.precio_total
+                    total_venta=reserva.precio_total,
+                    formato=reserva.formato if reserva.formato else "2D"  # Asegurar que no sea None/vacío
                 )
                 print("📊 Venta registrada")
 

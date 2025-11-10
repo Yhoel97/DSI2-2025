@@ -375,6 +375,7 @@ class Venta(models.Model):
     fecha = models.DateField()
     cantidad_boletos = models.PositiveIntegerField()
     total_venta = models.DecimalField(max_digits=10, decimal_places=2)
+    formato = models.CharField(max_length=10, null=True, blank=True)  # 2D, 3D, IMAX
 
     def __str__(self):
         return f"{self.pelicula.nombre} - {self.fecha}"

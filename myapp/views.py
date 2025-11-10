@@ -327,6 +327,7 @@ def index(request):
     
     # Formato: "Lunes 03 de Noviembre"
     fecha_formateada = f"{nombre_dia_seleccionado} {fecha_seleccionada.day:02d} de {nombre_mes_seleccionado}"
+    es_hoy = fecha_seleccionada == hoy
 
     # 🔴 CORRECCIÓN CRÍTICA: Filtrar funciones que estén vigentes en la fecha seleccionada
     # Una función está vigente si:
@@ -486,6 +487,7 @@ def index(request):
         'fecha_seleccionada': fecha_seleccionada,
         'fecha_formateada': fecha_formateada,
         'hoy': hoy,
+        'es_hoy': es_hoy,
         'nombres_dias_es': nombres_dias_es,
         'nombres_meses_es': nombres_meses_es,
     })

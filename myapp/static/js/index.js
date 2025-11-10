@@ -1,3 +1,4 @@
+// 🎨 Efecto de scroll en el header
 window.addEventListener('scroll', function() {
   const header = document.querySelector('header');
   if (window.scrollY > 50) {
@@ -7,22 +8,27 @@ window.addEventListener('scroll', function() {
   }
 });
 
+// 📅 Actualización dinámica de cartelera por fecha
 document.addEventListener('DOMContentLoaded', function() {
   const dateButtons = document.querySelectorAll('.date-btn');
   const titleElement = document.querySelector('.date-selector-title-new');
   const carteleraSection = document.querySelector('#cartelera .peliculas-grid');
+  const sectionTitle = document.querySelector('#cartelera .section-title');
   
   if (dateButtons.length > 0 && titleElement && carteleraSection) {
     dateButtons.forEach(button => {
       button.addEventListener('click', function() {
         const selectedDate = this.getAttribute('data-fecha');
         
-        // 1. Actualizar URL sin recargar
+        // 🔄 Guardar posición actual del scroll ANTES de cualquier cambio
+        const currentScrollPosition = window.scrollY;
+        
+        // 1️⃣ Actualizar URL sin recargar
         const url = new URL(window.location.href);
         url.searchParams.set('fecha', selectedDate);
         window.history.pushState({}, '', url);
         
-        // 2. Actualizar estado visual de botones
+        // 2️⃣ Actualizar estado visual de botones
         dateButtons.forEach(btn => {
           btn.classList.remove('btn-active');
           btn.classList.add('btn-outline');
@@ -30,38 +36,27 @@ document.addEventListener('DOMContentLoaded', function() {
         this.classList.remove('btn-outline');
         this.classList.add('btn-active');
         
-        // 3. ANIMACIÓN DE CARGA EN EL SELECTOR DE FECHA
+        // 3️⃣ ANIMACIÓN RÁPIDA EN EL SELECTOR DE FECHA (reducida a 100ms)
         const originalTitle = titleElement.innerHTML;
+        titleElement.style.transition = 'opacity 0.1s ease';
         titleElement.style.opacity = '0';
+        
         setTimeout(() => {
           titleElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando cartelera...';
           titleElement.style.opacity = '1';
-        }, 150);
+        }, 100);
         
-        // 4. ANIMACIÓN DE CARGA EN EL GRID DE PELÍCULAS
+        // 4️⃣ ANIMACIÓN RÁPIDA EN LA SECCIÓN DE CARTELERA (reducida a 100ms)
+        if (sectionTitle) {
+          sectionTitle.style.transition = 'opacity 0.1s ease';
+          sectionTitle.style.opacity = '0';
+        }
+        
+        carteleraSection.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
         carteleraSection.style.opacity = '0';
-        carteleraSection.style.transform = 'translateY(20px)';
+        carteleraSection.style.transform = 'translateY(10px)';
         
-        setTimeout(() => {
-          carteleraSection.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-              <div style="display: inline-block; animation: rotate 1.5s linear infinite;">
-                <i class="fas fa-film" style="font-size: 5rem; color: #4A90E2; filter: drop-shadow(0 4px 12px rgba(74, 144, 226, 0.4));"></i>
-              </div>
-              <p style="color: #666; font-size: 1.1rem; font-weight: 500; margin-top: 1rem;">Cargando películas...</p>
-              <style>
-                @keyframes rotate {
-                  from { transform: rotate(0deg); }
-                  to { transform: rotate(360deg); }
-                }
-              </style>
-            </div>
-          `;
-          carteleraSection.style.opacity = '1';
-          carteleraSection.style.transform = 'translateY(0)';
-        }, 200);
-        
-        // 5. Hacer petición AJAX con header especial
+        // 5️⃣ Hacer petición AJAX
         fetch(`?fecha=${selectedDate}`, {
           headers: {
             'X-Requested-With': 'XMLHttpRequest'
@@ -74,31 +69,33 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
           })
           .then(data => {
-            // ANIMACIÓN SUAVE AL ACTUALIZAR TÍTULO
+            const esHoyTexto = data.es_hoy ? 'Hoy' : 'del';
+            
+            // 6️⃣ Actualizar TÍTULO DEL SELECTOR (sin delay)
             titleElement.style.opacity = '0';
             setTimeout(() => {
-              const esHoyTexto = data.es_hoy ? 'Hoy' : 'del';
               titleElement.innerHTML = `
                 <i class="fas fa-calendar-week"></i> 
                 Cartelera ${esHoyTexto} ${data.fecha_formateada}
               `;
               titleElement.style.opacity = '1';
-            }, 150);
+            }, 100);
             
-            // Actualizar el título de la sección
+            // 7️⃣ Actualizar TÍTULO DE LA SECCIÓN (sin delay)
             const sectionTitle = document.querySelector('#cartelera .section-title');
             if (sectionTitle) {
               sectionTitle.style.opacity = '0';
               setTimeout(() => {
+                // Usar la misma lógica que el backend: "Hoy" vs "del"
+                const preposicion = data.es_hoy ? 'Hoy' : 'del';
                 sectionTitle.innerHTML = `
-                  🎞️ Películas en Cartelera ${esHoyTexto} ${data.fecha_formateada}
+                  🎞️ Películas en Cartelera ${preposicion} ${data.fecha_formateada}
                 `;
                 sectionTitle.style.opacity = '1';
               }, 150);
             }
             
-            // ANIMACIÓN AL RENDERIZAR PELÍCULAS
-            carteleraSection.style.opacity = '0';
+            // 8️⃣ Renderizar películas INMEDIATAMENTE (sin delay adicional)
             setTimeout(() => {
               if (data.peliculas && data.peliculas.length > 0) {
                 carteleraSection.innerHTML = data.peliculas.map(pelicula => `
@@ -124,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
                               <div class="horario-item">
                                 <i class="fas fa-clock"></i> 
                                 ${funcion.horario} - 
-                                ${funcion.sala} - 
+                                Sala ${funcion.sala} - 
                                 ${funcion.formato}
                               </div>
                             `).join('')}
@@ -157,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   </div>
                 `).join('');
               } else {
-                // No hay funciones para esta fecha
+                // Sin funciones para esta fecha
                 const volverHoyBtn = !data.es_hoy ? 
                   '<a href="/" class="btn btn-primary" style="display: inline-block; margin-top: 1rem; padding: 0.8rem 1.5rem; background: linear-gradient(to right, #00c6ff, #7b68ee); color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Ver Cartelera de Hoy</a>' : '';
                 
@@ -170,29 +167,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
               }
               
-              // APLICAR ANIMACIÓN DE ENTRADA A LAS TARJETAS
+              // 9️⃣ MOSTRAR SECCIÓN CON ANIMACIÓN (sin scroll)
               carteleraSection.style.opacity = '1';
+              carteleraSection.style.transform = 'translateY(0)';
+              
+              // 🔟 RESTAURAR posición de scroll (evitar movimiento automático)
+              window.scrollTo({
+                top: currentScrollPosition,
+                behavior: 'instant' // Sin animación
+              });
+              
+              // 1️⃣1️⃣ Animación sutil de entrada de tarjetas (reducida)
               const cards = carteleraSection.querySelectorAll('.pelicula-card');
               cards.forEach((card, index) => {
                 card.style.opacity = '0';
-                card.style.transform = 'translateY(40px) scale(0.9)';
+                card.style.transform = 'translateY(15px)';
                 setTimeout(() => {
-                  card.style.transition = 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                  card.style.transition = 'all 0.3s ease';
                   card.style.opacity = '1';
-                  card.style.transform = 'translateY(0) scale(1)';
-                }, 100 * index);
+                  card.style.transform = 'translateY(0)';
+                }, 30 * index); // Reducido de 100ms a 30ms
               });
-            }, 200);
+            }, 150); // Reducido de 200ms a 150ms
           })
           .catch(error => {
-            console.error('Error al cargar películas:', error);
+            console.error('❌ Error al cargar películas:', error);
             
-            // ANIMACIÓN DE ERROR
+            // Restaurar estado original en caso de error
             titleElement.style.opacity = '0';
             setTimeout(() => {
               titleElement.innerHTML = originalTitle;
               titleElement.style.opacity = '1';
-            }, 150);
+            }, 100);
             
             carteleraSection.style.opacity = '0';
             setTimeout(() => {
@@ -206,7 +212,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
               `;
               carteleraSection.style.opacity = '1';
-            }, 200);
+              
+              // Restaurar scroll también en error
+              window.scrollTo({
+                top: currentScrollPosition,
+                behavior: 'instant'
+              });
+            }, 150);
           });
       });
     });
@@ -218,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Función auxiliar para generar estrellas de rating
+// 🌟 Función auxiliar para generar estrellas de rating
 function generarEstrellas(ratingData) {
   const estrellas = [];
   for (let i = 1; i <= 5; i++) {

@@ -70,6 +70,7 @@
             <i class="fas fa-calendar-week"></i> 
             Cartelera {% if fecha_seleccionada == hoy %}Hoy{% else %}del{% endif %} {{ fecha_formateada }}
         </h3>
+
         
         <div class="btn-group" role="group" id="date-buttons">
             {% for dia in dias_disponibles %}

@@ -114,7 +114,7 @@ def peliculas(request):
 
     # 🔹 Procesar formulario (crear / editar / eliminar)
     if request.method == 'POST':
-        accion = request.POST.get('accion')
+    accion = request.POST.get('accion')
 
         # --- CREAR ---
         if accion == 'crear':
